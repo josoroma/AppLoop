@@ -1,0 +1,500 @@
+"use client";
+
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { DefaultChatTransport } from "ai";
+import { useChat } from "@ai-sdk/react";
+import { AlertTriangle, Bot, ChevronLeft, ChevronRight, FolderGit2, House, LoaderCircle, MousePointerClick, Play, RotateCcw, SendHorizontal, Settings2, Square } from "lucide-react";
+import { Group, Panel, Separator, usePanelRef, type Layout } from "react-resizable-panels";
+import { BuilderThemeSelect } from "@/components/builder/builder-theme-select";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useBuilderUiStore } from "@/components/builder/use-builder-ui-store";
+import { PreviewFrame } from "@/components/builder/preview-frame";
+import { getBuilderLayoutStorageKey, groupHermesActivities, parseBuilderSplitLayout, serializeBuilderSplitLayout } from "@/lib/builder/ux";
+import type { BuilderChatMessage } from "@/lib/chat/messages";
+import { getMessageText } from "@/lib/chat/messages";
+import { openProjectAction, updateProjectSettingsAction } from "@/lib/projects/actions";
+import { restartRuntimeAction, startRuntimeAction, stopRuntimeAction, stopRuntimeAndReturnHomeAction } from "@/lib/runtime/actions";
+import type { RuntimeLogEntry } from "@/lib/runtime/logs";
+import { createVisualSelectionPrompt, getClassNameLabel, getClassNameSelector, getPreferredSelector } from "@/lib/visual-selector/types";
+
+const chatTransport = new DefaultChatTransport<BuilderChatMessage>({ api: "/api/chat" });
+const DEFAULT_BUILDER_LAYOUT = { chat: 38, preview: 62 };
+const subscribeToHydration = () => () => {};
+const getClientHydrationSnapshot = () => true;
+const getServerHydrationSnapshot = () => false;
+
+function useHydratedClient() {
+  return useSyncExternalStore(subscribeToHydration, getClientHydrationSnapshot, getServerHydrationSnapshot);
+}
+
+function readStoredBuilderLayout(projectId: string) {
+  if (typeof window === "undefined") {
+    return DEFAULT_BUILDER_LAYOUT;
+  }
+
+  return parseBuilderSplitLayout(window.localStorage.getItem(getBuilderLayoutStorageKey(projectId)));
+}
+
+type BuilderShellProps = {
+  projectId: string;
+  projectName: string;
+  previewUrl: string;
+  activeProjects: Array<{
+    id: string;
+    name: string;
+  }>;
+  initialMessages: BuilderChatMessage[];
+  packageInstallPolicy: "auto" | "ask" | "never";
+  validationDepth: "quick" | "standard" | "deep";
+  autoStartPreview: boolean;
+  defaultRoute: string;
+  selectedThemeId: string;
+  themeOptions: Array<{
+    id: string;
+    name: string;
+    description: string;
+  }>;
+  runtimeStatus: "stopped" | "starting" | "running" | "failed";
+  runtimePid: number | null;
+  runtimeExitCode: number | null;
+  runtimeExitSignal: string | null;
+  runtimeLogs: RuntimeLogEntry[];
+};
+
+export function BuilderShell({
+  activeProjects,
+  autoStartPreview,
+  defaultRoute,
+  initialMessages,
+  packageInstallPolicy,
+  previewUrl,
+  projectId,
+  projectName,
+  runtimeExitCode,
+  runtimeExitSignal,
+  runtimeLogs,
+  runtimePid,
+  runtimeStatus,
+  selectedThemeId,
+  themeOptions,
+  validationDepth,
+}: BuilderShellProps) {
+  const chat = useChat<BuilderChatMessage>({ id: projectId, messages: initialMessages, transport: chatTransport });
+  const chatPanelRef = usePanelRef();
+  const previewPanelRef = usePanelRef();
+  const hydratedClient = useHydratedClient();
+  const initialLayout = hydratedClient ? readStoredBuilderLayout(projectId) : DEFAULT_BUILDER_LAYOUT;
+  const [liveRuntimeLogs, setLiveRuntimeLogs] = useState(runtimeLogs);
+  const [runtimeLogsCollapsed, setRuntimeLogsCollapsed] = useState(false);
+  const displayedRuntimeLogs = liveRuntimeLogs.length === 0 ? runtimeLogs : liveRuntimeLogs;
+  const inspectorEnabled = useBuilderUiStore((state) => state.inspectorEnabled);
+  const selectedElement = useBuilderUiStore((state) => state.selectedElement);
+  const settingsOpen = useBuilderUiStore((state) => state.settingsOpen);
+  const clearSelectedElement = useBuilderUiStore((state) => state.clearSelectedElement);
+  const toggleInspector = useBuilderUiStore((state) => state.toggleInspector);
+  const setSettingsOpen = useBuilderUiStore((state) => state.setSettingsOpen);
+  const chatBusy = chat.status === "submitted" || chat.status === "streaming";
+
+  async function copySelectedTarget() {
+    if (!selectedElement) {
+      return;
+    }
+
+    await navigator.clipboard?.writeText(getClassNameSelector(selectedElement) ?? getPreferredSelector(selectedElement));
+  }
+
+  function persistPanelLayout(layout: Layout) {
+    const chatSize = layout.chat;
+    const previewSize = layout.preview;
+
+    if (typeof window !== "undefined" && typeof chatSize === "number" && typeof previewSize === "number") {
+      window.localStorage.setItem(getBuilderLayoutStorageKey(projectId), serializeBuilderSplitLayout({ chat: chatSize, preview: previewSize }));
+    }
+  }
+
+  useEffect(() => {
+    window.localStorage.setItem("apploop:last-opened-project", projectId);
+    clearSelectedElement();
+  }, [clearSelectedElement, projectId]);
+
+  useEffect(() => {
+    const eventSource = new EventSource(`/api/projects/${projectId}/runtime/logs`);
+
+    eventSource.onmessage = (event) => {
+      const entry = JSON.parse(event.data) as RuntimeLogEntry;
+      setLiveRuntimeLogs((entries) => [...entries.slice(-199), entry]);
+    };
+
+    return () => eventSource.close();
+  }, [projectId]);
+
+  return (
+    <main className="flex min-h-screen flex-col p-4">
+      <header className="flex min-h-14 items-center justify-between rounded-lg border bg-card px-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <FolderGit2 className="size-4" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Active project
+            </p>
+            <h1 className="text-base font-semibold">{projectName}</h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <form action={stopRuntimeAndReturnHomeAction}>
+            <input name="projectId" type="hidden" value={projectId} />
+            <Button size="icon" title="Stop preview and return home" type="submit" variant="outline">
+              <House className="size-4" />
+              <span className="sr-only">Stop preview and return home</span>
+            </Button>
+          </form>
+          <BuilderThemeSelect />
+          <form action={openProjectAction} className="hidden items-center gap-2 sm:flex">
+            <select
+              aria-label="Open project"
+              className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              defaultValue={projectId}
+              name="projectId"
+            >
+              {activeProjects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+            <Button type="submit" variant="secondary">
+              Open
+            </Button>
+          </form>
+          <form action={startRuntimeAction}>
+            <input name="projectId" type="hidden" value={projectId} />
+            <Button disabled={runtimeStatus === "running" || runtimeStatus === "starting"} size="icon" title="Start preview" type="submit">
+              <Play className="size-4" />
+              <span className="sr-only">Start preview</span>
+            </Button>
+          </form>
+          <Button aria-pressed={inspectorEnabled} size="icon" title="Inspect elements" variant={inspectorEnabled ? "default" : "secondary"} onClick={toggleInspector}>
+            <MousePointerClick className="size-4" />
+            <span className="sr-only">Inspect elements</span>
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => setSettingsOpen(true)}>
+            <Settings2 className="size-4" />
+            <span className="sr-only">Project settings</span>
+          </Button>
+        </div>
+      </header>
+
+      <Group
+        key={`${projectId}:${hydratedClient ? "stored" : "default"}`}
+        className="mt-4 flex-1 overflow-hidden rounded-lg border bg-card shadow-sm"
+        defaultLayout={{ chat: initialLayout.chat, preview: initialLayout.preview }}
+        id={`builder-layout-${projectId}`}
+        onLayoutChanged={(layout, meta) => {
+          if (meta.isUserInteraction) {
+            persistPanelLayout(layout);
+          }
+        }}
+        orientation="horizontal"
+        resizeTargetMinimumSize={{ coarse: 36, fine: 20 }}
+      >
+        <Panel collapsedSize={0} collapsible defaultSize={initialLayout.chat} id="chat" minSize={24} panelRef={chatPanelRef}>
+          <section className="flex h-full flex-col border-r bg-secondary/35">
+            <div className="border-b p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Hermes chat
+                  </p>
+                  <h2 className="mt-2 text-xl font-semibold">Build with context</h2>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button onClick={() => previewPanelRef.current?.collapse()} size="icon" type="button" variant="outline">
+                    <ChevronRight className="size-4" />
+                    <span className="sr-only">Collapse preview panel</span>
+                  </Button>
+                  <Button onClick={() => previewPanelRef.current?.expand()} size="icon" type="button" variant="outline">
+                    <ChevronLeft className="size-4" />
+                    <span className="sr-only">Expand preview panel</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 space-y-3 overflow-auto p-4" role="log">
+              {chat.messages.length === 0 ? (
+                <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground">Hermes is ready for this project.</p>
+                  <p className="mt-2">Describe a change, or inspect an element in the preview and ask for a targeted edit.</p>
+                </div>
+              ) : (
+                chat.messages.map((message) => (
+                  <article key={message.id} className="rounded-lg border bg-card p-3 text-sm">
+                    <p className="mb-2 flex items-center gap-2 font-semibold">
+                      <Bot className="size-4 text-primary" />
+                      {message.role === "user" ? "You" : "Hermes"}
+                    </p>
+                    <p className="whitespace-pre-wrap text-muted-foreground">{getMessageText(message)}</p>
+                    <HermesActivityCards message={message} />
+                  </article>
+                ))
+              )}
+            </div>
+            <form
+              className="border-t bg-card p-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const formData = new FormData(event.currentTarget);
+                const prompt = String(formData.get("prompt") ?? "").trim();
+
+                if (prompt.length > 0) {
+                  void chat.sendMessage({ text: createVisualSelectionPrompt(prompt, selectedElement) });
+                  event.currentTarget.reset();
+                }
+              }}
+            >
+              {selectedElement ? (
+                <div aria-live="polite" className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border bg-secondary/60 px-3 py-2 text-xs text-secondary-foreground">
+                  <button className="grid min-w-0 gap-1 text-left" onClick={copySelectedTarget} type="button">
+                    <span className="font-semibold text-foreground">Target classname</span>
+                    <span className="break-all font-medium">{getClassNameLabel(selectedElement)}</span>
+                    <span className="break-all text-muted-foreground">Sent with prompt as {getClassNameSelector(selectedElement) ?? getPreferredSelector(selectedElement)}</span>
+                  </button>
+                  <Button onClick={clearSelectedElement} size="sm" type="button" variant="ghost">
+                    Clear
+                  </Button>
+                </div>
+              ) : null}
+              {chat.error ? (
+                <p className="mb-3 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="status">
+                  <AlertTriangle className="size-3" /> {chat.error.message || "Hermes is offline or unreachable. Check the Hermes service, then send again."}
+                </p>
+              ) : null}
+              <textarea
+                aria-label="Prompt Hermes"
+                className="min-h-24 w-full resize-none rounded-md border bg-background p-3 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-ring"
+                disabled={chatBusy}
+                name="prompt"
+                placeholder="Describe the next change..."
+              />
+              <div className="mt-3 flex justify-end gap-2">
+                <Button aria-busy={chatBusy} disabled={chatBusy} size="icon" title={chatBusy ? "Sending prompt" : "Send prompt"}>
+                  {chatBusy ? <LoaderCircle className="size-4 animate-spin" /> : null}
+                  {chatBusy ? null : <SendHorizontal className="size-4" />}
+                  <span className="sr-only">{chatBusy ? "Sending prompt" : "Send prompt"}</span>
+                </Button>
+                <Button
+                  disabled={!chatBusy}
+                  onClick={() => {
+                    chat.stop();
+                    void fetch("/api/chat/cancel", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ projectId }),
+                    });
+                  }}
+                  size="icon"
+                  title="Stop prompt"
+                  type="button"
+                  variant="outline"
+                >
+                  <Square className="size-4" />
+                  <span className="sr-only">Stop prompt</span>
+                </Button>
+              </div>
+            </form>
+          </section>
+        </Panel>
+        <Separator aria-label="Resize chat and preview panels" className="group flex w-3 items-center justify-center bg-border transition hover:bg-primary focus:outline-none focus:ring-2 focus:ring-ring" id="builder-main-splitter">
+          <span className="h-10 w-1 rounded-full bg-muted-foreground/50 group-hover:bg-primary-foreground" />
+        </Separator>
+        <Panel collapsedSize={0} collapsible defaultSize={initialLayout.preview} id="preview" minSize={32} panelRef={previewPanelRef}>
+          <section className="flex h-full flex-col bg-background">
+            <div className="flex min-h-12 items-center justify-between border-b bg-card px-4 text-sm">
+              <div className="flex items-center gap-3">
+                <span className="font-medium">Preview</span>
+                <span className="rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground">
+                  {runtimeStatus}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button onClick={() => chatPanelRef.current?.collapse()} size="icon" type="button" variant="outline">
+                  <ChevronLeft className="size-4" />
+                  <span className="sr-only">Collapse chat panel</span>
+                </Button>
+                <Button onClick={() => chatPanelRef.current?.expand()} size="icon" type="button" variant="outline">
+                  <ChevronRight className="size-4" />
+                  <span className="sr-only">Expand chat panel</span>
+                </Button>
+                <span className="text-muted-foreground">{previewUrl}</span>
+                <form action={restartRuntimeAction}>
+                  <input name="projectId" type="hidden" value={projectId} />
+                  <Button size="icon" type="submit" variant="outline">
+                    <RotateCcw className="size-4" />
+                    <span className="sr-only">Restart runtime</span>
+                  </Button>
+                </form>
+                <form action={stopRuntimeAction}>
+                  <input name="projectId" type="hidden" value={projectId} />
+                  <Button disabled={runtimeStatus === "stopped"} size="icon" type="submit" variant="outline">
+                    <Square className="size-4" />
+                    <span className="sr-only">Stop runtime</span>
+                  </Button>
+                </form>
+              </div>
+            </div>
+            <PreviewFrame
+              defaultRoute={defaultRoute}
+              key={projectId}
+              previewUrl={previewUrl}
+              projectId={projectId}
+              projectName={projectName}
+              runtimeLogs={displayedRuntimeLogs}
+              runtimeLogsCollapsed={runtimeLogsCollapsed}
+              runtimeStatus={runtimeStatus}
+              onToggleRuntimeLogs={() => setRuntimeLogsCollapsed((collapsed) => !collapsed)}
+            />
+            {!runtimeLogsCollapsed ? (
+              <div className="max-h-48 overflow-auto border-t bg-zinc-950 p-3 font-mono text-xs text-zinc-100" aria-label="Raw runtime logs" id="raw-runtime-logs">
+                <div className="mb-2 flex flex-wrap gap-3 text-zinc-400">
+                  <span>pid: {runtimePid ?? "none"}</span>
+                  {runtimeStatus === "failed" ? <span>exit: {runtimeExitCode ?? runtimeExitSignal ?? "unknown"}</span> : null}
+                </div>
+                {displayedRuntimeLogs.length === 0 ? (
+                  <p className="text-zinc-500">Runtime logs will appear here after the preview starts.</p>
+                ) : (
+                  displayedRuntimeLogs.map((entry) => (
+                    <p key={`${entry.timestamp}-${entry.stream}-${entry.message}`} className="whitespace-pre-wrap">
+                      <span className="text-zinc-500">{entry.timestamp}</span>{" "}
+                      <span className={entry.stream === "stderr" ? "text-red-300" : "text-emerald-300"}>{entry.stream}</span>{" "}
+                      {entry.message}
+                    </p>
+                  ))
+                )}
+              </div>
+            ) : null}
+          </section>
+        </Panel>
+      </Group>
+
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Project settings</DialogTitle>
+            <DialogDescription>
+              Runtime, package policy, validation, route, and theme metadata for this project.
+            </DialogDescription>
+          </DialogHeader>
+          <form action={updateProjectSettingsAction} className="space-y-4">
+            <input name="projectId" type="hidden" value={projectId} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-2 text-sm font-medium">
+                Package policy
+                <select
+                  className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  defaultValue={packageInstallPolicy}
+                  name="packageInstallPolicy"
+                >
+                  <option value="auto">Install automatically</option>
+                  <option value="ask">Ask before install</option>
+                  <option value="never">Never install</option>
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm font-medium">
+                Validation depth
+                <select
+                  className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  defaultValue={validationDepth}
+                  name="validationDepth"
+                >
+                  <option value="quick">Quick</option>
+                  <option value="standard">Standard</option>
+                  <option value="deep">Deep</option>
+                </select>
+              </label>
+            </div>
+            <label className="grid gap-2 text-sm font-medium">
+              Default route
+              <input
+                className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                defaultValue={defaultRoute}
+                name="defaultRoute"
+              />
+            </label>
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium">Project theme</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {themeOptions.map((theme) => (
+                  <label key={theme.id} className="grid cursor-pointer gap-2 rounded-md border bg-card p-3 text-sm has-[:checked]:border-primary has-[:checked]:ring-2 has-[:checked]:ring-ring">
+                    <input className="sr-only" defaultChecked={theme.id === selectedThemeId} name="themeId" type="radio" value={theme.id} />
+                    <span className="font-medium">{theme.name}</span>
+                    <span className="text-xs text-muted-foreground">{theme.description}</span>
+                    <span className="theme-card-preview" data-theme-id={theme.id}>
+                      <span className="theme-preview-swatch theme-preview-primary" />
+                      <span className="theme-preview-swatch theme-preview-secondary" />
+                      <span className="theme-preview-swatch theme-preview-accent" />
+                      <span className="theme-preview-swatch theme-preview-background" />
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <label className="grid gap-2 text-sm font-medium">
+              Custom shadcn tokens
+              <textarea
+                className="min-h-28 resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring"
+                name="customThemeCss"
+                placeholder=":root { ... }&#10;&#10;.dark { ... }"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input defaultChecked={autoStartPreview} name="autoStartPreview" type="checkbox" />
+              Auto-start preview when opening this project
+            </label>
+            <Button className="w-full" type="submit">
+              Save settings
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </main>
+  );
+}
+
+function HermesActivityCards({ message }: { message: BuilderChatMessage }) {
+  const activities = message.parts.flatMap((part) => (part.type === "data-hermes-activity" ? [part.data] : []));
+  const groups = groupHermesActivities(activities);
+
+  if (groups.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 space-y-2" aria-label="Hermes activity summary">
+      {groups.map((group) => (
+        <details key={`${message.id}-${group.title}`} className="rounded-md border bg-secondary px-3 py-2 text-xs text-secondary-foreground">
+          <summary className="cursor-pointer font-semibold">
+            {group.title} · {group.count} {group.count === 1 ? "action" : "actions"}
+            <span className={group.status === "failed" ? "ml-2 text-destructive" : "ml-2 text-muted-foreground"}>{group.status}</span>
+          </summary>
+          {group.details.length > 0 ? (
+            <ul className="mt-2 space-y-1 text-muted-foreground">
+              {group.details.map((detail, index) => (
+                <li key={`${detail}-${index}`}>{detail}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-muted-foreground">No detailed paths reported.</p>
+          )}
+        </details>
+      ))}
+    </div>
+  );
+}

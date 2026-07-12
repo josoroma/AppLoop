@@ -1,0 +1,8 @@
+platforms:
+  api_server:
+    enabled: true
+    extra:
+      model_routes:
+        deepseek/deepseek-v4-pro:
+          model: deepseek/deepseek-v4-pro
+          provider: openrouter

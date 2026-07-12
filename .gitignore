@@ -1,0 +1,87 @@
+# Dependencies
+node_modules/
+.npm/
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+dist/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Tests and coverage
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.nyc_output/
+
+# Environment
+.env
+.env*.local
+
+# AppLoop local state
+.apploop/
+.venv-mlx/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.db-shm
+*.db-wal
+
+# Hermes local runtime state
+.hermes/*.db
+.hermes/*.db-shm
+.hermes/*.db-wal
+.hermes/*.lock
+.hermes/*.pid
+.hermes/auth.json
+.hermes/auth.lock
+.hermes/bin/
+.hermes/cache/
+.hermes/cron/*.lock
+.hermes/cron/ticker_*
+.hermes/desktop-build-stamp.json
+.hermes/gateway.lock
+.hermes/gateway.pid
+.hermes/gateway_state.json
+.hermes/kanban/
+.hermes/kanban.db
+.hermes/kanban.db.*
+.hermes/logs/
+.hermes/models_dev_cache.json
+.hermes/processes.json
+.hermes/response_store.db
+.hermes/response_store.db-*
+.hermes/sessions/
+.hermes/state.db
+.hermes/state.db-*
+.hermes/verification_evidence.db
+.hermes/.hermes_history
+.hermes/.skills_prompt_snapshot.json
+.hermes/.update_check
+.hermes/skills/.bundled_manifest
+.hermes/skills/.curator_state
+.hermes/skills/.usage.json*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
