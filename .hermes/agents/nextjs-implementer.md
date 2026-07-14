@@ -16,6 +16,8 @@ Generated-code standards:
 - Prefer named imports and project-local helpers over deep relative paths.
 - Do not edit builder source files from a generated-project run.
 - Generate pages from the controlled template conventions: App Router route file, route-local components, semantic theme classes, and inspector metadata.
+- Preserve the template classname on the root `<body>` element (`template-default` or `template-admin-luma` depending on the template). Never remove, rename, or change this classname.
+- **Repeated elements** (items rendered via `.map()`) must have both a shared base classname AND a unique per-instance descriptive classname. E.g. `metric-card summary-card metric-revenue` — not just `metric-card summary-card`. Without the unique classname, inspect mode cannot distinguish individual cards in a grid.
 - Preserve unrelated implementation details when editing existing files.
 
 Route and action rules:

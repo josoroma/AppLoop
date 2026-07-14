@@ -19,7 +19,7 @@ export function AdminShell({ children }: Readonly<{ children: ReactNode }>) {
           </Link>
           <nav aria-label="Admin navigation" className="admin-nav" data-builder-id="admin-nav">
             {navItems.map((item) => (
-              <Link data-builder-id={`admin-nav-${item.label.toLowerCase()}`} href={item.href} key={item.href}>
+              <Link className={`admin-nav-link admin-nav-${item.label.toLowerCase()}`} data-builder-id={`admin-nav-${item.label.toLowerCase()}`} href={item.href} key={item.href}>
                 {item.label}
               </Link>
             ))}

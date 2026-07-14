@@ -29,6 +29,8 @@ export const SEMANTIC_BOUNDARY_CLASS_NAMES = [
   "summary-card",
   "primary-actions",
   "secondary-actions",
+  "template-default",
+  "template-admin-luma",
 ] as const;
 
 const classNamesSchema = z.array(z.string().min(1).max(120)).max(32);
@@ -85,6 +87,23 @@ export type InspectorChildMessage =
       selection: VisualSelection;
       update?: boolean;
     };
+
+export type InspectorScreenshotMessage = {
+  type: "apploop:inspector-screenshot";
+  projectId: string;
+  previewNonce: string;
+  dataUrl: string;
+  selector: string;
+};
+
+export type ScreenshotAttachment = {
+  id: string;
+  dataUrl: string;
+  serverPath: string;
+  source: "inspector" | "clipboard";
+  selector?: string;
+  filename?: string;
+};
 
 const SENSITIVE_TEXT_PATTERNS = [/api[_-]?key/i, /bearer\s+[a-z0-9._-]+/i, /password/i, /secret/i, /token/i];
 

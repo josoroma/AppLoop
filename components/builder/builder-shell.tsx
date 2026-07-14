@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
-import { AlertTriangle, Bot, ChevronLeft, ChevronRight, FolderGit2, House, LoaderCircle, MousePointerClick, Play, RotateCcw, SendHorizontal, Settings2, Square } from "lucide-react";
+import { AlertTriangle, Bot, ChevronLeft, ChevronRight, FolderGit2, House, LoaderCircle, MousePointerClick, Play, RotateCcw, SendHorizontal, Settings2, Square, X } from "lucide-react";
 import { Group, Panel, Separator, usePanelRef, type Layout } from "react-resizable-panels";
 import { BuilderThemeSelect } from "@/components/builder/builder-theme-select";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ import { getMessageText } from "@/lib/chat/messages";
 import { openProjectAction, updateProjectSettingsAction } from "@/lib/projects/actions";
 import { restartRuntimeAction, startRuntimeAction, stopRuntimeAction, stopRuntimeAndReturnHomeAction } from "@/lib/runtime/actions";
 import type { RuntimeLogEntry } from "@/lib/runtime/logs";
-import { createVisualSelectionPrompt, getClassNameLabel, getClassNameSelector, getPreferredSelector } from "@/lib/visual-selector/types";
+import { createVisualSelectionPrompt, getClassNameLabel, getClassNameSelector, getPreferredSelector, type ScreenshotAttachment } from "@/lib/visual-selector/types";
 
 const chatTransport = new DefaultChatTransport<BuilderChatMessage>({ api: "/api/chat" });
 const DEFAULT_BUILDER_LAYOUT = { chat: 38, preview: 62 };
@@ -93,13 +93,18 @@ export function BuilderShell({
   const initialLayout = hydratedClient ? readStoredBuilderLayout(projectId) : DEFAULT_BUILDER_LAYOUT;
   const [liveRuntimeLogs, setLiveRuntimeLogs] = useState(runtimeLogs);
   const [runtimeLogsCollapsed, setRuntimeLogsCollapsed] = useState(false);
+  const [previewScreenshot, setPreviewScreenshot] = useState<ScreenshotAttachment | null>(null);
   const displayedRuntimeLogs = liveRuntimeLogs.length === 0 ? runtimeLogs : liveRuntimeLogs;
   const inspectorEnabled = useBuilderUiStore((state) => state.inspectorEnabled);
   const selectedElement = useBuilderUiStore((state) => state.selectedElement);
   const settingsOpen = useBuilderUiStore((state) => state.settingsOpen);
+  const attachedScreenshots = useBuilderUiStore((state) => state.attachedScreenshots);
   const clearSelectedElement = useBuilderUiStore((state) => state.clearSelectedElement);
   const toggleInspector = useBuilderUiStore((state) => state.toggleInspector);
   const setSettingsOpen = useBuilderUiStore((state) => state.setSettingsOpen);
+  const attachClipboardImage = useBuilderUiStore((state) => state.attachClipboardImage);
+  const removeScreenshot = useBuilderUiStore((state) => state.removeScreenshot);
+  const clearScreenshots = useBuilderUiStore((state) => state.clearScreenshots);
   const chatBusy = chat.status === "submitted" || chat.status === "streaming";
 
   async function copySelectedTarget() {
@@ -109,6 +114,83 @@ export function BuilderShell({
 
     await navigator.clipboard?.writeText(getClassNameSelector(selectedElement) ?? getPreferredSelector(selectedElement));
   }
+
+  const handleClipboardPasteStable = useCallback(
+    async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const items = event.clipboardData?.items;
+
+      if (!items) {
+        return;
+      }
+
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          event.preventDefault();
+
+          const file = item.getAsFile();
+
+          if (!file) {
+            continue;
+          }
+
+          try {
+            // Read as data URL for immediate thumbnail display
+            const dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+
+              reader.onload = () => resolve(reader.result as string);
+              reader.readAsDataURL(file);
+            });
+
+            // Attach immediately so user sees it right away
+            const tempId = `clipboard-${Date.now()}`;
+
+            attachClipboardImage({
+              id: tempId,
+              dataUrl,
+              serverPath: dataUrl,
+              source: "clipboard",
+              filename: file.name || undefined,
+            });
+
+            // Then try uploading in the background for persistence
+            try {
+              const formData = new FormData();
+
+              formData.append("file", file, file.name || "clipboard.png");
+              formData.append("source", "clipboard");
+
+              const uploadResponse = await fetch(`/api/projects/${encodeURIComponent(projectId)}/screenshots`, {
+                method: "POST",
+                body: formData,
+              });
+
+              if (uploadResponse.ok) {
+                const { screenshotId, url } = (await uploadResponse.json()) as { screenshotId: string; url: string };
+
+                // Replace temp with server-backed attachment
+                removeScreenshot(tempId);
+                attachClipboardImage({
+                  id: screenshotId,
+                  dataUrl,
+                  serverPath: url,
+                  source: "clipboard",
+                  filename: file.name || undefined,
+                });
+              }
+            } catch {
+              // Keep the local attachment; upload is optional
+            }
+          } catch {
+            // Silently skip on error
+          }
+
+          break; // Process first image only per paste
+        }
+      }
+    },
+    [attachClipboardImage, projectId, removeScreenshot],
+  );
 
   function persistPanelLayout(layout: Layout) {
     const chatSize = layout.chat;
@@ -254,9 +336,20 @@ export function BuilderShell({
                 const formData = new FormData(event.currentTarget);
                 const prompt = String(formData.get("prompt") ?? "").trim();
 
-                if (prompt.length > 0) {
-                  void chat.sendMessage({ text: createVisualSelectionPrompt(prompt, selectedElement) });
+                if (prompt.length > 0 || attachedScreenshots.length > 0) {
+                  const messageText = createVisualSelectionPrompt(prompt, selectedElement);
+
+                  void chat.sendMessage({
+                    text: messageText,
+                    files: attachedScreenshots.map((s) => ({
+                      type: "file" as const,
+                      mediaType: "image/png",
+                      filename: s.filename ?? s.id,
+                      url: s.serverPath,
+                    })),
+                  });
                   event.currentTarget.reset();
+                  clearScreenshots();
                 }
               }}
             >
@@ -267,9 +360,42 @@ export function BuilderShell({
                     <span className="break-all font-medium">{getClassNameLabel(selectedElement)}</span>
                     <span className="break-all text-muted-foreground">Sent with prompt as {getClassNameSelector(selectedElement) ?? getPreferredSelector(selectedElement)}</span>
                   </button>
-                  <Button onClick={clearSelectedElement} size="sm" type="button" variant="ghost">
+                  <Button onClick={() => { clearSelectedElement(); clearScreenshots(); }} size="sm" type="button" variant="ghost">
                     Clear
                   </Button>
+                </div>
+              ) : null}
+              {attachedScreenshots.length > 0 ? (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {attachedScreenshots.map((screenshot) => (
+                    <div key={screenshot.id} className="group relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={screenshot.dataUrl}
+                        alt={
+                          screenshot.source === "inspector"
+                            ? `Screenshot of ${screenshot.selector ?? "selected element"}`
+                            : `Pasted image: ${screenshot.filename ?? "clipboard"}`
+                        }
+                        className="h-20 w-20 cursor-pointer rounded-md border object-cover"
+                        onClick={() => setPreviewScreenshot(screenshot)}
+                        title="Click to preview full size"
+                      />
+                      <button
+                        className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition group-hover:opacity-100"
+                        onClick={() => removeScreenshot(screenshot.id)}
+                        type="button"
+                        aria-label="Remove screenshot"
+                      >
+                        <X className="size-3" />
+                      </button>
+                      {screenshot.source === "inspector" && screenshot.selector ? (
+                        <span className="mt-1 block max-w-[80px] truncate text-[10px] text-muted-foreground">
+                          {screenshot.selector}
+                        </span>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
               ) : null}
               {chat.error ? (
@@ -282,6 +408,7 @@ export function BuilderShell({
                 className="min-h-24 w-full resize-none rounded-md border bg-background p-3 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-ring"
                 disabled={chatBusy}
                 name="prompt"
+                onPaste={handleClipboardPasteStable}
                 placeholder="Describe the next change..."
               />
               <div className="mt-3 flex justify-end gap-2">
@@ -462,6 +589,23 @@ export function BuilderShell({
               Save settings
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={previewScreenshot !== null} onOpenChange={(open) => { if (!open) setPreviewScreenshot(null); }}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100dvw-2rem)] p-2">
+          {previewScreenshot ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt={
+                previewScreenshot.source === "inspector"
+                  ? `Screenshot of ${previewScreenshot.selector ?? "selected element"}`
+                  : `Pasted image: ${previewScreenshot.filename ?? "clipboard"}`
+              }
+              className="max-h-[calc(100dvh-5rem)] w-full rounded-md object-contain"
+              src={previewScreenshot.dataUrl}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </main>

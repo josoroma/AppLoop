@@ -54,6 +54,20 @@ export function assertNotSpecialFilesystemPath(targetPath: string) {
   }
 }
 
+export function getScreenshotsDir() {
+  return path.join(process.cwd(), "data", "screenshots");
+}
+
+export function getProjectScreenshotsDir(projectId: string) {
+  return path.join(getScreenshotsDir(), toSafePathSegment(projectId));
+}
+
+export function assertInsideScreenshotsDir(projectId: string, filePath: string) {
+  const projectDir = getProjectScreenshotsDir(projectId);
+
+  return assertInsideRoot(projectDir, filePath);
+}
+
 async function realpathOrResolved(targetPath: string) {
   try {
     return await fs.realpath(targetPath);

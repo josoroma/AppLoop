@@ -41,6 +41,7 @@ describe("E1 foundation", () => {
       "projectThemes",
       "projectSettings",
       "builderPreferences",
+      "screenshots",
     ]);
   });
 

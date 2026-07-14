@@ -11,6 +11,7 @@ import {
   projects,
   runs,
   runtimes,
+  screenshots,
 } from "@/lib/db/schema";
 import type {
   CreateProjectBundle,
@@ -19,7 +20,7 @@ import type {
   ProjectRepository,
   RuntimePatch,
 } from "@/lib/db/repository";
-import type { NewGitCommit, NewMessage, NewProject, NewProjectSettings, NewProjectSnapshot, NewProjectTheme, NewRun, Project } from "@/lib/db/schema";
+import type { NewGitCommit, NewMessage, NewProject, NewProjectSettings, NewProjectSnapshot, NewProjectTheme, NewRun, NewScreenshot, Project } from "@/lib/db/schema";
 
 export class SqliteProjectRepository implements ProjectRepository {
   constructor(private readonly db: BuilderDatabase) {}
@@ -262,6 +263,35 @@ export class SqliteProjectRepository implements ProjectRepository {
     }
 
     return updatedTheme;
+  }
+
+  async createScreenshot(screenshot: NewScreenshot) {
+    const [created] = await this.db.insert(screenshots).values(screenshot).returning();
+
+    return created;
+  }
+
+  async findScreenshotById(screenshotId: string) {
+    const [screenshot] = await this.db.select().from(screenshots).where(eq(screenshots.id, screenshotId)).limit(1);
+
+    return screenshot ?? null;
+  }
+
+  async listProjectScreenshots(projectId: string, limit = 50) {
+    return this.db
+      .select()
+      .from(screenshots)
+      .where(eq(screenshots.projectId, projectId))
+      .orderBy(desc(screenshots.createdAt))
+      .limit(limit);
+  }
+
+  async deleteScreenshot(screenshotId: string) {
+    await this.db.delete(screenshots).where(eq(screenshots.id, screenshotId));
+  }
+
+  async deleteProjectScreenshots(projectId: string) {
+    await this.db.delete(screenshots).where(eq(screenshots.projectId, projectId));
   }
 
   private async hydrateProjectOverview(project: Project): Promise<ProjectOverview> {

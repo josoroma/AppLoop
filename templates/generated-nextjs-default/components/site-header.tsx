@@ -17,7 +17,7 @@ export function SiteHeader() {
         </Link>
         <nav aria-label="Primary navigation" className="site-nav" data-builder-id="site-nav">
           {navItems.map((item) => (
-            <Link data-builder-id={`site-nav-${item.label.toLowerCase()}`} href={item.href} key={item.href}>
+            <Link className={`site-nav-link site-nav-${item.label.toLowerCase()}`} data-builder-id={`site-nav-${item.label.toLowerCase()}`} href={item.href} key={item.href}>
               {item.label}
             </Link>
           ))}

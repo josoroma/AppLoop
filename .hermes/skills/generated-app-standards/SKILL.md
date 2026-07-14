@@ -49,6 +49,8 @@ Do not use this skill to edit AppLoop builder source files.
 - Put reusable UI under colocated `components/` folders for the route or feature that owns them.
 - Put semantic class names on inspectable boundaries from the frontend design output.
 - Use stable semantic class names such as `dashboard-header`, `dashboard-content`, `left-column`, `center-column`, `right-column`, `dashboard-footer`, `analytics-card`, `summary-card`, `primary-actions`, and `secondary-actions` on user-meaningful boundaries.
+- The root `<body>` element must carry the template classname: `template-default` for `generated-nextjs-default` or `template-admin-luma` for `generated-nextjs-admin-luma`. Never remove or rename this classname — it identifies the template source in inspect mode and disambiguates overlapping semantic classnames between templates.
+- Repeated elements (e.g. cards rendered via `.map()`) must have both a shared base classname (for grouping, e.g. `metric-card summary-card`) AND a unique per-instance descriptive classname (for precise inspect-mode identification, e.g. `metric-revenue`, `metric-active-users`). Without the unique classname, all instances appear identical in inspect mode and the user cannot target a specific one.
 - Optional `data-builder-id` values must be kebab-case, unique in the rendered route, and describe the boundary rather than visual styling.
 - Optional `data-builder-component` values should name the owning PascalCase component and stay out of business logic.
 - Preserve semantic class names and builder metadata during refactors unless all source references are updated.
@@ -76,8 +78,27 @@ Do not use this skill to edit AppLoop builder source files.
 - [ ] Filenames are kebab-case.
 - [ ] Components use named PascalCase exports.
 - [ ] Important boundaries use stable semantic class names.
-- [ ] Repeated boundaries use unique `data-builder-id` metadata when needed.
+- [ ] Repeated boundaries use unique `data-builder-id` metadata AND unique per-instance descriptive classnames.
 - [ ] Relative imports do not traverse more than one parent.
 - [ ] Route modules expose only expected Next.js route exports.
 - [ ] Route-specific modules use approved route filenames or route-local `components/` folders.
 - [ ] Schemas and actions follow the generated templates and validate structured input.
+
+## Template Propagation
+
+**Critical pitfall — template mismatch**: Each generated project was created from exactly one template (default or admin-luma). When syncing template files to a generated project, you MUST use the CORRECT template source. Copying the wrong template's `layout.tsx` (e.g. default's `SiteHeader` into an admin-luma project that uses `AdminShell`) causes a missing-module compilation error. The Next.js dev server then hangs in a retry loop, making the preview completely unresponsive (curl times out, but `lsof` shows the port is listening — the process is stuck, not dead).
+
+**Before syncing, check which template the project uses:**
+```bash
+# Check the body classname in the generated project's layout
+grep "template-" .apploop/projects/<slug>/app/layout.tsx
+# Returns: template-default → use templates/generated-nextjs-default/
+# Returns: template-admin-luma → use templates/generated-nextjs-admin-luma/
+```
+
+**When the server is stuck after a wrong template sync:**
+1. Fix the generated project file to use the correct template components.
+2. Kill the stuck Next.js process: `kill $(lsof -ti:<port>)`
+3. The AppLoop runtime will auto-restart the preview on a new port.
+
+**Template dependencies**: Template files are independent Next.js projects with their own `package.json`. The standard template deps (`react`, `next`, `tailwind-merge`, etc.) don't require special tsconfig handling in the builder since the builder never imports from templates as modules — templates are only referenced as filesystem paths for copying. If you add a dependency to a template, the builder's `tsc` may fail; exclude `templates/` from `tsconfig.json` temporarily and remove the exclude once the dependency is removed.

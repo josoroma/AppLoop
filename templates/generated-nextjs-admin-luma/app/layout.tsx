@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html className="dark" lang="en" suppressHydrationWarning>
-      <body>
+      <body className="template-admin-luma">
         <InspectorProvider>
           <ThemeProvider defaultMode="dark">
             <AdminShell>{children}</AdminShell>

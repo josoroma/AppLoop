@@ -198,15 +198,7 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
         return;
       }
 
-      const link = !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey ? getLinkElement(event) : null;
-      const nextUrl = link && (!link.target || link.target === "_self") ? new URL(link.href, window.location.href) : null;
-      const route = nextUrl?.origin === window.location.origin ? `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}` : undefined;
-
-      if (route) {
-        window.parent.postMessage({ type: "apploop:preview-route", projectId, previewNonce, route }, parentOrigin);
-      }
-
-      window.parent.postMessage({ type: "apploop:inspector-select", projectId, previewNonce, selection, route }, parentOrigin);
+      window.parent.postMessage({ type: "apploop:inspector-select", projectId, previewNonce, selection }, parentOrigin);
     };
 
     const publishTrackedSelections = () => {
@@ -327,16 +319,6 @@ function getParentOrigin() {
   }
 
   return document.referrer ? new URL(document.referrer).origin : null;
-}
-
-function getLinkElement(event: Event) {
-  for (const item of event.composedPath()) {
-    if (item instanceof HTMLAnchorElement && item.hasAttribute("href")) {
-      return item;
-    }
-  }
-
-  return event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
 }
 
 function createSelectionPayload(target: EventTarget | null, projectId: string, previewNonce: string): SelectionPayload | null {

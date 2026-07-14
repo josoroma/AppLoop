@@ -10,11 +10,13 @@ import type {
   NewProjectTheme,
   NewRun,
   NewRuntime,
+  NewScreenshot,
   Project,
   ProjectSettings,
   ProjectTheme,
   Runtime,
   Run,
+  Screenshot,
 } from "@/lib/db/schema";
 
 export type ProjectOverview = {
@@ -67,4 +69,9 @@ export interface ProjectRepository {
   updateRuntime(projectId: string, runtime: RuntimePatch): Promise<Runtime>;
   updateProjectSettings(projectId: string, settings: Partial<NewProjectSettings>): Promise<ProjectSettings>;
   updateProjectTheme(projectId: string, theme: Partial<Omit<NewProjectTheme, "projectId">>): Promise<ProjectTheme>;
+  createScreenshot(screenshot: NewScreenshot): Promise<Screenshot>;
+  findScreenshotById(screenshotId: string): Promise<Screenshot | null>;
+  listProjectScreenshots(projectId: string, limit?: number): Promise<Screenshot[]>;
+  deleteScreenshot(screenshotId: string): Promise<void>;
+  deleteProjectScreenshots(projectId: string): Promise<void>;
 }

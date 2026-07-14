@@ -7,7 +7,7 @@ export function ThemeToggle() {
   const nextMode = mode === "dark" ? "light" : "dark";
 
   return (
-    <button className="theme-toggle" data-builder-id="admin-theme-toggle" onClick={toggleMode} type="button">
+    <button className="theme-toggle admin-theme-toggle" data-builder-id="admin-theme-toggle" onClick={toggleMode} type="button">
       {nextMode === "dark" ? "Dark" : "Light"}
     </button>
   );

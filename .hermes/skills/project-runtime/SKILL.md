@@ -44,7 +44,38 @@ Do not use this skill to start the AppLoop builder process itself.
 - Treat compile overlays, 5xx responses, and repeated restart loops as not ready.
 - Emit a preview-ready event only after readiness checks pass.
 
-## Restart Conditions
+## Template Propagation
+
+Generated projects are created by copying files from `templates/<id>/` into `.apploop/projects/<slug>/` at project creation time. Template changes are **not** automatically synced to existing generated projects. When template code (e.g., `templates/…/inspector-provider.tsx` or `templates/…/app/layout.tsx`) is updated:
+
+1. **Update the template** in `templates/` first.
+2. **Sync to the active generated project** by copying the updated file:
+   ```bash
+   cp templates/generated-nextjs-default/components/inspector-provider.tsx \
+      .apploop/projects/<slug>/components/inspector-provider.tsx
+   ```
+3. **Restart the generated runtime** so the dev server picks up the change.
+4. **Verify** the feature works in the preview.
+
+Skipping step 2 is the most common cause of "the feature code is correct but nothing happens in preview." The builder hot-reloads, but the generated app inside the iframe runs its own dev server with its own file copies.
+
+## Stuck Server Diagnosis
+
+**Symptom**: `lsof` shows the port listening, but `curl` times out (exit code 7 or 124). The Next.js dev server process is alive but stuck.
+
+**Common cause**: A compilation error (missing module, broken import) causes Next.js to hang in a retry loop. The port is bound but no requests are served. Check the runtime log:
+
+```bash
+tail -20 .apploop/runtime-logs/<projectId>.log
+```
+
+**Fix**:
+1. Fix the compilation error in the generated project files.
+2. Force-kill the stuck process: `kill -9 $(lsof -ti:<port>)`
+3. The AppLoop runtime will auto-restart on a new port (Next.js may pick a different port if the old one is briefly occupied).
+4. Verify with `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:<port>/`
+
+**Prevention**: Never copy template files to a generated project without confirming which template the project uses. Check `grep "template-" .apploop/projects/<slug>/app/layout.tsx` — `template-default` means default template, `template-admin-luma` means admin-luma template. The two templates have incompatible shell components (default: `SiteHeader`, admin-luma: `AdminShell`).
 
 Restart when:
 - The process is missing or exited.

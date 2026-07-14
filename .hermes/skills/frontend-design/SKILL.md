@@ -60,4 +60,5 @@ Produce:
 - Component map with responsibilities.
 - Responsive behavior for each region.
 - Visual states that must be implemented.
-- Semantic class names for inspectable boundaries.
+- Semantic class names for inspectable boundaries. Repeated elements (lists, grids, card sets) need both a shared base classname for grouping AND a unique per-instance descriptive classname so inspect mode can distinguish individual items. E.g. `metric-card summary-card metric-revenue` — not just `metric-card summary-card`. Document the base classname and each unique instance name.
+- Which template the design targets (`template-default` vs `template-admin-luma`), so generated code uses the correct root classname on `<body>`.

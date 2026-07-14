@@ -154,6 +154,25 @@ export const builderPreferences = sqliteTable("builder_preferences", {
   ...timestamps,
 });
 
+export const screenshots = sqliteTable(
+  "screenshots",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    filename: text("filename").notNull(),
+    mediaType: text("media_type").notNull().default("image/png"),
+    sizeBytes: integer("size_bytes").notNull(),
+    selector: text("selector"),
+    source: text("source", { enum: ["inspector", "clipboard"] }).notNull().default("inspector"),
+    width: integer("width"),
+    height: integer("height"),
+    ...timestamps,
+  },
+  (table) => [index("screenshots_project_id_idx").on(table.projectId)],
+);
+
 export const projectRelations = relations(projects, ({ one, many }) => ({
   runtime: one(runtimes),
   theme: one(projectThemes),
@@ -181,6 +200,7 @@ export const builderTables = {
   projectThemes,
   projectSettings,
   builderPreferences,
+  screenshots,
 };
 
 export type Project = typeof projects.$inferSelect;
@@ -201,3 +221,5 @@ export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 export type Run = typeof runs.$inferSelect;
 export type NewRun = typeof runs.$inferInsert;
+export type Screenshot = typeof screenshots.$inferSelect;
+export type NewScreenshot = typeof screenshots.$inferInsert;

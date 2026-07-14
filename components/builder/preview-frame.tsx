@@ -373,7 +373,7 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
         </Button>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-black p-4">
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-black pt-10 pr-4 pb-4 pl-4">
         <div
           className="preview-viewport-frame relative overflow-hidden rounded-md border bg-black shadow-sm"
           ref={viewportShellRef}

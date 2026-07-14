@@ -13,6 +13,11 @@ export type HermesClientConfig = {
   inferenceProvider?: string;
 };
 
+export type ImageAttachment = {
+  mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+  data: string;
+};
+
 export type HermesRunRequest = {
   projectId: string;
   conversationId: string;
@@ -20,6 +25,7 @@ export type HermesRunRequest = {
   workspacePath: string;
   sessionId: string | null;
   agentBundle: ProjectAgentBundle;
+  images?: ImageAttachment[];
   signal?: AbortSignal;
 };
 
@@ -200,7 +206,7 @@ export class HermesClient {
   }
 
   private streamRunPayload(request: HermesRunRequest) {
-    return {
+    const payload: Record<string, unknown> = {
       projectId: request.projectId,
       conversationId: request.conversationId,
       message: request.message,
@@ -212,10 +218,16 @@ export class HermesClient {
       model: this.config.inferenceModel,
       agentBundle: request.agentBundle,
     };
+
+    if (request.images && request.images.length > 0) {
+      payload.images = request.images;
+    }
+
+    return payload;
   }
 
   private gatewayRunPayload(request: HermesRunRequest) {
-    return {
+    const payload: Record<string, unknown> = {
       input: request.message,
       instructions: createGatewayInstructions(request),
       model: this.config.inferenceModel,
@@ -230,6 +242,12 @@ export class HermesClient {
         agentBundle: request.agentBundle,
       },
     };
+
+    if (request.images && request.images.length > 0) {
+      payload.images = request.images;
+    }
+
+    return payload;
   }
 }
 

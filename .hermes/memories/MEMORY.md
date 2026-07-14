@@ -1,0 +1,5 @@
+Do not add automatic screenshot-on-click for inspect mode in AppLoop. Keep clipboard paste (Ctrl+V) as the only screenshot path. Client-side DOM-to-image libraries are NEVER pixel-perfect; server-side Playwright CDP is accurate but overengineered for this use case.
+§
+User prefers manual control: wants manual screenshot paste (Ctrl+V) instead of automatic screenshot-on-click in inspect mode. When a feature produces incorrect output and user rejects it 2+ times, stop iterating and remove the feature entirely rather than trying different approaches.
+§
+Generated project at `.apploop/projects/josoroma/` is based on the admin-luma template (`template-admin-luma`), NOT the default template. When syncing template changes to this project, use admin-luma's `layout.tsx` (imports `AdminShell`, not `SiteHeader`).

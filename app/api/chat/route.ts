@@ -1,13 +1,17 @@
 import { randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from "ai";
 import { assistantMessageIdForRun, getMessageText, getLastUserMessage, serializeAssistantMessageMetadata, type HermesActivityData } from "@/lib/chat/messages";
 import { clearActiveHermesRun, rememberActiveHermesRun } from "@/lib/chat/run-store";
 import { createProjectAgentBundle } from "@/lib/hermes/agents";
 import { hermesErrorToUserMessage, HermesError, mapHermesError } from "@/lib/hermes/errors";
+import type { ImageAttachment } from "@/lib/hermes/client";
 import { getHermesClient } from "@/lib/hermes/store";
 import { categorizeFailure, getDurationMs, recordStructuredEvent, startDurationTimer } from "@/lib/observability/events";
 import { getProjectRepository } from "@/lib/projects/store";
 import { projectAccessErrorResponse, requireProjectAccess } from "@/lib/security/authorization";
+import { getProjectScreenshotsDir } from "@/lib/security/paths";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +43,7 @@ export async function POST(request: Request) {
 
   const { conversation, project } = overview;
   const prompt = getMessageText(userMessage);
+  const images = await extractImagesFromMessage(userMessage, projectId);
   const runId = randomUUID();
   const correlationId = runId;
   const runStartedTimer = startDurationTimer();
@@ -85,6 +90,7 @@ export async function POST(request: Request) {
             validationDepth: overview.settings?.validationDepth ?? "standard",
             defaultRoute: overview.settings?.defaultRoute ?? "/",
           }),
+          images: images.length > 0 ? images : undefined,
           signal: request.signal,
         })) {
           if (event.type === "session") {
@@ -185,4 +191,66 @@ function resolveHermesSessionId(sessionId: string | null | undefined) {
   }
 
   return sessionId;
+}
+
+async function extractImagesFromMessage(userMessage: UIMessage, projectId: string): Promise<ImageAttachment[]> {
+  const fileParts = userMessage.parts.filter((part) => part.type === "file" && part.mediaType?.startsWith("image/"));
+
+  if (fileParts.length === 0) {
+    return [];
+  }
+
+  const images: ImageAttachment[] = [];
+
+  for (const part of fileParts) {
+    try {
+      if (part.type !== "file" || !part.url) {
+        continue;
+      }
+
+      // Data URLs: extract base64 directly
+      if (part.url.startsWith("data:")) {
+        const commaIndex = part.url.indexOf(",");
+
+        if (commaIndex === -1) {
+          continue;
+        }
+
+        const base64 = part.url.slice(commaIndex + 1);
+        const mimeMatch = part.url.slice(0, commaIndex).match(/data:(image\/[a-z+]+);?/);
+        const mediaType = (mimeMatch ? mimeMatch[1] : part.mediaType || "image/png") as ImageAttachment["mediaType"];
+
+        images.push({ mediaType, data: base64 });
+        continue;
+      }
+
+      // Server path URLs: resolve from screenshots directory
+      const urlPath = new URL(part.url, "http://localhost").pathname;
+      const segments = urlPath.split("/").filter(Boolean);
+      const screenshotId = segments[segments.length - 1];
+
+      if (!screenshotId) {
+        continue;
+      }
+
+      const screenshot = await getProjectRepository().findScreenshotById(screenshotId);
+
+      if (!screenshot || screenshot.projectId !== projectId) {
+        continue;
+      }
+
+      const filePath = path.join(getProjectScreenshotsDir(projectId), screenshot.filename);
+      const buffer = await fs.readFile(filePath);
+      const base64 = buffer.toString("base64");
+
+      images.push({
+        mediaType: screenshot.mediaType as ImageAttachment["mediaType"],
+        data: base64,
+      });
+    } catch {
+      // Skip images that can't be read
+    }
+  }
+
+  return images;
 }
