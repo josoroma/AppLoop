@@ -183,8 +183,6 @@ Server actions in `lib/chat/file-snapshot.ts`:
 
 - **Async form handler**: Capture `const form = event.currentTarget` BEFORE `await createFileSnapshot()`. React nulls synthetic events after async calls.
 
-- **Async form handler**: Capture `const form = event.currentTarget` BEFORE `await createFileSnapshot()`. React nulls synthetic events after async calls.
-
 - **Timestamp conversion**: DB `createdAt` is a number (Drizzle `timestamp_ms`). Convert to store type with `Number(row.createdAt)`.
 
 - **Runtime restart for CSS hot reload**: After Hermes writes CSS files, Turbopack may serve stale compiled output even with CHOKIDAR_USEPOLLING. Use `restartRuntimeAction` (full kill + start) instead of iframe reload (`previewReloadKey`) to guarantee CSS changes are picked up. Restart runs in the same useEffect that captures session messages after each Hermes response.
