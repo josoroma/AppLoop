@@ -186,7 +186,7 @@ export function createVisualSelectionPrompt(message: string, selections: VisualS
     })
     .join("\n");
 
-  return `${message}\n\nModify only elements that match these exact selectors or are descendants of them; do not modify elements outside these selector boundaries, even if they share the same base class names, unless the user explicitly requests a global change:\n${targets}\n\nTarget selections JSON:\n${JSON.stringify(selections, null, 2)}`;
+  return `${message}\n\nModify only elements that match these exact selectors or are strictly descendants of:\n\n${targets}\n\nDo not modify elements outside these selector boundaries, even if they share the same base class names, unless the user explicitly requests a global change.\n\nTarget selections JSON:\n${JSON.stringify(selections, null, 2)}`;
 }
 
 export function validateBuilderId(value: string) {
