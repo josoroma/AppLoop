@@ -427,62 +427,84 @@ export function BuilderShell({
               ) : (
                 chat.messages.map((message) => (
                   <article key={message.id} className="rounded-lg border bg-card p-3 text-sm">
-                    <p className="mb-2 flex items-center gap-2 font-semibold">
+                    <div className="mb-2 flex items-center gap-2 font-semibold">
                       <Bot className="size-4 text-primary" />
                       {message.role === "user" ? "You" : "Hermes"}
                       {message.role === "user" && (
-                        <button
-                          className="ml-auto text-[10px] text-muted-foreground hover:text-foreground"
-                          onClick={async () => {
-                            // Find the checkpoint before this message
-                            const cpIndex = checkpoints.findIndex((cp) => cp.messageIds.includes(message.id));
-                            const cp = cpIndex !== -1 ? checkpoints[cpIndex] : null;
+                        <div className="ml-auto flex items-center gap-1">
+                          <button
+                            className="text-[10px] text-muted-foreground hover:text-foreground"
+                            onClick={async () => {
+                              const cpIndex = checkpoints.findIndex((cp) => cp.messageIds.includes(message.id));
+                              const cp = cpIndex !== -1 ? checkpoints[cpIndex] : null;
 
-                            if (cp) {
-                              // Revert files
-                              if (cp.commitHash) {
-                                await revertToFileSnapshot(projectId, cp.commitHash);
+                              if (cp) {
+                                if (cp.commitHash) {
+                                  await revertToFileSnapshot(projectId, cp.commitHash);
+                                }
+
+                                const idSet = new Set(cp.messageIds);
+
+                                chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
+                                loadCheckpoint(cp.id);
+                              } else {
+                                const idx = chat.messages.indexOf(message);
+                                const truncated = chat.messages.slice(0, idx);
+
+                                chat.setMessages(truncated);
                               }
+                            }}
+                            title="Restore project state to before this prompt"
+                            type="button"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            className="text-[10px] text-muted-foreground hover:text-foreground"
+                            onClick={async () => {
+                              const cpIndex = checkpoints.findIndex((cp) => cp.messageIds.includes(message.id));
+                              const cp = cpIndex !== -1 ? checkpoints[cpIndex] : null;
 
-                              // Restore messages to checkpoint
-                              const idSet = new Set(cp.messageIds);
+                              if (cp) {
+                                if (cp.commitHash) {
+                                  await revertToFileSnapshot(projectId, cp.commitHash);
+                                }
 
-                              chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
+                                const idSet = new Set(cp.messageIds);
 
-                              // Restore targets and screenshots
-                              loadCheckpoint(cp.id);
+                                chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
+                                loadCheckpoint(cp.id);
 
-                              // Pre-fill the textarea with the original prompt text
-                              const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]');
-                              const promptText = getMessageText(message).split("Target classnames")[0]?.trim() ?? "";
+                                const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]');
+                                const promptText = getMessageText(message).split("Target classnames")[0]?.trim() ?? "";
 
-                              if (textarea) {
-                                textarea.value = promptText;
-                                textarea.focus();
+                                if (textarea) {
+                                  textarea.value = promptText;
+                                  textarea.focus();
+                                }
+                              } else {
+                                const idx = chat.messages.indexOf(message);
+                                const truncated = chat.messages.slice(0, idx);
+
+                                chat.setMessages(truncated);
+
+                                const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]');
+                                const promptText = getMessageText(message).split("Target classnames")[0]?.trim() ?? "";
+
+                                if (textarea) {
+                                  textarea.value = promptText;
+                                  textarea.focus();
+                                }
                               }
-                            } else {
-                              // No checkpoint — just truncate to before this message
-                              const idx = chat.messages.indexOf(message);
-                              const truncated = chat.messages.slice(0, idx);
-
-                              chat.setMessages(truncated);
-
-                              const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]');
-                              const promptText = getMessageText(message).split("Target classnames")[0]?.trim() ?? "";
-
-                              if (textarea) {
-                                textarea.value = promptText;
-                                textarea.focus();
-                              }
-                            }
-                          }}
-                          title="Restore to before this prompt and edit"
-                          type="button"
-                        >
-                          Edit &amp; Resend
-                        </button>
+                            }}
+                            title="Restore to before this prompt and edit"
+                            type="button"
+                          >
+                            Edit
+                          </button>
+                        </div>
                       )}
-                    </p>
+                    </div>
                     {(() => {
                         const text = getMessageText(message);
                         const jsonMarker = "Target selections JSON:";

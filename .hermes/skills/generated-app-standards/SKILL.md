@@ -184,6 +184,40 @@ This forces polling (1s interval) instead of native OS events, reliable across a
 
 **Verification**: After an edit, check the CSS hash changed: `curl -s http://127.0.0.1:<port>/ | grep -o 'href="[^"]*\\.css[^"]*"'`. Stale hash → clear `.next/` and restart.
 
+## Preview Dark Loading States
+
+The preview area `preview-frame.tsx` has three overlay states that should all use dark backgrounds (`bg-black` or `bg-black/80`) to match the preview iframe's default dark theme:
+
+1. **Loading spinner** (iframely loading): `bg-black/80` with centered spinner + "Loading preview" text
+2. **Failure state** (iframe error): `bg-black` with error message  
+3. **Not-ready state** (runtime not started): `bg-black` with status message
+
+Do not use `bg-white` — it flashes bright white during loading and clashes with the dark preview area.
+
+## Admin-Luma Dark Mode Header Visibility
+
+The admin-luma template's `.admin-header` in dark mode can be nearly invisible because it blends into the dark gradient background. Fix with explicit contrast:
+
+```css
+.admin-header {
+  border-bottom: 1px solid color-mix(in oklch, var(--sidebar-foreground) 12%, transparent);
+  background: color-mix(in oklch, var(--sidebar) 92%, var(--background));
+  backdrop-filter: blur(18px);
+}
+```
+
+The `.theme-toggle` also needs a visible border and wider width:
+```css
+.theme-toggle {
+  min-width: 7rem;
+  border: 1px solid color-mix(in oklch, var(--sidebar-foreground) 15%, transparent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+```
+
+These changes ensure the header strip and toggle button are always distinguishable from the dark background, in both light and dark modes.
+
 ## Preview Reload After Code Changes
 
 When Hermes applies CSS or JS changes to a generated project, Turbopack may not hot-reload them (even with `CHOKIDAR_USEPOLLING`). The fix is a full runtime restart: when `chat.status` transitions from `"streaming"` to `"ready"`, call `restartRuntimeAction` which kills the existing Next.js process and starts a fresh one — guaranteeing a full recompile from disk.
