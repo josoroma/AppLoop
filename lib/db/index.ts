@@ -7,7 +7,11 @@ import * as schema from "@/lib/db/schema";
 export function createDatabaseClient(databaseUrl: string) {
   ensureFileDatabaseDirectory(databaseUrl);
 
-  return createClient({ url: databaseUrl });
+  const client = createClient({ url: databaseUrl });
+
+  client.execute("PRAGMA foreign_keys = ON");
+
+  return client;
 }
 
 export function createDatabase(databaseUrl: string) {

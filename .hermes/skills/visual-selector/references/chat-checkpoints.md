@@ -136,3 +136,65 @@ const form = event.currentTarget;  // ← capture before await
 const hash = await createFileSnapshot(projectId);
 form.reset();  // ← uses captured reference
 ```
+
+## Per-Project Session Isolation
+
+Checkpoints are stored per-project in the database (`chat_checkpoints.project_id` FK). The builder-shell enforces isolation:
+
+```typescript
+// On project switch: clear stale data immediately, then fetch new project's checkpoints
+useEffect(() => {
+  setCheckpoints([]);                    // ← prevent flash of old project's data
+  checkpointsLoadedRef.current = false;   // ← block sync effect during load
+  void (async () => {
+    const rows = await listChatCheckpoints(projectId);
+    setCheckpoints(rows.map(row => ({...parse(row.dataJson), ...})));
+    checkpointsLoadedRef.current = true;  // ← re-enable sync
+  })();
+}, [projectId]);
+```
+
+The sync effect is guarded to prevent saving old checkpoints to a new project:
+
+```typescript
+useEffect(() => {
+  if (!checkpointsLoadedRef.current) return;  // ← skip during load transition
+  for (const cp of checkpoints) {
+    void saveChatCheckpoint(cp.id, projectId, cp.name, cp.isSessionBoundary, JSON.stringify(cp));
+  }
+}, [checkpoints, projectId]);
+```
+
+**DB cascading**: `PRAGMA foreign_keys = ON` is set in `createDatabaseClient()` so deleting a project cascade-deletes its checkpoints. Without this, SQLite does not enforce foreign key cascades by default.
+
+## Session-Isolated Chat Instances
+
+Each session gets its own isolated `useChat` instance via a `sessionKey`:
+
+```typescript
+const [sessionKey, setSessionKey] = useState(0);
+const chat = useChat({ id: `${projectId}-${sessionKey}`, ... });
+```
+
+When "New session" is clicked, `setSessionKey(k => k + 1)` changes the chat ID, forcing `useChat` to create a fresh instance with no messages — this replaces `chat.setMessages([])` which doesn't fully clear persisted state.
+
+## Hermes Session Sync (`/new --yes`)
+
+When a new UI session is created, a Hermes command is sent via the chat to sync the backend session:
+
+```typescript
+// In the "New session" handler:
+sessionCommandRef.current = `/new --yes Session ${sessionNum}`;
+setSessionKey(k => k + 1);
+
+// useEffect sends the command when the new chat instance mounts:
+useEffect(() => {
+  if (sessionCommandRef.current) {
+    const cmd = sessionCommandRef.current;
+    sessionCommandRef.current = null;
+    void chat.sendMessage({ text: cmd });
+  }
+}, [sessionKey]);
+```
+
+This tells Hermes to start a fresh session context. Hermes returns a new session ID via the `session` event, which the chat route stores in `projects.hermesSessionId`.

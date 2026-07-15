@@ -190,6 +190,50 @@ Even with polling enabled, the preview iframe may show stale content after a Her
 
 This is the primary mechanism for making CSS/JS changes visible after Hermes prompts — it is lighter than a full runtime restart and works regardless of whether Turbopack's file watcher detected the change. If the preview still shows stale content after a prompt, verify `previewReloadKey` is incrementing by checking the preview element `key` attribute in React DevTools.
 
+## Chat Session Isolation via `useChat` ID
+
+When building a chat interface that supports multiple sessions (conversation branches), `chat.setMessages([])` from `@ai-sdk/react` does not reliably clear all messages — `useChat` with an `id` parameter persists messages and may re-add cleared messages from its internal store. Instead, change the `id` to force a fresh chat instance:
+
+```typescript
+const [sessionKey, setSessionKey] = useState(0);
+const chat = useChat({ id: `${projectId}-${sessionKey}`, ... });
+
+// "New session" → fresh chat with no messages
+setSessionKey(k => k + 1);
+```
+
+Each session gets its own chat state, completely isolated from other sessions. Restoring a session uses the saved `MessageSnapshot[]` to reconstruct messages via `chat.setMessages(...)`. Never rely on `chat.setMessages([])` for clearing — it produces inconsistent results with persisted chat transports.
+
+## Per-Project State Isolation
+
+Client-side state stores (Zustand, React state) persist across project switches in the same page session. When switching projects, stale data from the old project can briefly appear, and sync effects can accidentally write old data to the new project's DB.
+
+**Pattern**: Clear + guard + reload:
+
+```typescript
+useEffect(() => {
+  setItems([]);                    // ← clear stale data immediately
+  loadedRef.current = false;        // ← block sync effects during load
+  void (async () => {
+    const rows = await fetchItems(projectId);
+    setItems(rows);
+    loadedRef.current = true;       // ← re-enable sync
+  })();
+}, [projectId]);
+```
+
+**Sync guard**:
+```typescript
+useEffect(() => {
+  if (!loadedRef.current) return;   // ← skip during transition
+  for (const item of items) {
+    void saveItem(item.id, projectId, ...);
+  }
+}, [items, projectId]);
+```
+
+**DB cascading**: Enable `PRAGMA foreign_keys = ON` in the database client factory so that deleting a parent record cascade-deletes its children. SQLite does not enforce foreign key cascades by default.
+
 ## Generated CSS Contrast (Dark Mode)
 
 The admin-luma template uses a dark gradient background with a sticky header. In dark mode, the original header CSS used `color-mix(in oklch, var(--sidebar) 88%, transparent)` which is nearly identical to the background, making the header invisible. Similarly, the theme-toggle button border used `var(--border)` which is 10% white — nearly invisible on dark backgrounds.
