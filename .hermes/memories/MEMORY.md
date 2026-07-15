@@ -1,11 +1,7 @@
 Do not add automatic screenshot-on-click for inspect mode in AppLoop. Keep clipboard paste (Ctrl+V) as the only screenshot path. Client-side DOM-to-image libraries are NEVER pixel-perfect; server-side Playwright CDP is accurate but overengineered for this use case.
 §
-AppLoop project conventions: Two templates (generated-nextjs-default, generated-nextjs-admin-luma) live under templates/. Generated projects under .apploop/projects/<slug>. When syncing templates to a generated project, check which template the project uses first (grep for template-default or template-admin-luma in layout.tsx). Copying the wrong template breaks the preview. Templates have their own independent SEMANTIC_CLASS_NAMES Set — changes to builder's registry don't propagate automatically.
+AppLoop inspect mode: manual screenshot via Ctrl+V paste only. Multi-select click-to-toggle. Repeated elements = base + unique classname (e.g. metric-card summary-card metric-revenue). Tracking updates (100ms) must NOT toggle selections.
 §
 User preference: If a visual/UI feature produces incorrect output and the user rejects it 2+ times ("no", "nope", "not equal", "still not the same"), stop iterating and offer removal or a fundamentally different approach. Don't repeatedly swap libraries/approaches when the user is signaling they want a different direction. This applies especially to screenshot/image capture features.
 §
-AppLoop inspect mode conventions: No automatic screenshot on click (removed). Screenshots are manual-only via Ctrl+V clipboard paste in builder-shell.tsx. Multi-select uses click-to-toggle with unique per-instance classnames as preferredSelector. Repeated elements need base + unique classname (e.g. metric-card summary-card metric-revenue). Tracking updates (update:true, every 100ms) should NOT toggle selections — only real clicks toggle.
-§
-AppLoop checkpoints: auto-git-commit on every prompt. Edit & Resend reverts files + truncates chat. New Session restores to first checkpoint. Session History dropdown w/ pagination. previewReloadKey forces iframe reload after Hermes.
-§
-AppLoop chat layout: grid-rows-[auto_1fr_auto] + absolute inset-0 in Panel. Never h-full in Panels. overflow-y-auto overflow-x-hidden on conversation. Textarea pinned bottom.
+AppLoop: Never change useChat id (it doubles as projectId in /api/chat). Sessions per-project via chat_checkpoints DB table. Session restore: save current msgs then load target. New session = chat.setMessages([]). Preview states use dark bg.

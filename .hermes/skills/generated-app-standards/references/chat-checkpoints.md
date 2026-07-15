@@ -5,7 +5,9 @@
 Two related but distinct concepts:
 
 - **Checkpoint** — auto-created on every prompt submit, stores message IDs + git commit hash. Used for Edit & Resend rollback. `isSessionBoundary: false`. Not visible in session history.
-- **Session** — created by "New session" button or first auto-session boundary. Stores full `MessageSnapshot[]` for restoration. `isSessionBoundary: true`. Visible in session history dropdown.
+- **Session** — created by "New session" button. Stores full `MessageSnapshot[]` for restoration. `isSessionBoundary: true`. Visible in session history dropdown.
+
+No gateway commands (`/new`, `/resume`) are sent — the chat route handles Hermes session management automatically. Gateway sync was tried and removed because it caused "Project access denied" errors and conflicted with the route's built-in session ID management.
 
 ## DB Schema
 
@@ -46,7 +48,7 @@ Every prompt submit creates an auto-checkpoint:
 
 ```
 onSubmit:
-  1. Capture messageIds from chat.messages
+  1. Capture messageIds from chat.messages (user+assistant roles)
   2. await createFileSnapshot(projectId) → git commit hash
   3. saveCheckpoint("Prompt N", messageIds, hash, false) → isSessionBoundary: false
   4. chat.sendMessage(...)
@@ -60,9 +62,8 @@ onNewSession:
   2. Create MessageSnapshot[] from currentMessages
   3. await createFileSnapshot(projectId) → git commit hash
   4. saveCheckpoint("Session N", messageIds, hash, true, messageSnapshots) → isSessionBoundary: true
-  5. setSessionKey(k + 1) → new chat instance with empty messages
-  6. sessionCommandRef.current = `/new --yes "apploop:<projectId>:session-N"`
-  7. useEffect(sessionKey) sends the command via chat.sendMessage()
+  5. chat.setMessages([]) → clear chat (same useChat instance, id: projectId)
+  6. Clean up non-boundary checkpoints from store
 ```
 
 ## Session Restore Flow
@@ -70,21 +71,15 @@ onNewSession:
 ```
 onRestoreCheckpoint:
   1. Find latest session boundary (checkpoints.filter(isSessionBoundary).last)
-  2. If switching to different session:
+  2. If switching to different session (currentSession.id !== cp.id):
      a. Save current session's messages: updateCheckpointMessages(currentSession.id, currentMsgs)
-     b. setSessionKey(k + 1) → new chat instance
-     c. sessionCommandRef.current = `/resume "apploop:<projectId>:<cp.id>"`
-     d. sessionMessagesRef.current = cp.messages
-  3. useEffect(sessionKey) sends command + loads messages via chat.setMessages()
+  3. chat.setMessages(cp.messages.map(m => ({id, role, parts: [{text: m.content}]})))
   4. loadCheckpoint(cp.id) → restore targets + screenshots
 ```
 
-## Gateway Sync
+All sessions share the same `useChat` instance (`id: projectId`). Messages are stored as full `MessageSnapshot[]` in the checkpoint and restored via `chat.setMessages()`. The saved messages are complete at the moment "New session" is clicked, so restoring shows exactly those messages.
 
-- **Create**: `/new --yes "apploop:<projectId>:session-N"` on new session
-- **Resume**: `/resume "apploop:<projectId>:<checkpoint-id>"` on session switch
-- Commands queued via `sessionCommandRef`, sent in `useEffect` watching `sessionKey`
-- Messages loaded via `sessionMessagesRef` in same effect after chat instance is ready
+**Never use compound useChat IDs** like `${projectId}-${sessionKey}` — the `id` parameter is sent as `body.id` to the chat API route, which uses it as `projectId` for authorization. Compound IDs cause "Project access denied".
 
 ## Edit & Resend Flow
 
@@ -121,12 +116,10 @@ revertToFileSnapshot(projectId, commitHash): Promise<boolean>
 - `checkpointsLoadedRef` guards sync effect during transition
 - `PRAGMA foreign_keys = ON` in DB client factory
 
-## Session Isolation via useChat ID
+## Session History UI
 
-```typescript
-const [sessionKey, setSessionKey] = useState(0);
-const chat = useChat({ id: `${projectId}-${sessionKey}`, ... });
-
-// New session: setSessionKey(k + 1) → fresh chat
-// Never use chat.setMessages([]) — it's unreliable with persisted transports
-```
+- Rendered via `createPortal` to `document.body` to avoid clipping by parent overflow containers
+- Gated with `isClient` hydration check to avoid SSR `document is not defined`
+- Paginated (PAGE_SIZE=8) with ← Newer / Older → navigation
+- Shows session name, timestamp, message count, target count, commit hash
+- Uses `position: fixed` with button ref `getBoundingClientRect()` for positioning

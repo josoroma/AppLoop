@@ -246,17 +246,19 @@ export function BuilderShell({
     void startRuntimeAction(formData);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reload preview after Hermes completes a response to pick up CSS/JS changes
-  const [previewReloadKey, setPreviewReloadKey] = useState(0);
+  // Restart runtime after Hermes completes a response to pick up CSS/JS changes
   const prevStatusRef = useRef(chat.status);
 
   useEffect(() => {
     if (chat.status === "ready" && prevStatusRef.current === "streaming") {
-      setPreviewReloadKey((k) => k + 1);
+      const formData = new FormData();
+
+      formData.append("projectId", projectId);
+      void restartRuntimeAction(formData);
     }
 
     prevStatusRef.current = chat.status;
-  }, [chat.status]);
+  }, [chat.status, projectId]);
 
   useEffect(() => {
     const eventSource = new EventSource(`/api/projects/${projectId}/runtime/logs`);
@@ -686,7 +688,7 @@ export function BuilderShell({
             </div>
             <PreviewFrame
               defaultRoute={defaultRoute}
-              key={`${projectId}-${previewReloadKey}`}
+              key={projectId}
               previewUrl={previewUrl}
               projectId={projectId}
               projectName={projectName}

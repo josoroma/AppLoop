@@ -186,74 +186,74 @@ This forces polling (1s interval) instead of native OS events, reliable across a
 
 ## Preview Reload After Code Changes
 
-Even with polling enabled, the preview iframe may show stale content after a Hermes response due to browser caching or iframe lifecycle quirks. The builder forces a reload: when `chat.status` transitions from `"streaming"` to `"ready"`, a `previewReloadKey` counter in `builder-shell.tsx` increments, changing the `PreviewFrame` component's `key` prop to `${projectId}-${previewReloadKey}`. React unmounts and remounts the iframe, serving fresh content from the Next.js dev server.
-
-This is the primary mechanism for making CSS/JS changes visible after Hermes prompts — it is lighter than a full runtime restart and works regardless of whether Turbopack's file watcher detected the change. If the preview still shows stale content after a prompt, verify `previewReloadKey` is incrementing by checking the preview element `key` attribute in React DevTools.
-
-## Chat Session Isolation via `useChat` ID
-
-When building a chat interface that supports multiple sessions (conversation branches), `chat.setMessages([])` from `@ai-sdk/react` does not reliably clear all messages — `useChat` with an `id` parameter persists messages and may re-add cleared messages from its internal store. Instead, change the `id` to force a fresh chat instance:
-
-```typescript
-const [sessionKey, setSessionKey] = useState(0);
-const chat = useChat({ id: `${projectId}-${sessionKey}`, ... });
-
-// "New session" → fresh chat with no messages
-setSessionKey(k => k + 1);
-```
-
-Each session gets its own chat state, completely isolated from other sessions. Restoring a session uses the saved `MessageSnapshot[]` to reconstruct messages via `chat.setMessages(...)`. Never rely on `chat.setMessages([])` for clearing — it produces inconsistent results with persisted chat transports.
-
-## Per-Project State Isolation
-
-Client-side state stores (Zustand, React state) persist across project switches in the same page session. When switching projects, stale data from the old project can briefly appear, and sync effects can accidentally write old data to the new project's DB.
-
-**Pattern**: Clear + guard + reload:
+When Hermes applies CSS or JS changes to a generated project, Turbopack may not hot-reload them (even with `CHOKIDAR_USEPOLLING`). The fix is a full runtime restart: when `chat.status` transitions from `"streaming"` to `"ready"`, call `restartRuntimeAction` which kills the existing Next.js process and starts a fresh one — guaranteeing a full recompile from disk.
 
 ```typescript
 useEffect(() => {
-  setItems([]);                    // ← clear stale data immediately
-  loadedRef.current = false;        // ← block sync effects during load
-  void (async () => {
-    const rows = await fetchItems(projectId);
-    setItems(rows);
-    loadedRef.current = true;       // ← re-enable sync
-  })();
-}, [projectId]);
-```
-
-**Sync guard**:
-```typescript
-useEffect(() => {
-  if (!loadedRef.current) return;   // ← skip during transition
-  for (const item of items) {
-    void saveItem(item.id, projectId, ...);
+  if (chat.status === "ready" && prevStatusRef.current === "streaming") {
+    const formData = new FormData();
+    formData.append("projectId", projectId);
+    void restartRuntimeAction(formData);
   }
-}, [items, projectId]);
+  prevStatusRef.current = chat.status;
+}, [chat.status, projectId]);
 ```
 
-**DB cascading**: Enable `PRAGMA foreign_keys = ON` in the database client factory so that deleting a parent record cascade-deletes its children. SQLite does not enforce foreign key cascades by default.
+This is preferred over iframe-reload approaches (`previewReloadKey`) because iframe reloads depend on Turbopack detecting the file change and recompiling — which is not guaranteed when files are written by external processes. A runtime restart forces a clean compile. Note: `restartRuntimeAction` calls `revalidatePath` which invalidates the server cache but does not trigger a client-side refresh; the iframe reconnects naturally when the new Next.js process starts serving on the same port.
 
-## Generated CSS Contrast (Dark Mode)
+## Selection Overlay CSS Patterns
 
-The admin-luma template uses a dark gradient background with a sticky header. In dark mode, the original header CSS used `color-mix(in oklch, var(--sidebar) 88%, transparent)` which is nearly identical to the background, making the header invisible. Similarly, the theme-toggle button border used `var(--border)` which is 10% white — nearly invisible on dark backgrounds.
+Inspector overlays in the preview area must remain visible and unclipped. The overlay renders inside the `preview-viewport-frame` div (which has `position: relative` and NO `overflow-hidden`).
 
-**When editing CSS for a generated admin-luma project**, ensure these elements remain visible:
+**Key CSS rules for the label**:
+```css
+.preview-selection-overlay {
+  position: absolute;
+  left: var(--selection-x);
+  top: var(--selection-y);
+  width: var(--selection-width);
+  height: var(--selection-height);
+  border: 2px dashed var(--accent);
+  box-shadow: 0 0 0 9999px rgba(32, 31, 27, 0.08);
+}
 
-- **Admin header**: Use `color-mix(in oklch, var(--sidebar) 92%, var(--background))` for the background (slightly lighter than the shell gradient) and `color-mix(in oklch, var(--sidebar-foreground) 12%, transparent)` for the border-bottom (subtle but visible).
-- **Theme toggle**: Use `color-mix(in oklch, var(--sidebar-foreground) 15%, transparent)` for the border instead of `var(--border)` to ensure visibility in both light and dark modes. Keep `min-width: 7rem` and `font-size: 0.8125rem` to accommodate the "☀️ Light" / "🌙 Dark" labels.
+.preview-selection-label {
+  position: absolute;
+  right: 0;            /* anchor to right edge — extends left, never clipped on the right */
+  top: 0;
+  translate: 0 calc(-100% - 4px);  /* position above the element */
+  display: inline-grid;              /* sizes to content, not parent width */
+  width: max-content;                /* expand to fit longest text */
+  white-space: nowrap;               /* never wrap into narrow columns */
+  max-width: min(22rem, calc(100vw - 2rem));
+  background: var(--foreground);
+  color: var(--background);
+}
+```
 
-## Session Lifecycle & Gateway Sync
+**Do NOT use portal + fixed positioning** for the overlays — it causes them to float above the page without scrolling, and requires `frameRect` offset math. Keep them inside the `preview-viewport-frame` with `position: absolute` so they scroll naturally with the preview content. Tracking updates (every 100ms from `inspector-provider.tsx`) update the `--selection-*` CSS custom properties via `updateSelectedElementRect` in the store.
 
-When the UI creates or switches managed sessions, it sends Hermes gateway commands to keep the agent's context in sync with the UI:
+The `preview-viewport-frame` must NOT have `overflow-hidden` — it was removed because the overlay label (`translate: 0 calc(-100% - 4px)`) extends above the selection box and would be clipped. The outer parent's `overflow-auto` still clips but has `pt-14` (56px) top padding to give the label breathing room.
 
-- **Create**: `/new --yes "apploop:<projectId>:session-N"` — sent after `setSessionKey` on new session
-- **Resume**: `/resume "apploop:<projectId>:<checkpoint-id>"` — sent when switching to a saved session
+## Portal Rendering with SSR Guard
 
-Commands are queued via `sessionCommandRef` and delivered by a `useEffect` watching `sessionKey`. The key change creates a fresh `useChat` instance, ensuring the command goes to the correct session's chat transport.
+When rendering to `document.body` via `createPortal` (e.g., session history dropdowns, tooltips), the call fails during server-side rendering because `document` is not defined.
 
-**Save before switch**: Before switching sessions in the history dropdown, save the current chat's messages to the current session's checkpoint via `updateCheckpointMessages`. This prevents data loss — without it, switching away from a session discards any unsaved messages.
+**Fix**: Gate with a client-side hydration check:
 
-**Message restoration**: After a session switch, don't call `chat.setMessages` on the old instance (it will be replaced). Queue target messages via `sessionMessagesRef` and apply them in the same `useEffect` that sends the gateway command. This loads messages on the new chat instance after the key change.
+```typescript
+const [isClient, setIsClient] = useState(false);
 
-For the full checkpoint architecture, git snapshots, DB schema, and store types, see [`references/chat-checkpoints.md`](references/chat-checkpoints.md).
+useEffect(() => {
+  setIsClient(true);
+}, []);
+
+// Only render portal after client mount
+{isClient && createPortal(<Dropdown />, document.body)}
+```
+
+This pattern is required for session history dropdowns and any UI that must escape `overflow-hidden` parent containers. It was also tried for inspector overlays but later reverted — the overlays work better inside the preview container (see Selection Overlay CSS Patterns above).
+
+## Preview Container Top Padding
+
+The preview area needs enough top padding so that selection labels (positioned above elements) are not clipped by the container's overflow. The current value is `pt-14` (56px) on the outer flex container. If labels are still clipped, increase to `pt-16` or `pt-20`. Do not add `overflow-hidden` to the `preview-viewport-frame` — it clips the labels.

@@ -146,7 +146,7 @@ select {
 }
 
 .preview-selection-overlay {
-  position: fixed;
+  position: absolute;
   left: var(--selection-x, 0);
   top: var(--selection-y, 0);
   width: var(--selection-width, 0);
@@ -162,11 +162,12 @@ select {
 
 .preview-selection-label {
   position: absolute;
-  left: 0;
+  right: 0;
   top: 0;
   translate: 0 calc(-100% - 4px);
-  display: grid;
+  display: inline-grid;
   gap: 0.125rem;
+  width: max-content;
   max-width: min(22rem, calc(100vw - 2rem));
   pointer-events: auto;
   border: 0;
@@ -178,7 +179,7 @@ select {
   font-size: 0.75rem;
   line-height: 1.2;
   font-weight: 600;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
   cursor: copy;
 }
 
