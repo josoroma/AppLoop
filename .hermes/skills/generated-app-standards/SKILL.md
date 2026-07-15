@@ -194,7 +194,38 @@ The preview area `preview-frame.tsx` has three overlay states that should all us
 
 Do not use `bg-white` — it flashes bright white during loading and clashes with the dark preview area.
 
-## Admin-Luma Dark Mode Header Visibility
+## Admin-Luma Header Theming
+
+### Colored Header Backgrounds
+
+When theming admin-luma headers with a color (gold, blue, etc.), use the paired **sidebar-primary** tokens — they provide the header background and a matching contrasting text color in both light and dark modes:
+
+```css
+.admin-header-inner {
+  background: var(--sidebar-primary);           /* colored bg */
+}
+
+.admin-brand,
+.admin-nav a {
+  color: var(--sidebar-primary-foreground);      /* contrasting text */
+}
+
+.theme-toggle {
+  border: 1px solid color-mix(in oklch, var(--sidebar-primary-foreground) 25%, transparent);
+  background: color-mix(in oklch, var(--sidebar-primary-foreground) 8%, transparent);
+  color: var(--sidebar-primary-foreground);
+}
+
+/* hover: subtle tint visible on the colored bg */
+.admin-nav a:hover {
+  background: color-mix(in oklch, var(--sidebar-primary-foreground) 18%, transparent);
+  color: var(--sidebar-primary-foreground);
+}
+```
+
+The `--sidebar-primary` / `--sidebar-primary-foreground` pair is designed for contrast in both light and dark modes (e.g., amber theme: gold bg + near-white text in light mode, brighter gold bg + dark brown text in dark mode). Always use this pair — never mix `--sidebar-primary` background with `--sidebar-foreground` or `--foreground` text, as those tokens are not paired for the same background.
+
+### Dark Mode Header Visibility
 
 The admin-luma template's `.admin-header` in dark mode can be nearly invisible because it blends into the dark gradient background. Fix with explicit contrast:
 
