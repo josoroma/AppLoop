@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useBuilderUiStore, type ChatCheckpoint, type MessageSnapshot } from "@/components/builder/use-builder-ui-store";
+import { useBuilderUiStore, type ChatCheckpoint } from "@/components/builder/use-builder-ui-store";
 import { JsonHighlight } from "@/components/builder/json-highlight";
 import { PreviewFrame } from "@/components/builder/preview-frame";
 import { ChatCheckpoints } from "@/components/builder/chat-checkpoints";
@@ -91,8 +91,7 @@ export function BuilderShell({
   themeOptions,
   validationDepth,
 }: BuilderShellProps) {
-  const [sessionKey, setSessionKey] = useState(0);
-  const chat = useChat<BuilderChatMessage>({ id: `${projectId}-${sessionKey}`, messages: initialMessages, transport: chatTransport });
+  const chat = useChat<BuilderChatMessage>({ id: projectId, messages: initialMessages, transport: chatTransport });
   const chatPanelRef = usePanelRef();
   const previewPanelRef = usePanelRef();
   const hydratedClient = useHydratedClient();
@@ -118,24 +117,7 @@ export function BuilderShell({
   const setCheckpoints = useBuilderUiStore((state) => state.setCheckpoints);
   const chatBusy = chat.status === "submitted" || chat.status === "streaming";
   const hasInitialSessionRef = useRef(false);
-  const sessionMessagesRef = useRef<MessageSnapshot[] | null>(null);
   const checkpointsLoadedRef = useRef(false);
-
-  // Handle session switch: load stored messages after new chat instance is ready
-  useEffect(() => {
-    if (sessionMessagesRef.current) {
-      const msgs = sessionMessagesRef.current;
-
-      sessionMessagesRef.current = null;
-      chat.setMessages(
-        msgs.map((m) => ({
-          id: m.id,
-          role: m.role,
-          parts: [{ type: "text" as const, text: m.content }],
-        } as BuilderChatMessage)),
-      );
-    }
-  }, [sessionKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleClipboardPasteStable = useCallback(
     async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -396,7 +378,7 @@ export function BuilderShell({
 
                   saveCheckpoint(`Session ${sessionNum}`, messageIds, hash, true, messageSnapshots);
                   useBuilderUiStore.getState().checkpoints.forEach((cp) => !cp.isSessionBoundary && useBuilderUiStore.getState().removeCheckpoint(cp.id));
-                  setSessionKey((k) => k + 1);
+                  chat.setMessages([]);
                   clearSelectedElements();
                   clearScreenshots();
                   hasInitialSessionRef.current = false;
@@ -412,17 +394,15 @@ export function BuilderShell({
                       .map((m) => ({ id: m.id, role: m.role as "user" | "assistant", content: getMessageText(m) }));
 
                     useBuilderUiStore.getState().updateCheckpointMessages(currentSession.id, currentMsgs);
-                    setSessionKey((k) => k + 1);
-                    sessionMessagesRef.current = cp.messages;
-                  } else {
-                    chat.setMessages(
-                      cp.messages.map((m) => ({
-                        id: m.id,
-                        role: m.role,
-                        parts: [{ type: "text" as const, text: m.content }],
-                      } as BuilderChatMessage)),
-                    );
                   }
+
+                  chat.setMessages(
+                    cp.messages.map((m) => ({
+                      id: m.id,
+                      role: m.role,
+                      parts: [{ type: "text" as const, text: m.content }],
+                    } as BuilderChatMessage)),
+                  );
 
                   loadCheckpoint(cp.id);
                 }}

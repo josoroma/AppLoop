@@ -107,6 +107,7 @@ export type ChatCheckpoint = {
 | `loadCheckpoint` | `(id) => ChatCheckpoint?` | Returns cp and restores targets/screenshots |
 | `removeCheckpoint` | `(id)` | Removes from store + DB via `deleteChatCheckpoint` |
 | `setCheckpoints` | `(checkpoints[])` | Full replace (used on initial DB load) |
+| `updateCheckpointMessages` | `(id, messages: MessageSnapshot[])` | Updates messages + messageIds for a checkpoint (used when saving current session before switching) |
 | `checkpoints` | `ChatCheckpoint[]` | Read-only array |
 
 ## DB Persistence
@@ -152,7 +153,13 @@ Server actions in `lib/chat/file-snapshot.ts`:
 
 ## Pitfalls
 
-- **Session vs checkpoint**: Only `isSessionBoundary: true` entries appear in history. Prompt checkpoints exist only for edit/resend rollback. The chips ("Prompt 1", etc.) are NOT rendered in the UI.
+- **useChat id IS the API projectId**: DO NOT append sessionKey to the useChat id. The hook sends body.id to /api/chat, and the route uses it as projectId for requireProjectAccess(). A mangled ID like projectId-0 fails with "Project access denied". Session isolation uses chat.setMessages([]) on new session and chat.setMessages(snapshots) on restore — never separate useChat instances.
+
+- **Per-project checkpoint loading**: On project switch, setCheckpoints([]) must be called FIRST to clear stale data, then checkpointsLoadedRef.current = false to prevent the sync effect from firing during load. After loading completes, set the ref back to true. The sync effect (saveChatCheckpoint) guards with if (!checkpointsLoadedRef.current) return to avoid saving old-project checkpoints to the new project DB.
+
+- **SQLite foreign keys OFF by default**: Add PRAGMA foreign_keys = ON in createDatabaseClient() (lib/db/index.ts). Without it, cascade deletes on chat_checkpoints.project_id don't execute when projects are deleted. Manual cleanup: DELETE FROM chat_checkpoints WHERE project_id NOT IN (SELECT id FROM projects).
+
+- **Session vs checkpoint**: Only isSessionBoundary: true entries appear in history. Prompt checkpoints exist only for edit/resend rollback. The chips (Prompt 1, etc.) are NOT rendered in the UI.
 
 - **Message snapshots enable cross-session restore**: `messages: MessageSnapshot[]` stores full content at session creation. When restoring, `chat.setMessages()` reconstructs from snapshots — works even when current chat is empty. Without snapshots, restoring would show 0 messages.
 

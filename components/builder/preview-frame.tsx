@@ -409,7 +409,7 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
             {selectedElements.length > 0 ? `Selected ${selectedElements.length} target${selectedElements.length > 1 ? "s" : ""}` : overlaySelections.length > 0 ? `Inspecting ${getClassNameLabel(overlaySelections[0])}` : runtimeCopy.title}
           </div>
           {isLoading && canLoadPreview ? (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/80 text-sm text-muted-foreground">
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/80 text-sm text-muted-foreground">
               <Loader2 className="mr-2 size-4 animate-spin" />
               Loading preview
             </div>
@@ -420,7 +420,7 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
             </div>
           ) : null}
           {showFailure ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white p-6 text-center text-sm">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black p-6 text-center text-sm">
               <p className="font-medium text-foreground">{frameError ? "Iframe load failed" : runtimeCopy.title}</p>
               <p className="mt-2 max-w-sm text-muted-foreground">
                 {frameError ?? runtimeCopy.detail}
@@ -428,7 +428,7 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
             </div>
           ) : null}
           {!showFailure && !canLoadPreview ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white p-6 text-center text-sm">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black p-6 text-center text-sm">
               <p className="font-medium text-foreground">{runtimeCopy.title}</p>
               <p className="mt-2 max-w-sm text-muted-foreground">{runtimeCopy.detail}</p>
             </div>

@@ -1,45 +1,28 @@
-# Hermes Session Sync
+# Hermes Session Sync (Removed)
 
-When the user creates a "New session" in AppLoop, the UI session must be synced with Hermes's session mechanism. Hermes maintains its own conversation context, identified by a `sessionId`. Creating a new UI session should also start a fresh Hermes conversation.
+## What was attempted
 
-## Mechanism
+The chat-checkpoints system tried to sync UI sessions with Hermes gateway sessions by sending `/new --yes "apploop:projectId:session-N"` and `/resume "apploop:projectId:checkpointId"` commands through the chat transport.
 
-1. User clicks "New session" → `sessionKey` increments → new `useChat` instance with fresh `id`
-2. A `/new --yes Session N` command is queued in `sessionCommandRef`
-3. A `useEffect` watching `sessionKey` sends the queued command via `chat.sendMessage({ text: cmd })`
-4. Hermes processes `/new --yes Session N`, creates a new Hermes session, and returns the new `sessionId` via a `session` event in the streaming response
-5. The chat route (`app/api/chat/route.ts`) catches the `session` event and calls `repository.updateProjectHermesSession(projectId, event.sessionId)`
+## Why it failed
 
-## Code Pattern
+1. **Project access denied**: The `/new` command was sent as a regular chat message. Hermes processed it but the session context didn't match, resulting in "Project access denied" errors on subsequent real messages.
 
-```typescript
-// In builder-shell.tsx:
+2. **Chat route conflicts**: `/api/chat` already handles Hermes session creation automatically via `sessionId: resolveHermesSessionId(project.hermesSessionId)`. Sending explicit `/new` commands conflicted with this flow.
 
-const [sessionKey, setSessionKey] = useState(0);
-const sessionCommandRef = useRef<string | null>(null);
+3. **Timing issues**: The session command sent after `setSessionKey` fires on the new chat instance, but the instance may not be ready or the command may process before the session boundary is properly set.
 
-// Send /new command when session changes
-useEffect(() => {
-  if (sessionCommandRef.current) {
-    const cmd = sessionCommandRef.current;
-    sessionCommandRef.current = null;
-    void chat.sendMessage({ text: cmd });
-  }
-}, [sessionKey]);
+## What works instead
 
-// In the "New session" handler:
-setSessionKey((k) => k + 1);
-sessionCommandRef.current = `/new --yes Session ${sessionNum}`;
-```
+The chat route's built-in session management:
+- `hermesSessionId` starts as `reserved:projectId`
+- First message → `sessionId: null` (reserved prefix stripped)
+- Hermes auto-creates session, returns real ID via `session` event
+- Route updates `hermesSessionId` for subsequent messages
 
-## Session ID Flow
+UI session isolation uses `chat.setMessages([])` for new sessions and `chat.setMessages(snapshots)` for restore. No gateway commands needed.
 
-```
-Project creation → reserveHermesSessionId(projectId) → "reserved:{projectId}"
-First chat message → sessionId: null (reserved prefix stripped by resolveHermesSessionId)
-Hermes responds → session event with real sessionId
-Route handler → updateProjectHermesSession(projectId, realSessionId)
-Subsequent messages → sessionId: realSessionId (maintains context)
+## Files
 
-"New session" → /new --yes Session N → new Hermes sessionId returned → same flow
-```
+- `app/api/chat/route.ts` — `resolveHermesSessionId`, `session` event handler
+- `lib/projects/service.ts` — `reserveHermesSessionId`
