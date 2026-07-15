@@ -466,7 +466,8 @@ export function BuilderShell({
               className="border-t bg-card p-4"
               onSubmit={async (event) => {
                 event.preventDefault();
-                const formData = new FormData(event.currentTarget);
+                const form = event.currentTarget;
+                const formData = new FormData(form);
                 const prompt = String(formData.get("prompt") ?? "").trim();
 
                 if (prompt.length > 0 || attachedScreenshots.length > 0) {
@@ -489,7 +490,7 @@ export function BuilderShell({
                       url: s.serverPath,
                     })),
                   });
-                  event.currentTarget.reset();
+                  form.reset();
                   clearScreenshots();
                   clearSelectedElements();
                 }
