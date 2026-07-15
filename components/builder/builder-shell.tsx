@@ -14,12 +14,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useBuilderUiStore } from "@/components/builder/use-builder-ui-store";
+import { useBuilderUiStore, type ChatCheckpoint } from "@/components/builder/use-builder-ui-store";
 import { JsonHighlight } from "@/components/builder/json-highlight";
 import { PreviewFrame } from "@/components/builder/preview-frame";
 import { ChatCheckpoints } from "@/components/builder/chat-checkpoints";
 import { HermesContextUsage } from "@/components/builder/hermes-context-usage";
 import { createFileSnapshot, revertToFileSnapshot } from "@/lib/chat/file-snapshot";
+import { listChatCheckpoints, saveChatCheckpoint, deleteChatCheckpoint } from "@/lib/chat/checkpoint-actions";
 import { getBuilderLayoutStorageKey, groupHermesActivities, parseBuilderSplitLayout, serializeBuilderSplitLayout } from "@/lib/builder/ux";
 import type { BuilderChatMessage } from "@/lib/chat/messages";
 import { getMessageText } from "@/lib/chat/messages";
@@ -113,6 +114,7 @@ export function BuilderShell({
   const saveCheckpoint = useBuilderUiStore((state) => state.saveCheckpoint);
   const loadCheckpoint = useBuilderUiStore((state) => state.loadCheckpoint);
   const checkpoints = useBuilderUiStore((state) => state.checkpoints);
+  const setCheckpoints = useBuilderUiStore((state) => state.setCheckpoints);
   const chatBusy = chat.status === "submitted" || chat.status === "streaming";
   const hasInitialSessionRef = useRef(false);
 
@@ -201,6 +203,29 @@ export function BuilderShell({
       window.localStorage.setItem(getBuilderLayoutStorageKey(projectId), serializeBuilderSplitLayout({ chat: chatSize, preview: previewSize }));
     }
   }
+
+  useEffect(() => {
+    void (async () => {
+      const rows = await listChatCheckpoints(projectId);
+
+      setCheckpoints(
+        rows.map((row) => {
+          const data = JSON.parse(row.dataJson) as ChatCheckpoint;
+
+          return { ...data, id: row.id, name: row.name, isSessionBoundary: row.isSessionBoundary, createdAt: Number(row.createdAt) };
+        }),
+      );
+    })();
+  }, [projectId, setCheckpoints]);
+
+  useEffect(() => {
+    const currentIds = new Set(checkpoints.map((cp) => cp.id));
+
+    // Persist each checkpoint to DB
+    for (const cp of checkpoints) {
+      void saveChatCheckpoint(cp.id, projectId, cp.name, cp.isSessionBoundary, JSON.stringify(cp));
+    }
+  }, [checkpoints, projectId]);
 
   useEffect(() => {
     window.localStorage.setItem("apploop:last-opened-project", projectId);

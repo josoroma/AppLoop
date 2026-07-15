@@ -252,4 +252,11 @@ See `references/chat-checkpoints.md` for architecture, store API, component stru
 
   2. **Preview overlays** (selection labels, hover indicators): Use `createPortal` to `document.body` with a `position: fixed; inset: 0; pointer-events: none` wrapper. Individual `SelectionOverlay` components use `position: fixed` with coordinates offset by the viewport frame's bounding rect: `frameRect.left + selection.boundingRect.x`, `frameRect.top + selection.boundingRect.y`. This places the overlay in screen coordinates, completely outside any overflow containers. The CSS in `globals.css` uses `position: fixed; left: var(--selection-x); top: var(--selection-y)` instead of `position: absolute`. `SelectionOverlay` takes a `viewportFrameRef: React.RefObject<HTMLDivElement>` parameter to compute the offset. See `preview-frame.tsx`.
 
+  **SSR guard required**: `createPortal(..., document.body)` fails during SSR with `document is not defined`. Always gate with a client hydration check:
+  ```typescript
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => { setIsClient(true); }, []);
+  {isClient && createPortal(<Overlay />, document.body)}
+  ```
+
   Never try to fix clipping with `z-index` alone — it does not work across overflow boundaries.

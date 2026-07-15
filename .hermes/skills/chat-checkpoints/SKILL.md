@@ -1,12 +1,12 @@
 ---
 name: chat-checkpoints
-description: "Use when working with AppLoop's chat checkpoint system: auto-save, git file snapshots, edit & resend, new session, and state restoration."
-version: 1.0.0
+description: "Use when working with AppLoop's chat checkpoint system: auto-save, git file snapshots, edit & resend, new session, DB persistence, and state restoration."
+version: 2.0.0
 author: AppLoop
 license: MIT
 metadata:
   hermes:
-    tags: [checkpoints, git, rollback, state-restoration, edit-resend]
+    tags: [checkpoints, git, rollback, state-restoration, edit-resend, db-persistence, sessions]
     related_skills: [visual-selector, generated-app-standards, project-runtime]
 ---
 
@@ -14,106 +14,150 @@ metadata:
 
 ## Overview
 
-The builder automatically creates checkpoints on every prompt submit. Each checkpoint captures the conversation state (messages, inspect-mode targets, screenshots) and a git commit hash in the generated project workspace. This enables file-level rollback on restore.
+The builder automatically creates checkpoints on every prompt submit. Each checkpoint captures the conversation state (messages, inspect-mode targets, screenshots) and a git commit hash in the generated project workspace for file-level rollback on restore.
+
+**Session boundaries** mark logical groupings of checkpoints. Only sessions appear in the history dropdown; individual prompt checkpoints are hidden from the UI. Sessions store **full message snapshots** so that restoring a session shows exactly the messages that existed when it was created, even after the chat was cleared.
+
+All checkpoints are persisted to the SQLite database (`chat_checkpoints` table) and loaded on project page mount.
 
 ## When to Use
 
 - Adding or modifying checkpoint behavior in builder-shell.tsx or chat-checkpoints.tsx
-- Debugging checkpoint restore failures (messages not truncated, files not reverted, targets not restored)
-- Adding git-based file snapshots to a new project workflow
-- Understanding the auto-checkpoint flow or edit & resend architecture
+- Debugging checkpoint restore failures (messages not truncated, files not reverted)
+- Working with the session boundary system (isSessionBoundary, message snapshots)
+- Understanding DB persistence and initial load flow
 
 ## Architecture
 
-### Data Flow
+### Prompt Submit (auto-checkpoint)
 
 ```
 User presses Send
   │
-  ├─► createFileSnapshot(projectId)  ← server action: git add -A && git commit
-  │     └─► returns commit hash (or null if git unavailable)
+  ├─► createFileSnapshot(projectId)  ← git add -A && git commit
   │
-  ├─► saveCheckpoint(name, messageIds, hash)  ← Zustand store
-  │     └─► stores { id, name, targets, screenshots, messageIds, commitHash }
+  ├─► saveCheckpoint("Prompt N", messageIds, hash, false)  ← hidden from UI
   │
-  └─► chat.sendMessage(...)  ← sends prompt to Hermes
+  └─► chat.sendMessage(...)
 ```
 
-### Restore Flow (Edit & Resend)
-
-```
-User clicks "Edit & Resend" on a past user message
-  │
-  ├─► Find checkpoint whose messageIds include this message id
-  │
-  ├─► If checkpoint found:
-  │     ├─► revertToFileSnapshot(projectId, commitHash)  ← git reset --hard
-  │     ├─► chat.setMessages(messages up to checkpoint)
-  │     ├─► loadCheckpoint(cp.id)  ← restores targets + screenshots
-  │     └─► Pre-fill textarea with original prompt text
-  │
-  └─► If no checkpoint:
-        ├─► Truncate messages to before this message
-        └─► Pre-fill textarea
-```
-
-### New Session Flow
+### New Session
 
 ```
 User clicks "New session"
   │
-  ├─► Restore first checkpoint's file state (if exists)
-  ├─► Remove all checkpoints from store
+  ├─► Capture current messages as MessageSnapshot[]
+  ├─► saveCheckpoint("Session N", messageIds, hash, true, messageSnapshots)
+  ├─► Remove non-session checkpoints (isSessionBoundary: false)
   ├─► chat.setMessages([])
   └─► clearSelectedElements(), clearScreenshots()
 ```
 
-## Store API
+### Session Restore (via history dropdown)
 
-The `useBuilderUiStore` Zustand store manages checkpoints:
+```
+User clicks session in history
+  │
+  ├─► revertToFileSnapshot(projectId, cp.commitHash)  ← git reset --hard
+  │
+  ├─► If cp.messages.length > 0:
+  │      chat.setMessages(reconstruct from MessageSnapshot[])
+  │      (works even when current chat is empty)
+  │
+  └─► loadCheckpoint(cp.id) — restores targets + screenshots
+```
+
+### Edit & Resend
+
+```
+User clicks "Edit & Resend" on a past user message
+  │
+  ├─► Find checkpoint with matching messageIds
+  ├─► revertToFileSnapshot → truncate chat → restore targets/screenshots
+  └─► Pre-fill textarea with original prompt (splits on "Target classnames")
+```
+
+## Types
+
+```ts
+export type MessageSnapshot = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;  // getMessageText() output
+};
+
+export type ChatCheckpoint = {
+  id: string;
+  name: string;
+  createdAt: number;         // epoch ms
+  targets: VisualSelection[];
+  screenshots: ScreenshotAttachment[];
+  messageIds: string[];
+  commitHash: string | null;
+  isSessionBoundary: boolean; // true → visible in history, false → hidden
+  messages: MessageSnapshot[]; // only populated on session boundaries
+};
+```
+
+## Store API
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `saveCheckpoint` | `(name, messageIds, commitHash?)` | Creates a new checkpoint with current state |
-| `loadCheckpoint` | `(id) => ChatCheckpoint?` | Returns checkpoint and restores targets/screenshots |
-| `removeCheckpoint` | `(id)` | Removes one checkpoint |
-| `checkpoints` | `ChatCheckpoint[]` | Read-only array of all checkpoints |
+| `saveCheckpoint` | `(name, messageIds, commitHash?, isSessionBoundary?, messages?)` | Creates checkpoint, triggers DB upsert |
+| `loadCheckpoint` | `(id) => ChatCheckpoint?` | Returns cp and restores targets/screenshots |
+| `removeCheckpoint` | `(id)` | Removes from store + DB via `deleteChatCheckpoint` |
+| `setCheckpoints` | `(checkpoints[])` | Full replace (used on initial DB load) |
+| `checkpoints` | `ChatCheckpoint[]` | Read-only array |
 
-`ChatCheckpoint` type:
-```ts
-type ChatCheckpoint = {
-  id: string;           // e.g. "cp-1721000000000-1"
-  name: string;         // e.g. "Prompt 3" or user-given name
-  createdAt: number;    // Date.now() timestamp
-  targets: VisualSelection[];
-  screenshots: ScreenshotAttachment[];
-  messageIds: string[]; // IDs of user + assistant messages at checkpoint time
-  commitHash: string | null; // git commit hash for file rollback
-};
-```
+## DB Persistence
+
+Table: `chat_checkpoints` (see `lib/db/schema.ts`)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | text (PK) | e.g. "cp-1721000000-1" |
+| projectId | text (FK) | Project reference |
+| name | text | Display name |
+| isSessionBoundary | boolean | 1 for sessions, 0 for auto-checkpoints |
+| dataJson | text | Full ChatCheckpoint as JSON |
+| createdAt | integer | Epoch ms |
+
+**Load on mount**: `listChatCheckpoints(projectId)` → `JSON.parse(dataJson)` → `setCheckpoints()`.
+Timestamp conversion: DB returns `createdAt` as a number (Drizzle `timestamp_ms` mode). Use `Number(row.createdAt)` when hydrating.
+
+**Save**: Every `saveCheckpoint` triggers `saveChatCheckpoint(id, projectId, name, isSessionBoundary, JSON.stringify(cp))` via a useEffect watching `checkpoints`.
+
+**Delete**: `removeCheckpoint` calls `deleteChatCheckpoint(id)` directly from the store action.
+
+Server actions: `lib/chat/checkpoint-actions.ts`
 
 ## Git File Snapshots
 
 Server actions in `lib/chat/file-snapshot.ts`:
 
-- `createFileSnapshot(projectId)` — runs `git add -A && git commit --allow-empty` in the generated project's workspace. Auto-initializes git if needed. Returns commit hash or null.
-- `revertToFileSnapshot(projectId, commitHash)` — runs `git reset --hard <hash> && git clean -fd`. Discards ALL uncommitted changes. Returns boolean success.
-
-**Important**: These are server actions — they must be called via `await`. They operate on the generated project's filesystem, not the builder's.
+- `createFileSnapshot(projectId)` — `git add -A && git commit --allow-empty`. Auto-inits git if needed. Returns hash or null.
+- `revertToFileSnapshot(projectId, commitHash)` — `git reset --hard <hash> && git clean -fd`. Discards ALL uncommitted changes.
 
 ## Component Structure
 
-- `chat-checkpoints.tsx` — checkpoint chips, new session button, restore handler
-- `hermes-context-usage.tsx` — context consumption display (token count, bar, compaction/truncation)
-- `builder-shell.tsx` — edit & resend buttons on user messages, auto-checkpoint on submit
-- `use-builder-ui-store.ts` — checkpoint state management
-- `lib/chat/file-snapshot.ts` — server actions for git operations
+| File | Role |
+|------|------|
+| `chat-checkpoints.tsx` | "New" button + session history dropdown trigger + latest session indicator |
+| `session-history.tsx` | Portal-rendered paginated dropdown (only shows isSessionBoundary entries) |
+| `use-builder-ui-store.ts` | Checkpoint state, DB sync, remove → deleteChatCheckpoint |
+| `builder-shell.tsx` | Auto-checkpoint on submit, edit & resend, new session, DB load/restore |
+| `lib/chat/checkpoint-actions.ts` | Server actions: list, save, delete |
+| `lib/chat/file-snapshot.ts` | Server actions: git commit, git reset |
+| `lib/db/schema.ts` | `chatCheckpoints` table |
 
 ## Pitfalls
 
-- **Auto-checkpoint timing**: The checkpoint is created BEFORE `chat.sendMessage`. This captures the project state before Hermes makes changes. If created after sending, the Hermes changes would be included in the snapshot.
-- **Git must be available**: `createFileSnapshot` returns null if git is not installed or the workspace is not a git repo. The checkpoint is still saved (with `commitHash: null`) — file rollback just won't work.
-- **Existing uncommitted changes**: `revertToFileSnapshot` uses `git reset --hard` which discards ALL uncommitted changes. Ensure no important uncommitted work exists in the generated project workspace when restoring.
-- **Import builder-shell as client component**: `createFileSnapshot` and `revertToFileSnapshot` are server actions. They can be called from client components but must be awaited.
-- **Message ID matching**: When restoring, the checkpoint's `messageIds` are used to filter `chat.messages`. If message IDs don't match (e.g., after a page reload), the restored conversation may be incomplete. Checkpoints are session-scoped and don't survive page reloads.
-- **New session clears everything**: The "New session" button removes ALL checkpoints and clears the chat. There is no undo. If the user wants to save the session state, they should note it before clicking.
+- **Session vs checkpoint**: Only `isSessionBoundary: true` entries appear in history. Prompt checkpoints exist only for edit/resend rollback. The chips ("Prompt 1", etc.) are NOT rendered in the UI.
+
+- **Message snapshots enable cross-session restore**: `messages: MessageSnapshot[]` stores full content at session creation. When restoring, `chat.setMessages()` reconstructs from snapshots — works even when current chat is empty. Without snapshots, restoring would show 0 messages.
+
+- **New session clears non-session checkpoints only**: `cp.isSessionBoundary && removeCheckpoint(cp.id)` — session boundaries persist across new sessions.
+
+- **Async form handler**: Capture `const form = event.currentTarget` BEFORE `await createFileSnapshot()`. React nulls synthetic events after async calls.
+
+- **Timestamp conversion**: DB `createdAt` is a number (Drizzle `timestamp_ms`). Convert to store type with `Number(row.createdAt)`.

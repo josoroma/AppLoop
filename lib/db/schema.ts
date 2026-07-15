@@ -173,12 +173,28 @@ export const screenshots = sqliteTable(
   (table) => [index("screenshots_project_id_idx").on(table.projectId)],
 );
 
+export const chatCheckpoints = sqliteTable(
+  "chat_checkpoints",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    isSessionBoundary: integer("is_session_boundary", { mode: "boolean" }).notNull().default(false),
+    dataJson: text("data_json").notNull(),
+    createdAt: timestamps.createdAt,
+  },
+  (table) => [index("chat_checkpoints_project_id_idx").on(table.projectId)],
+);
+
 export const projectRelations = relations(projects, ({ one, many }) => ({
   runtime: one(runtimes),
   theme: one(projectThemes),
   settings: one(projectSettings),
   conversations: many(conversations),
   runs: many(runs),
+  checkpoints: many(chatCheckpoints),
 }));
 
 export const conversationRelations = relations(conversations, ({ one, many }) => ({
@@ -223,3 +239,5 @@ export type Run = typeof runs.$inferSelect;
 export type NewRun = typeof runs.$inferInsert;
 export type Screenshot = typeof screenshots.$inferSelect;
 export type NewScreenshot = typeof screenshots.$inferInsert;
+export type ChatCheckpointRow = typeof chatCheckpoints.$inferSelect;
+export type NewChatCheckpointRow = typeof chatCheckpoints.$inferInsert;

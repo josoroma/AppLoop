@@ -43,6 +43,13 @@
       "when": 1784088000000,
       "tag": "0005_screenshots",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784117338374,
+      "tag": "0006_chat_checkpoints",
+      "breakpoints": true
     }
   ]
 }

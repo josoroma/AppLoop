@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import type { ScreenshotAttachment, VisualSelection } from "@/lib/visual-selector/types";
+import { deleteChatCheckpoint } from "@/lib/chat/checkpoint-actions";
 
 /** Serializable message snapshot for session restore. */
 export type MessageSnapshot = {
@@ -45,6 +46,7 @@ type BuilderUiState = {
   saveCheckpoint: (name: string, messageIds: string[], commitHash?: string | null, isSessionBoundary?: boolean, messages?: MessageSnapshot[]) => void;
   loadCheckpoint: (id: string) => ChatCheckpoint | undefined;
   removeCheckpoint: (id: string) => void;
+  setCheckpoints: (checkpoints: ChatCheckpoint[]) => void;
 };
 
 let checkpointCounter = 0;
@@ -128,8 +130,12 @@ export const useBuilderUiStore = create<BuilderUiState>((set, get) => ({
 
     return checkpoint;
   },
-  removeCheckpoint: (id) =>
+  removeCheckpoint: (id) => {
+    void deleteChatCheckpoint(id);
+
     set((state) => ({
       checkpoints: state.checkpoints.filter((cp) => cp.id !== id),
-    })),
+    }));
+  },
+  setCheckpoints: (checkpoints) => set({ checkpoints }),
 }));
