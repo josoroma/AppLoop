@@ -339,12 +339,18 @@ export function BuilderShell({
             <div className="border-b px-4 py-2">
               <ChatCheckpoints
                 onNewSession={async () => {
-                  const messageIds = chat.messages
-                    .filter((m) => m.role === "user" || m.role === "assistant")
-                    .map((m) => m.id);
+                  const currentMessages = chat.messages
+                    .filter((m) => m.role === "user" || m.role === "assistant");
+                  const messageIds = currentMessages.map((m) => m.id);
+                  const messageSnapshots = currentMessages.map((m) => ({
+                    id: m.id,
+                    role: m.role as "user" | "assistant",
+                    content: getMessageText(m),
+                  }));
                   const hash = await createFileSnapshot(projectId);
+                  const sessionNum = checkpoints.filter((cp) => cp.isSessionBoundary).length + 1;
 
-                  saveCheckpoint(`Session ${checkpoints.filter((cp) => cp.isSessionBoundary).length + 1}`, messageIds, hash, true);
+                  saveCheckpoint(`Session ${sessionNum}`, messageIds, hash, true, messageSnapshots);
                   useBuilderUiStore.getState().checkpoints.forEach((cp) => !cp.isSessionBoundary && useBuilderUiStore.getState().removeCheckpoint(cp.id));
                   chat.setMessages([]);
                   clearSelectedElements();
@@ -352,9 +358,20 @@ export function BuilderShell({
                   hasInitialSessionRef.current = false;
                 }}
                 onRestoreCheckpoint={(cp) => {
-                  const idSet = new Set(cp.messageIds);
+                  if (cp.messages.length > 0) {
+                    chat.setMessages(
+                      cp.messages.map((m) => ({
+                        id: m.id,
+                        role: m.role,
+                        parts: [{ type: "text" as const, text: m.content }],
+                      } as BuilderChatMessage)),
+                    );
+                  } else {
+                    const idSet = new Set(cp.messageIds);
 
-                  chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
+                    chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
+                  }
+
                   loadCheckpoint(cp.id);
                 }}
                 projectId={projectId}
@@ -481,11 +498,6 @@ export function BuilderShell({
                     .filter((m) => m.role === "user" || m.role === "assistant")
                     .map((m) => m.id);
                   const hash = await createFileSnapshot(projectId);
-
-                  if (!hasInitialSessionRef.current) {
-                    hasInitialSessionRef.current = true;
-                    saveCheckpoint("Session 1", messageIds, hash, true);
-                  }
 
                   saveCheckpoint(`Prompt ${checkpoints.length + 1}`, messageIds, hash, false);
 

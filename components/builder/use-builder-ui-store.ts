@@ -3,16 +3,25 @@
 import { create } from "zustand";
 import type { ScreenshotAttachment, VisualSelection } from "@/lib/visual-selector/types";
 
+/** Serializable message snapshot for session restore. */
+export type MessageSnapshot = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+};
+
 export type ChatCheckpoint = {
   id: string;
   name: string;
   createdAt: number;
   targets: VisualSelection[];
   screenshots: ScreenshotAttachment[];
+  /** Message IDs at time of checkpoint (before prompt was sent). */
   messageIds: string[];
   commitHash: string | null;
-  /** True if this checkpoint represents a session boundary (visible in history). */
   isSessionBoundary: boolean;
+  /** Full message snapshots for session restore (only on session boundaries). */
+  messages: MessageSnapshot[];
 };
 
 type BuilderUiState = {
@@ -33,7 +42,7 @@ type BuilderUiState = {
   attachClipboardImage: (screenshot: ScreenshotAttachment) => void;
   removeScreenshot: (id: string) => void;
   clearScreenshots: () => void;
-  saveCheckpoint: (name: string, messageIds: string[], commitHash?: string | null, isSessionBoundary?: boolean) => void;
+  saveCheckpoint: (name: string, messageIds: string[], commitHash?: string | null, isSessionBoundary?: boolean, messages?: MessageSnapshot[]) => void;
   loadCheckpoint: (id: string) => ChatCheckpoint | undefined;
   removeCheckpoint: (id: string) => void;
 };
@@ -90,7 +99,7 @@ export const useBuilderUiStore = create<BuilderUiState>((set, get) => ({
       attachedScreenshots: state.attachedScreenshots.filter((s) => s.id !== id),
     })),
   clearScreenshots: () => set({ attachedScreenshots: [] }),
-  saveCheckpoint: (name, messageIds, commitHash = null, isSessionBoundary = false) =>
+  saveCheckpoint: (name, messageIds, commitHash = null, isSessionBoundary = false, messages = []) =>
     set((state) => {
       checkpointCounter += 1;
       const checkpoint: ChatCheckpoint = {
@@ -102,6 +111,7 @@ export const useBuilderUiStore = create<BuilderUiState>((set, get) => ({
         messageIds,
         commitHash,
         isSessionBoundary,
+        messages,
       };
 
       return { checkpoints: [...state.checkpoints, checkpoint] };
