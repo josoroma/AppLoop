@@ -67,7 +67,23 @@ User clicks session in history
   └─► loadCheckpoint(cp.id) — restores targets + screenshots
 ```
 
-### Edit & Resend
+### After Each Hermes Response (session persistence)
+
+```
+chat.status goes from "streaming" → "ready"
+  │
+  ├─► restartRuntimeAction(formData)   ← full restart for CSS hot reload
+  │     (restartRuntimeAction kills the old Next.js process and
+  │      starts a fresh one — more reliable than iframe reload
+  │      for picking up CSS changes from Hermes file writes)
+  │
+  └─► Capture current chat.messages as MessageSnapshot[]
+      Persist to current session boundary checkpoint via updateCheckpointMessages()
+```
+
+This ensures session state is durable across page refreshes — the current session's messages are saved after every prompt.
+
+### Edit & Resend (Restore + Edit as separate buttons)
 
 ```
 User clicks "Edit & Resend" on a past user message
@@ -167,4 +183,10 @@ Server actions in `lib/chat/file-snapshot.ts`:
 
 - **Async form handler**: Capture `const form = event.currentTarget` BEFORE `await createFileSnapshot()`. React nulls synthetic events after async calls.
 
+- **Async form handler**: Capture `const form = event.currentTarget` BEFORE `await createFileSnapshot()`. React nulls synthetic events after async calls.
+
 - **Timestamp conversion**: DB `createdAt` is a number (Drizzle `timestamp_ms`). Convert to store type with `Number(row.createdAt)`.
+
+- **Runtime restart for CSS hot reload**: After Hermes writes CSS files, Turbopack may serve stale compiled output even with CHOKIDAR_USEPOLLING. Use `restartRuntimeAction` (full kill + start) instead of iframe reload (`previewReloadKey`) to guarantee CSS changes are picked up. Restart runs in the same useEffect that captures session messages after each Hermes response.
+
+- **Separate Restore and Edit buttons**: Each user message has two inline buttons. \"Restore\" reverts files/messages/targets without pre-filling the textarea. \"Edit\" also pre-fills the textarea. Both are wrapped in a `<div>` (not inside `<p>` to avoid \"div cannot be a descendant of p\" hydration errors).

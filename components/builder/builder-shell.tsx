@@ -255,6 +255,18 @@ export function BuilderShell({
 
       formData.append("projectId", projectId);
       void restartRuntimeAction(formData);
+
+      // Persist session state after each Hermes response
+      const sessions = useBuilderUiStore.getState().checkpoints.filter((c) => c.isSessionBoundary);
+      const currentSession = sessions[sessions.length - 1];
+
+      if (currentSession) {
+        const currentMsgs = chat.messages
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({ id: m.id, role: m.role as "user" | "assistant", content: getMessageText(m) }));
+
+        useBuilderUiStore.getState().updateCheckpointMessages(currentSession.id, currentMsgs);
+      }
     }
 
     prevStatusRef.current = chat.status;
