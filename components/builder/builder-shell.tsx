@@ -246,15 +246,13 @@ export function BuilderShell({
     void startRuntimeAction(formData);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Restart runtime after Hermes completes a response to pick up CSS/JS changes
+  // Reload preview after Hermes completes a response to pick up CSS/JS changes
+  const [previewReloadKey, setPreviewReloadKey] = useState(0);
   const prevStatusRef = useRef(chat.status);
 
   useEffect(() => {
     if (chat.status === "ready" && prevStatusRef.current === "streaming") {
-      const formData = new FormData();
-
-      formData.append("projectId", projectId);
-      void restartRuntimeAction(formData);
+      setPreviewReloadKey((k) => k + 1);
 
       // Persist session state after each Hermes response
       const sessions = useBuilderUiStore.getState().checkpoints.filter((c) => c.isSessionBoundary);
@@ -723,6 +721,7 @@ export function BuilderShell({
             <PreviewFrame
               defaultRoute={defaultRoute}
               key={projectId}
+              reloadKey={previewReloadKey}
               previewUrl={previewUrl}
               projectId={projectId}
               projectName={projectName}

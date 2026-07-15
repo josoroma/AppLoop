@@ -251,20 +251,28 @@ These changes ensure the header strip and toggle button are always distinguishab
 
 ## Preview Reload After Code Changes
 
-When Hermes applies CSS or JS changes to a generated project, Turbopack may not hot-reload them (even with `CHOKIDAR_USEPOLLING`). The fix is a full runtime restart: when `chat.status` transitions from `"streaming"` to `"ready"`, call `restartRuntimeAction` which kills the existing Next.js process and starts a fresh one — guaranteeing a full recompile from disk.
+When Hermes applies CSS or JS changes to a generated project, Turbopack may serve stale compiled output even with `CHOKIDAR_USEPOLLING`. Use a **cache-bust query parameter** on the iframe URL, NOT a runtime restart. Restarting the runtime (`restartRuntimeAction`) allocates a new port but doesn't always update `projects.preview_port`, creating a mismatch where the iframe loads a dead URL.
 
 ```typescript
+// builder-shell.tsx — after each Hermes response
+const [previewReloadKey, setPreviewReloadKey] = useState(0);
+
 useEffect(() => {
   if (chat.status === "ready" && prevStatusRef.current === "streaming") {
-    const formData = new FormData();
-    formData.append("projectId", projectId);
-    void restartRuntimeAction(formData);
+    setPreviewReloadKey((k) => k + 1);
   }
   prevStatusRef.current = chat.status;
 }, [chat.status, projectId]);
+
+// Pass to PreviewFrame: <PreviewFrame reloadKey={previewReloadKey} ... />
 ```
 
-This is preferred over iframe-reload approaches (`previewReloadKey`) because iframe reloads depend on Turbopack detecting the file change and recompiling — which is not guaranteed when files are written by external processes. A runtime restart forces a clean compile. Note: `restartRuntimeAction` calls `revalidatePath` which invalidates the server cache but does not trigger a client-side refresh; the iframe reconnects naturally when the new Next.js process starts serving on the same port.
+```typescript
+// preview-frame.tsx — append to iframe src
+const frameSrc = `${buildPreviewFrameSrc(previewUrl, route)}${route.includes("?") ? "&" : "?"}_t=${reloadKey}`;
+```
+
+The `?_t=N` parameter changes after every Hermes response, forcing the browser to bypass its cache and fetch fresh CSS/JS. Combined with `CHOKIDAR_USEPOLLING=true` for file watching, this reliably picks up all file changes without port issues. The `reloadKey` is different from the iframe's React `key` prop — the key forces a remount, while `_t` forces a fresh HTTP fetch even within the same iframe instance.
 
 ## Selection Overlay CSS Patterns
 

@@ -67,21 +67,25 @@ User clicks session in history
   └─► loadCheckpoint(cp.id) — restores targets + screenshots
 ```
 
-### After Each Hermes Response (session persistence)
+### After Each Hermes Response (session persistence + hot reload)
 
 ```
 chat.status goes from "streaming" → "ready"
   │
-  ├─► restartRuntimeAction(formData)   ← full restart for CSS hot reload
-  │     (restartRuntimeAction kills the old Next.js process and
-  │      starts a fresh one — more reliable than iframe reload
-  │      for picking up CSS changes from Hermes file writes)
+  ├─► setPreviewReloadKey(k => k + 1)     ← increments cache-bust key
+  │     (Appended to iframe src as ?_t=N — forces fresh CSS/JS load
+  │      without restarting the runtime. Faster and avoids port
+  │      mismatch between projects.preview_port and runtimes.port.
+  │      DO NOT use restartRuntimeAction for this — it allocates
+  │      new ports and leaves the project DB stale.)
   │
   └─► Capture current chat.messages as MessageSnapshot[]
       Persist to current session boundary checkpoint via updateCheckpointMessages()
 ```
 
-This ensures session state is durable across page refreshes — the current session's messages are saved after every prompt.
+The `reloadKey` prop flows from `builder-shell.tsx` → `PreviewFrame.reloadKey` → appended to `frameSrc` as `?_t=N`. Combined with `CHOKIDAR_USEPOLLING=true` in the generated project's `dev` script, CSS changes from Hermes file writes are picked up immediately.
+
+This also ensures session state is durable across page refreshes — the current session's messages are saved after every prompt.
 
 ### Edit & Resend (Restore + Edit as separate buttons)
 
@@ -185,6 +189,6 @@ Server actions in `lib/chat/file-snapshot.ts`:
 
 - **Timestamp conversion**: DB `createdAt` is a number (Drizzle `timestamp_ms`). Convert to store type with `Number(row.createdAt)`.
 
-- **Runtime restart for CSS hot reload**: After Hermes writes CSS files, Turbopack may serve stale compiled output even with CHOKIDAR_USEPOLLING. Use `restartRuntimeAction` (full kill + start) instead of iframe reload (`previewReloadKey`) to guarantee CSS changes are picked up. Restart runs in the same useEffect that captures session messages after each Hermes response.
+- **Cache-bust preview after Hermes response**: Use `previewReloadKey` + `?_t=N` on the iframe src, NOT `restartRuntimeAction`. Runtime restart allocates new ports, creates a mismatch between `projects.preview_port` and `runtimes.port`, and leaves the iframe loading the wrong URL. The cache-bust approach forces a fresh browser load without port changes. Pass `reloadKey` as a prop to PreviewFrame and append it in `frameSrc`.
 
 - **Separate Restore and Edit buttons**: Each user message has two inline buttons. \"Restore\" reverts files/messages/targets without pre-filling the textarea. \"Edit\" also pre-fills the textarea. Both are wrapped in a `<div>` (not inside `<p>` to avoid \"div cannot be a descendant of p\" hydration errors).

@@ -29,6 +29,7 @@ type PreviewFrameProps = {
   projectName: string;
   previewUrl: string;
   defaultRoute: string;
+  reloadKey: number;
   runtimeStatus: "stopped" | "starting" | "running" | "failed";
   runtimeLogs: RuntimeLogEntry[];
   runtimeLogsCollapsed: boolean;
@@ -61,7 +62,7 @@ function readStoredViewport(projectId: string): PreviewViewport {
   return parsePreviewViewport(window.localStorage.getItem(getViewportStorageKey(projectId)));
 }
 
-export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, projectId, projectName, runtimeLogs, runtimeLogsCollapsed, runtimeStatus }: PreviewFrameProps) {
+export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, projectId, projectName, reloadKey, runtimeLogs, runtimeLogsCollapsed, runtimeStatus }: PreviewFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const viewportShellRef = useRef<HTMLDivElement>(null);
   const pendingInspectorRouteRef = useRef<string | null>(null);
@@ -77,7 +78,6 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
   const [routeInput, setRouteInput] = useState(initialRoute);
   const [historyStack, setHistoryStack] = useState([initialRoute]);
   const [historyIndex, setHistoryIndex] = useState(0);
-  const [reloadKey, setReloadKey] = useState(0);
   const [previewNonce, setPreviewNonce] = useState(() => createPreviewNonce());
   const [isLoading, setIsLoading] = useState(runtimeStatus === "running");
   const [frameError, setFrameError] = useState<string | null>(null);
@@ -313,7 +313,6 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
             disabled={!canLoadPreview}
             onClick={() => {
               setPreviewNonce(createPreviewNonce());
-              setReloadKey((key) => key + 1);
               setFrameError(null);
               setIsLoading(runtimeStatus === "running");
             }}
