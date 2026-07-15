@@ -739,8 +739,8 @@ export function BuilderShell({
                 {displayedRuntimeLogs.length === 0 ? (
                   <p className="text-zinc-500">Runtime logs will appear here after the preview starts.</p>
                 ) : (
-                  displayedRuntimeLogs.map((entry) => (
-                    <p key={`${entry.timestamp}-${entry.stream}-${entry.message}`} className="whitespace-pre-wrap">
+                  displayedRuntimeLogs.map((entry, idx) => (
+                    <p key={`${entry.timestamp}-${entry.stream}-${entry.message}-${idx}`} className="whitespace-pre-wrap">
                       <span className="text-zinc-500">{entry.timestamp}</span>{" "}
                       <span className={entry.stream === "stderr" ? "text-red-300" : "text-emerald-300"}>{entry.stream}</span>{" "}
                       {entry.message}
