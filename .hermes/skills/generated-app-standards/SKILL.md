@@ -85,6 +85,68 @@ Do not use this skill to edit AppLoop builder source files.
 - [ ] Route-specific modules use approved route filenames or route-local `components/` folders.
 - [ ] Schemas and actions follow the generated templates and validate structured input.
 
+## Async Form Handler Pitfall (React Synthetic Events)
+
+When an `onSubmit` handler is `async`, React's synthetic events are nulled after any `await`. `event.currentTarget` becomes `null`, causing `Cannot read properties of null (reading 'reset')`.
+
+**Fix**: Capture the form reference BEFORE the first `await`:
+
+```typescript
+// CORRECT
+onSubmit={async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget; // ← capture before await
+  // ... any async calls
+  form.reset();
+}}
+
+// WRONG — event.currentTarget is null after await
+onSubmit={async (event) => {
+  event.preventDefault();
+  const hash = await createFileSnapshot(projectId);
+  event.currentTarget.reset(); // ← null at this point
+}}
+```
+
+This applies to any form handler that calls a server action, `fetch`, or any async operation where the form needs to be accessed afterward.
+
+## Portal Rendering with SSR Guard
+
+When rendering to `document.body` via `createPortal`, the call fails during server-side rendering because `document` is not defined.
+
+**Fix**: Gate with a client-side hydration check:
+
+```typescript
+const [isClient, setIsClient] = useState(false);
+
+useEffect(() => {
+  setIsClient(true);
+}, []);
+
+// Only render portal after client mount
+{isClient && createPortal(<Overlay />, document.body)}
+```
+
+This pattern is required for: inspector overlays, dropdown menus rendered at body level, tooltips, and session history panels that must escape overflow-hidden parent containers.
+
+## CSS Grid Sticky-Bottom Form in Resizable Panels
+
+When a chat panel has a conversation area + sticky-bottom textarea inside a `react-resizable-panels` `<Panel>`, the conventional `flex h-full flex-col` layout fails because `h-full` requires a definite parent height, which the Panel's `flex-basis` percentage does not provide.
+
+**Fix**: Use `position: relative` on the Panel and `absolute inset-0` on the section, then CSS Grid for the internal layout:
+
+```tsx
+<Panel className="relative">
+  <section className="absolute inset-0 grid grid-rows-[auto_1fr_auto]">
+    <div>header</div>                          {/* row 1: auto */}
+    <div className="overflow-y-auto">conv</div> {/* row 2: 1fr, scrolls */}
+    <form>textarea + buttons</form>             {/* row 3: auto, pinned */}
+  </section>
+</Panel>
+```
+
+The `overflow-y-auto` on the middle row handles vertical scrolling; add `overflow-x-hidden` to suppress horizontal scrollbars from long unbroken text.
+
 ## Template Propagation
 
 **Critical pitfall — template mismatch**: Each generated project was created from exactly one template (default or admin-luma). When syncing template files to a generated project, you MUST use the CORRECT template source. Copying the wrong template's `layout.tsx` (e.g. default's `SiteHeader` into an admin-luma project that uses `AdminShell`) causes a missing-module compilation error. The Next.js dev server then hangs in a retry loop, making the preview completely unresponsive (curl times out, but `lsof` shows the port is listening — the process is stuck, not dead).
