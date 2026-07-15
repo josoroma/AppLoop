@@ -44,10 +44,11 @@ describe("E9 visual element selection", () => {
   });
 
   it("strips sensitive text and appends selection context for Hermes", () => {
+    const sel = parseVisualSelection(selection)!;
     expect(stripSensitiveText("token bearer abc.def")).toBe("[redacted]");
-    expect(createVisualSelectionPrompt("Make this compact", parseVisualSelection(selection)!)).toContain('"preferredSelector":".analytics-card"');
-    expect(createVisualSelectionPrompt("Make this compact", parseVisualSelection(selection)!)).toContain("Target classname: .rounded-lg .analytics-card");
-    expect(createVisualSelectionPrompt("Make this compact", parseVisualSelection(selection)!)).toContain("contains the classname selector .analytics-card");
+    expect(createVisualSelectionPrompt("Make this compact", [sel])).toContain('"preferredSelector":".analytics-card"');
+    expect(createVisualSelectionPrompt("Make this compact", [sel])).toContain(".rounded-lg .analytics-card");
+    expect(createVisualSelectionPrompt("Make this compact", [sel, sel])).toContain("EXACT selectors");
   });
 
   it("validates stable inspector id format", () => {

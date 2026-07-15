@@ -119,6 +119,7 @@ export class LocalProcessRuntimeProvider implements ProjectRuntimeProvider {
     trackedProcess.expectedExit = true;
     terminateProcessTree(trackedProcess.process);
     await waitForProcessExit(trackedProcess.process, 5000);
+    await terminateProcessTreeForce(trackedProcess.process);
     this.processes.delete(projectId);
 
     const stoppedDescriptor: RuntimeDescriptor = {
@@ -319,6 +320,22 @@ function terminateProcessTree(childProcess: ChildProcessWithoutNullStreams) {
     }
   } catch {
     childProcess.kill("SIGTERM");
+  }
+}
+
+async function terminateProcessTreeForce(childProcess: ChildProcessWithoutNullStreams) {
+  if (!childProcess.pid || childProcess.killed) {
+    return;
+  }
+
+  try {
+    if (process.platform === "win32") {
+      childProcess.kill("SIGKILL");
+    } else {
+      process.kill(-childProcess.pid, "SIGKILL");
+    }
+  } catch {
+    childProcess.kill("SIGKILL");
   }
 }
 

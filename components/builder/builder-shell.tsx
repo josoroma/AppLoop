@@ -96,24 +96,17 @@ export function BuilderShell({
   const [previewScreenshot, setPreviewScreenshot] = useState<ScreenshotAttachment | null>(null);
   const displayedRuntimeLogs = liveRuntimeLogs.length === 0 ? runtimeLogs : liveRuntimeLogs;
   const inspectorEnabled = useBuilderUiStore((state) => state.inspectorEnabled);
-  const selectedElement = useBuilderUiStore((state) => state.selectedElement);
+  const selectedElements = useBuilderUiStore((state) => state.selectedElements);
   const settingsOpen = useBuilderUiStore((state) => state.settingsOpen);
   const attachedScreenshots = useBuilderUiStore((state) => state.attachedScreenshots);
-  const clearSelectedElement = useBuilderUiStore((state) => state.clearSelectedElement);
+  const clearSelectedElements = useBuilderUiStore((state) => state.clearSelectedElements);
+  const removeSelectedElement = useBuilderUiStore((state) => state.removeSelectedElement);
   const toggleInspector = useBuilderUiStore((state) => state.toggleInspector);
   const setSettingsOpen = useBuilderUiStore((state) => state.setSettingsOpen);
   const attachClipboardImage = useBuilderUiStore((state) => state.attachClipboardImage);
   const removeScreenshot = useBuilderUiStore((state) => state.removeScreenshot);
   const clearScreenshots = useBuilderUiStore((state) => state.clearScreenshots);
   const chatBusy = chat.status === "submitted" || chat.status === "streaming";
-
-  async function copySelectedTarget() {
-    if (!selectedElement) {
-      return;
-    }
-
-    await navigator.clipboard?.writeText(getClassNameSelector(selectedElement) ?? getPreferredSelector(selectedElement));
-  }
 
   const handleClipboardPasteStable = useCallback(
     async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -203,8 +196,21 @@ export function BuilderShell({
 
   useEffect(() => {
     window.localStorage.setItem("apploop:last-opened-project", projectId);
-    clearSelectedElement();
-  }, [clearSelectedElement, projectId]);
+    clearSelectedElements();
+  }, [clearSelectedElements, projectId]);
+
+  useEffect(() => {
+    if (runtimeStatus === "stopped") {
+      clearSelectedElements();
+    }
+  }, [runtimeStatus, clearSelectedElements]);
+
+  useEffect(() => {
+    const formData = new FormData();
+
+    formData.append("projectId", projectId);
+    void startRuntimeAction(formData);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const eventSource = new EventSource(`/api/projects/${projectId}/runtime/logs`);
@@ -310,7 +316,7 @@ export function BuilderShell({
                 </div>
               </div>
             </div>
-            <div className="flex-1 space-y-3 overflow-auto p-4" role="log">
+            <div className="min-h-0 flex-1 space-y-3 overflow-auto p-4" role="log">
               {chat.messages.length === 0 ? (
                 <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
                   <p className="font-medium text-foreground">Hermes is ready for this project.</p>
@@ -337,7 +343,7 @@ export function BuilderShell({
                 const prompt = String(formData.get("prompt") ?? "").trim();
 
                 if (prompt.length > 0 || attachedScreenshots.length > 0) {
-                  const messageText = createVisualSelectionPrompt(prompt, selectedElement);
+                  const messageText = createVisualSelectionPrompt(prompt, selectedElements);
 
                   void chat.sendMessage({
                     text: messageText,
@@ -350,19 +356,32 @@ export function BuilderShell({
                   });
                   event.currentTarget.reset();
                   clearScreenshots();
+                  clearSelectedElements();
                 }
               }}
             >
-              {selectedElement ? (
-                <div aria-live="polite" className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border bg-secondary/60 px-3 py-2 text-xs text-secondary-foreground">
-                  <button className="grid min-w-0 gap-1 text-left" onClick={copySelectedTarget} type="button">
-                    <span className="font-semibold text-foreground">Target classname</span>
-                    <span className="break-all font-medium">{getClassNameLabel(selectedElement)}</span>
-                    <span className="break-all text-muted-foreground">Sent with prompt as {getClassNameSelector(selectedElement) ?? getPreferredSelector(selectedElement)}</span>
-                  </button>
-                  <Button onClick={() => { clearSelectedElement(); clearScreenshots(); }} size="sm" type="button" variant="ghost">
-                    Clear
-                  </Button>
+              {selectedElements.length > 0 ? (
+                <div aria-live="polite" className="mb-3 max-h-48 overflow-y-auto rounded-md border bg-secondary/60 p-3 text-xs text-secondary-foreground">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="font-semibold text-foreground">Targets ({selectedElements.length})</span>
+                    <Button onClick={() => { clearSelectedElements(); clearScreenshots(); }} size="sm" type="button" variant="ghost">
+                      Clear all
+                    </Button>
+                  </div>
+                  {selectedElements.map((el) => (
+                    <label key={el.preferredSelector} className="flex cursor-pointer items-center gap-2 rounded-md bg-background/60 px-3 py-2 transition hover:bg-background">
+                      <input
+                        checked
+                        className="size-4 accent-primary"
+                        onChange={() => removeSelectedElement(el.preferredSelector)}
+                        type="checkbox"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="break-all font-medium text-foreground">{getClassNameLabel(el)}</span>
+                        <span className="ml-2 break-all text-muted-foreground">{getClassNameSelector(el) ?? getPreferredSelector(el)}</span>
+                      </span>
+                    </label>
+                  ))}
                 </div>
               ) : null}
               {attachedScreenshots.length > 0 ? (

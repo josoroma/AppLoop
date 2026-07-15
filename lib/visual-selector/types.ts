@@ -31,6 +31,20 @@ export const SEMANTIC_BOUNDARY_CLASS_NAMES = [
   "secondary-actions",
   "template-default",
   "template-admin-luma",
+  // Per-instance unique classnames for repeated elements
+  "metric-revenue",
+  "metric-active-users",
+  "metric-conversion",
+  "metric-open-issues",
+  "activity-panel",
+  "health-panel",
+  "admin-nav-link",
+  "site-nav-link",
+  "project-card",
+  "site-theme-toggle",
+  "admin-theme-toggle",
+  "admin-hero-eyebrow",
+  "not-found-eyebrow",
 ] as const;
 
 const classNamesSchema = z.array(z.string().min(1).max(120)).max(32);
@@ -160,15 +174,19 @@ export function parseVisualSelection(input: unknown): VisualSelection | null {
   return result.success ? result.data : null;
 }
 
-export function createVisualSelectionPrompt(message: string, selection: VisualSelection | null) {
-  if (!selection) {
+export function createVisualSelectionPrompt(message: string, selections: VisualSelection[]) {
+  if (selections.length === 0) {
     return message;
   }
 
-  const classNameLabel = getClassNameLabel(selection);
-  const classNameSelector = getClassNameSelector(selection) ?? getPreferredSelector(selection);
+  const targets = selections
+    .map((selection) => {
+      const classNameLabel = getClassNameLabel(selection);
+      return `- ${classNameLabel} → ${selection.preferredSelector}`;
+    })
+    .join("\n");
 
-  return `${message}\n\nTarget classname: ${classNameLabel}\nApply the requested change to the element that contains the classname selector ${classNameSelector}.\n\nTarget selection JSON:\n${JSON.stringify(selection)}`;
+  return `${message}\n\nTarget classnames (ONLY change these elements — do NOT touch other elements with the same base classname):\n${targets}\n\nApply the requested change ONLY to the elements that match these EXACT selectors. Do NOT apply the change to other elements that share the same base classnames.\n\nTarget selections JSON:\n${JSON.stringify(selections)}`;
 }
 
 export function validateBuilderId(value: string) {

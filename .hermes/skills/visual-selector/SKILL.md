@@ -98,14 +98,26 @@ The `generated-code-review` hook flags repeated elements missing unique per-inst
 
 ## Inspect Mode Behavior
 
-When inspect mode is enabled (green dashed border on elements), clicking an element:
+Inspect mode supports **multi-select**: clicking an element toggles it — adds if new, removes if already selected. Multiple elements can be selected simultaneously, each showing its own overlay in the preview and a checkbox tag above the prompt.
 
-- **Selects the element** — posts `apploop:inspector-select` with full metadata. The selection overlay and label appear.
+When inspect mode is enabled:
+
+- **Toggle selection** — clicking an element sends `apploop:inspector-select`. The parent toggles it in `selectedElements` via `toggleSelectedElement()`. Click a selected element again to deselect it.
+- **Multiple overlays** — each selected element gets its own `SelectionOverlay` with a dashed border and classname label.
+- **Checkbox tags above prompt** — each selected target appears as a `[✓] .classname` tag. Unchecking removes the selection and hides the overlay. A "Clear all" button removes all targets.
+- **Prompt includes all targets** — `createVisualSelectionPrompt` now accepts `VisualSelection[]` and produces a bulleted list of all selected classnames with their preferred selectors.
 - **Does NOT navigate** — link elements are not followed. The `handlePointerDown` handler no longer sends `apploop:preview-route` messages.
 - **Does NOT capture screenshots** — no `captureElementScreenshot`, no `apploop:inspector-screenshot` or `apploop:request-screenshot` messages.
 - **Does respond to keyboard navigation** — Alt+] and Alt+[ cycle through inspectable elements.
 
-To navigate while in inspect mode, disable inspect mode first, then click the link.
+The Zustand store manages selections via:
+- `selectedElements: VisualSelection[]` — ordered list, keyed by `preferredSelector` for dedup
+- `toggleSelectedElement(selection)` — adds if not present, removes if present
+- `updateSelectedElementRect(preferredSelector, boundingRect)` — updates the boundingRect of a matching selected element (called by tracking updates to keep overlays in position after DOM changes)
+- `removeSelectedElement(preferredSelector)` — removes by selector (used by checkbox uncheck)
+- `clearSelectedElements()` — clears all (called on prompt send, runtime stop, project switch, and "Clear all" button)
+
+For the full store API, effect dependency rules, and tracking update handling, see `references/multi-select-store.md`.
 
 ## Preview Selection Label
 
@@ -186,4 +198,8 @@ Each paste appends a new screenshot (capped at 5 total per message). Remove indi
 - **Generated projects retain stale code**: When debugging inspect-mode behavior, always check `.apploop/projects/<slug>/components/inspector-provider.tsx`. The generated project may have an old version with screenshot capture logic that persists independently of template changes. Use `cp templates/generated-nextjs-default/components/inspector-provider.tsx .apploop/projects/<slug>/components/inspector-provider.tsx` to sync a specific project.
 - **Feature iteration vs. removal**: If a visual feature produces incorrect output and the user rejects it 2+ times (\"not equal\", \"still not the same\"), stop trying different libraries/approaches and ask whether they want the feature removed entirely. Repeatedly swapping rendering approaches wastes effort when the user may prefer manual workflow.
 - **Both templates share inspector-provider but differ at root**: The templates share an identical `inspector-provider.tsx` (keep them in sync). However, the layouts differ: `template-default` on the default `<body>` and `template-admin-luma` on the admin-luma `<body>`. When syncing the inspector-provider between templates: `cp templates/generated-nextjs-default/components/inspector-provider.tsx templates/generated-nextjs-admin-luma/components/inspector-provider.tsx`. Layout files and shell components (`app/layout.tsx`, `components/site-header.tsx`, `components/admin-shell.tsx`) differ between templates and should NOT be synced.
+- **Wrong-template sync breaks preview**: Overwriting a generated project's `layout.tsx` with the wrong template (e.g. default's `SiteHeader` into an admin-luma project expecting `AdminShell`) causes a missing-module compilation error. The Next.js dev server hangs in a retry loop — `curl` times out but `lsof` shows the port is listening. Check which template a project uses before syncing: `grep "template-" .apploop/projects/<slug>/app/layout.tsx`. The body classname (`template-default` vs `template-admin-luma`) tells you which template to copy from.
 - **`PreviewRouteMessage` type uses `unknown`**: To keep `isTrustedPreviewMessage` simple, the union type in `preview-frame.tsx` uses `unknown` for all message data fields rather than separate typed message sub-types.
+- **Multi-select effect dependency causes flicker**: Adding `selectedElements` to the `useEffect` dependency array in `preview-frame.tsx` causes the message listener to re-register on every selection toggle, which triggers a render cascade that makes the target area blink. The fix: keep `toggleSelectedElement` in deps (it's stable via Zustand) but remove `selectedElements`. The overlay rendering updates via Zustand subscriptions, not the effect re-run. If a `selectedElements` read is needed inside the effect (e.g. for a toast message), use a `useRef` synced via a separate `useEffect` — never mutate refs during render (`react-hooks/refs` lint rule). Simpler: use a generic message like "Target toggled" that doesn't need current state.
+- **Tracking updates toggle selections**: The inspector-provider runs a 100ms tracking interval that sends `apploop:inspector-select` with `update: true` for the last-clicked element. If the parent's `handleMessage` calls `toggleSelectedElement` for these update messages, the element toggles on/off every 100ms (add, then remove, then add...). The fix: handle update messages separately — use `updateSelectedElementRect` to keep overlays positioned correctly after DOM changes, and only call `toggleSelectedElement` for non-update messages (real clicks). Tracking updates should update rects, not toggle selections.
+- **`preferredSelector` must be unique per instance**: All repeated elements (metric cards, nav links, panels) must resolve to different `preferredSelector` values for multi-select to work. The selector is used as the toggle key in `toggleSelectedElement` — if two cards both resolve to `.metric-card`, clicking the second one toggles the first one off instead of adding a second target. The fix has two parts: (a) add unique per-instance classnames to `SEMANTIC_BOUNDARY_CLASS_NAMES` in `lib/visual-selector/types.ts`, and (b) `createSelectionPayload` uses the LAST classname (most specific) as `preferredSelector` with semantic classname as fallback: `metric-card summary-card metric-revenue` → `.metric-revenue`. Always verify that repeated elements in a template produce different preferred selectors by testing multi-select with 2+ instances of the same component type.\n- **Prompt must use `selection.preferredSelector`, not `getClassNameSelector`**: `getClassNameSelector` returns the first semantic classname match (e.g. `.summary-card`), which is shared across all repeated elements. Using it in the prompt tells Hermes to target the shared base class, affecting ALL instances instead of just the selected ones. `createVisualSelectionPrompt` uses `selection.preferredSelector` directly, which is the unique per-instance selector (`.metric-revenue`, `.metric-open-issues`). Always verify the prompt output shows unique selectors, not shared classnames.

@@ -67,9 +67,10 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
   const pendingInspectorRouteRef = useRef<string | null>(null);
   const inspectorEnabled = useBuilderUiStore((state) => state.inspectorEnabled);
   const hoveredElement = useBuilderUiStore((state) => state.hoveredElement);
-  const selectedElement = useBuilderUiStore((state) => state.selectedElement);
+  const selectedElements = useBuilderUiStore((state) => state.selectedElements);
   const setHoveredElement = useBuilderUiStore((state) => state.setHoveredElement);
-  const setSelectedElement = useBuilderUiStore((state) => state.setSelectedElement);
+  const toggleSelectedElement = useBuilderUiStore((state) => state.toggleSelectedElement);
+  const updateSelectedElementRect = useBuilderUiStore((state) => state.updateSelectedElementRect);
   const previewOrigin = getPreviewOrigin(previewUrl);
   const initialRoute = normalizePreviewRoute(defaultRoute, previewOrigin ?? "http://127.0.0.1") ?? "/";
   const [route, setRoute] = useState(initialRoute);
@@ -154,9 +155,11 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
         const selection = parseVisualSelection(event.data.selection);
 
         if (selection && selection.projectId === projectId && selection.previewNonce === previewNonce) {
-          setSelectedElement(selection);
-          if (event.data.update !== true) {
-            toast.success(`Target selected: ${getClassNameLabel(selection)}`);
+          if (event.data.update === true) {
+            updateSelectedElementRect(selection.preferredSelector, selection.boundingRect);
+          } else {
+            toggleSelectedElement(selection);
+            toast.success(`Target toggled: ${getClassNameLabel(selection)}`);
           }
         }
 
@@ -211,7 +214,7 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
     window.addEventListener("message", handleMessage);
 
     return () => window.removeEventListener("message", handleMessage);
-  }, [historyIndex, postInspectorEnabled, previewNonce, previewOrigin, projectId, runtimeStatus, setHoveredElement, setSelectedElement]);
+  }, [historyIndex, postInspectorEnabled, previewNonce, previewOrigin, projectId, runtimeStatus, setHoveredElement, toggleSelectedElement, updateSelectedElementRect]);
 
   useEffect(() => {
     postInspectorEnabled();
@@ -227,7 +230,7 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
     return () => window.clearTimeout(timeoutId);
   }, [canLoadPreview, frameSrc, isLoading]);
 
-  const overlaySelection = selectedElement ?? (inspectorEnabled ? hoveredElement : null);
+  const overlaySelections = selectedElements.length > 0 ? selectedElements : (inspectorEnabled && hoveredElement ? [hoveredElement] : []);
 
   function pushRoute(nextRoute: string) {
     setRoute(nextRoute);
@@ -397,7 +400,7 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
             />
           ) : null}
           <div className="sr-only" aria-live="polite">
-            {selectedElement ? `Selected ${getClassNameLabel(selectedElement)}` : overlaySelection ? `Inspecting ${getClassNameLabel(overlaySelection)}` : runtimeCopy.title}
+            {selectedElements.length > 0 ? `Selected ${selectedElements.length} target${selectedElements.length > 1 ? "s" : ""}` : overlaySelections.length > 0 ? `Inspecting ${getClassNameLabel(overlaySelections[0])}` : runtimeCopy.title}
           </div>
           {isLoading && canLoadPreview ? (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/80 text-sm text-muted-foreground">
@@ -424,7 +427,9 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
               <p className="mt-2 max-w-sm text-muted-foreground">{runtimeCopy.detail}</p>
             </div>
           ) : null}
-          {overlaySelection ? <SelectionOverlay locked={Boolean(selectedElement)} selection={overlaySelection} /> : null}
+          {overlaySelections.map((selection) => (
+            <SelectionOverlay key={selection.preferredSelector} locked={selectedElements.some((el) => el.preferredSelector === selection.preferredSelector)} selection={selection} />
+          ))}
         </div>
       </div>
       <button

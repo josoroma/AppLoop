@@ -51,6 +51,7 @@ Do not use this skill to edit AppLoop builder source files.
 - Use stable semantic class names such as `dashboard-header`, `dashboard-content`, `left-column`, `center-column`, `right-column`, `dashboard-footer`, `analytics-card`, `summary-card`, `primary-actions`, and `secondary-actions` on user-meaningful boundaries.
 - The root `<body>` element must carry the template classname: `template-default` for `generated-nextjs-default` or `template-admin-luma` for `generated-nextjs-admin-luma`. Never remove or rename this classname — it identifies the template source in inspect mode and disambiguates overlapping semantic classnames between templates.
 - Repeated elements (e.g. cards rendered via `.map()`) must have both a shared base classname (for grouping, e.g. `metric-card summary-card`) AND a unique per-instance descriptive classname (for precise inspect-mode identification, e.g. `metric-revenue`, `metric-active-users`). Without the unique classname, all instances appear identical in inspect mode and the user cannot target a specific one.
+  - **Write the unique classname LAST** in the className string: `metric-card summary-card metric-revenue`. The `createSelectionPayload` in `inspector-provider.tsx` picks the LAST classname as `preferredSelector`, which is the key used for multi-select toggling. If two elements share the same last classname, they collide and multi-select breaks.
 - Optional `data-builder-id` values must be kebab-case, unique in the rendered route, and describe the boundary rather than visual styling.
 - Optional `data-builder-component` values should name the owning PascalCase component and stay out of business logic.
 - Preserve semantic class names and builder metadata during refactors unless all source references are updated.
@@ -102,3 +103,19 @@ grep "template-" .apploop/projects/<slug>/app/layout.tsx
 3. The AppLoop runtime will auto-restart the preview on a new port.
 
 **Template dependencies**: Template files are independent Next.js projects with their own `package.json`. The standard template deps (`react`, `next`, `tailwind-merge`, etc.) don't require special tsconfig handling in the builder since the builder never imports from templates as modules — templates are only referenced as filesystem paths for copying. If you add a dependency to a template, the builder's `tsc` may fail; exclude `templates/` from `tsconfig.json` temporarily and remove the exclude once the dependency is removed.
+
+## Next.js Dev Server File Watching
+
+Generated projects use Next.js 16 with Turbopack. File changes written by external tools (Hermes prompts, the builder's file operations) may not be detected by Turbopack's native file system watcher (FSEvents/inotify). The symptom: `globals.css` is modified on disk, but the compiled CSS bundle hash never changes, even after a dev server restart. Only deleting `.next/` forces a recompile.
+
+**Fix**: Add `CHOKIDAR_USEPOLLING=true` to the `dev` script in the template's `package.json`:
+
+```json
+"scripts": {
+  "dev": "CHOKIDAR_USEPOLLING=true next dev"
+}
+```
+
+This forces polling (1s interval) instead of native OS events, reliable across all filesystems and external write sources. New projects get this automatically; existing projects need the script updated or recreation.
+
+**Verification**: After an edit, check the CSS hash changed: `curl -s http://127.0.0.1:<port>/ | grep -o 'href="[^"]*\\.css[^"]*"'`. Stale hash → clear `.next/` and restart.

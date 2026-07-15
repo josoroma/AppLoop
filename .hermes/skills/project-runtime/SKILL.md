@@ -59,6 +59,10 @@ Generated projects are created by copying files from `templates/<id>/` into `.ap
 
 Skipping step 2 is the most common cause of "the feature code is correct but nothing happens in preview." The builder hot-reloads, but the generated app inside the iframe runs its own dev server with its own file copies.
 
+## Runtime Stop Behavior
+
+When the runtime is stopped (manually or via `stopRuntimeAction`), the builder automatically clears all inspect-mode selections via a `useEffect` watching `runtimeStatus`. This ensures stale selection overlays don't persist when the preview iframe is unloaded. No additional cleanup is needed when stopping the runtime during inspect mode.
+
 ## Stuck Server Diagnosis
 
 **Symptom**: `lsof` shows the port listening, but `curl` times out (exit code 7 or 124). The Next.js dev server process is alive but stuck.
@@ -76,6 +80,31 @@ tail -20 .apploop/runtime-logs/<projectId>.log
 4. Verify with `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:<port>/`
 
 **Prevention**: Never copy template files to a generated project without confirming which template the project uses. Check `grep "template-" .apploop/projects/<slug>/app/layout.tsx` — `template-default` means default template, `template-admin-luma` means admin-luma template. The two templates have incompatible shell components (default: `SiteHeader`, admin-luma: `AdminShell`).
+
+## Tailwind v4 CSS Cache
+
+**Symptom**: CSS changes in `globals.css` are not picked up by the dev server's hot reload. The file on disk is correct, but the served CSS hash (`_next/static/chunks/_apploop_..._globals_<hash>.css`) never changes, and `curl` on the CSS URL shows stale content.
+
+**Root cause**: Next.js with `@tailwindcss/postcss` (Tailwind v4) may cache compiled CSS output and fail to detect file changes, especially after rapid edits. `touch` is insufficient to trigger recompilation.
+
+**Fix**:
+```bash
+# 1. Kill the stuck dev server
+kill $(lsof -ti:<port>)
+
+# 2. Clear the Next.js build cache
+rm -rf .apploop/projects/<slug>/.next
+
+# 3. Restart (runtime auto-restarts, or start manually)
+cd .apploop/projects/<slug> && npm run dev -- --hostname 127.0.0.1 --port <port>
+
+# 4. Verify the new CSS hash is different
+curl -s http://127.0.0.1:<port>/ | grep -o 'href="[^"]*\\.css[^"]*"'
+```
+
+**Prevention**: After making CSS changes via an agent, check whether the served CSS reflects the change before declaring success. If the hash hasn't changed, clear `.next` and restart.
+
+**Permanent prevention for new projects**: The template `package.json` `dev` script includes `CHOKIDAR_USEPOLLING=true` before `next dev`. This forces Turbopack to use polling-based file watching instead of native OS events (FSEvents/inotify), which can miss changes written by external tools like Hermes. New projects created from the updated templates will have this enabled automatically. Existing projects must have their `dev` script updated manually.
 
 Restart when:
 - The process is missing or exited.

@@ -7,11 +7,13 @@ type BuilderUiState = {
   inspectorEnabled: boolean;
   settingsOpen: boolean;
   hoveredElement: VisualSelection | null;
-  selectedElement: VisualSelection | null;
+  selectedElements: VisualSelection[];
   attachedScreenshots: ScreenshotAttachment[];
-  clearSelectedElement: () => void;
+  clearSelectedElements: () => void;
   setHoveredElement: (selection: VisualSelection | null) => void;
-  setSelectedElement: (selection: VisualSelection | null) => void;
+  toggleSelectedElement: (selection: VisualSelection) => void;
+  updateSelectedElementRect: (preferredSelector: string, boundingRect: VisualSelection["boundingRect"]) => void;
+  removeSelectedElement: (preferredSelector: string) => void;
   setSettingsOpen: (open: boolean) => void;
   toggleInspector: () => void;
   attachInspectorScreenshot: (screenshot: ScreenshotAttachment) => void;
@@ -24,13 +26,38 @@ export const useBuilderUiStore = create<BuilderUiState>((set) => ({
   inspectorEnabled: false,
   settingsOpen: false,
   hoveredElement: null,
-  selectedElement: null,
+  selectedElements: [],
   attachedScreenshots: [],
-  clearSelectedElement: () => set({ hoveredElement: null, selectedElement: null }),
+  clearSelectedElements: () => set({ hoveredElement: null, selectedElements: [] }),
   setHoveredElement: (selection) => set({ hoveredElement: selection }),
-  setSelectedElement: (selection) => set({ selectedElement: selection }),
+  toggleSelectedElement: (selection) =>
+    set((state) => {
+      const key = selection.preferredSelector;
+      const exists = state.selectedElements.some((el) => el.preferredSelector === key);
+
+      return {
+        selectedElements: exists
+          ? state.selectedElements.filter((el) => el.preferredSelector !== key)
+          : [...state.selectedElements, selection],
+      };
+    }),
+  updateSelectedElementRect: (preferredSelector, boundingRect) =>
+    set((state) => ({
+      selectedElements: state.selectedElements.map((el) =>
+        el.preferredSelector === preferredSelector ? { ...el, boundingRect } : el,
+      ),
+    })),
+  removeSelectedElement: (preferredSelector) =>
+    set((state) => ({
+      selectedElements: state.selectedElements.filter((el) => el.preferredSelector !== preferredSelector),
+    })),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
-  toggleInspector: () => set((state) => ({ inspectorEnabled: !state.inspectorEnabled, hoveredElement: null, selectedElement: state.inspectorEnabled ? null : state.selectedElement })),
+  toggleInspector: () =>
+    set((state) => ({
+      inspectorEnabled: !state.inspectorEnabled,
+      hoveredElement: null,
+      selectedElements: state.inspectorEnabled ? [] : state.selectedElements,
+    })),
   attachInspectorScreenshot: (screenshot) =>
     set((state) => ({
       attachedScreenshots: [...state.attachedScreenshots, screenshot].slice(0, 5),

@@ -1,5 +1,7 @@
 dashboard:
   theme: mono
+command_allowlist:
+  - recursive delete
 _config_version: 33
 platforms:
   api_server:

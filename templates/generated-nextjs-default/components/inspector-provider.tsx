@@ -61,6 +61,21 @@ const SEMANTIC_CLASS_NAMES = new Set([
   "summary-card",
   "primary-actions",
   "secondary-actions",
+  "template-default",
+  "template-admin-luma",
+  "metric-revenue",
+  "metric-active-users",
+  "metric-conversion",
+  "metric-open-issues",
+  "activity-panel",
+  "health-panel",
+  "admin-nav-link",
+  "site-nav-link",
+  "project-card",
+  "site-theme-toggle",
+  "admin-theme-toggle",
+  "admin-hero-eyebrow",
+  "not-found-eyebrow",
 ]);
 
 const INSPECTABLE_SELECTOR = "[class]";
@@ -332,6 +347,10 @@ function createSelectionPayload(target: EventTarget | null, projectId: string, p
   const semanticClassName = classNames.find((className) => SEMANTIC_CLASS_NAMES.has(className));
   const inspectorId = element.dataset.builderId;
   const rect = element.getBoundingClientRect();
+  // Use the last classname (most specific / unique per-instance) as preferred selector.
+  // Falls back to semantic classname then first classname.
+  const lastClassName = classNames[classNames.length - 1];
+  const preferredSelector = lastClassName ? `.${lastClassName}` : semanticClassName ? `.${semanticClassName}` : `.${classNames[0]}`;
 
   return {
     projectId,
@@ -339,7 +358,7 @@ function createSelectionPayload(target: EventTarget | null, projectId: string, p
     route: `${window.location.pathname}${window.location.search}${window.location.hash}`,
     tagName: element.tagName.toLowerCase(),
     classNames,
-    preferredSelector: semanticClassName ? `.${semanticClassName}` : `.${classNames[0]}`,
+    preferredSelector,
     inspectorId,
     componentName: element.dataset.builderComponent,
     textPreview: sanitizeText(element.textContent),
