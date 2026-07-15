@@ -357,11 +357,6 @@ export function BuilderShell({
                   chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
                   loadCheckpoint(cp.id);
                 }}
-                onRestore={(ids) => {
-                  const idSet = new Set(ids);
-
-                  chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
-                }}
                 projectId={projectId}
               />
             </div>
