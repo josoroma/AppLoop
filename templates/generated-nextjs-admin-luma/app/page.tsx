@@ -10,7 +10,7 @@ const activity = ["New enterprise workspace created", "Usage anomaly resolved", 
 export default function Home() {
   return (
     <main className="admin-page" data-builder-component="AdminHomePage" data-builder-id="admin-home-page">
-      <section className="admin-hero dashboard-header" data-builder-component="AdminHero" data-builder-id="admin-hero">
+      <section className="admin-hero dashboard-page-header" data-builder-component="AdminHero" data-builder-id="admin-hero">
         <div>
           <p className="eyebrow admin-hero-eyebrow">Luma admin</p>
           <h1>Operate the workspace from one quiet command center.</h1>
@@ -20,7 +20,7 @@ export default function Home() {
         </a>
       </section>
 
-      <section className="metric-grid dashboard-content" data-builder-id="admin-metrics">
+      <section className="metric-grid dashboard-page-content" data-builder-id="admin-metrics">
         {metrics.map((metric) => (
           <article className={`metric-card summary-card ${metric.className}`} data-builder-id={`metric-${metric.label.toLowerCase().replaceAll(" ", "-")}`} key={metric.label}>
             <p>{metric.label}</p>
