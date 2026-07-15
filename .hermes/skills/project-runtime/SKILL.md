@@ -59,6 +59,22 @@ Generated projects are created by copying files from `templates/<id>/` into `.ap
 
 Skipping step 2 is the most common cause of "the feature code is correct but nothing happens in preview." The builder hot-reloads, but the generated app inside the iframe runs its own dev server with its own file copies.
 
+## Runtime Lifecycle Automation
+
+The builder-shell (`components/builder/builder-shell.tsx`) manages three runtime lifecycle events:
+
+### Auto-Start on Page Load
+
+When the project page loads (user opens a project), a `useEffect` with `[]` deps calls `startRuntimeAction`. `startProject` in the runtime service already handles kill-before-start — if a process is already running for the project, it sends SIGTERM, waits 5s, then spawns a fresh dev server. No manual start button click needed.
+
+### Post-Hermes Restart
+
+After each Hermes response completes (chat status transitions from `"streaming"` → `"ready"`), a `useEffect` calls `restartRuntimeAction`. This restarts the Next.js dev server to pick up any CSS/JS changes Hermes made to the generated project. Combined with `CHOKIDAR_USEPOLLING=true` in the dev script, this ensures changes are always visible immediately.
+
+### Force Kill on Stop
+
+`stopProject` sends SIGTERM and waits 5 seconds. If the process survives, `terminateProcessTreeForce` sends SIGKILL to the process and all children (via negative PID on macOS/Linux, `childProcess.kill("SIGKILL")` on Windows). This ensures the port is freed and the process tree is fully terminated before a new runtime starts.
+
 ## Runtime Stop Behavior
 
 When the runtime is stopped (manually or via `stopRuntimeAction`), the builder automatically clears all inspect-mode selections via a `useEffect` watching `runtimeStatus`. This ensures stale selection overlays don't persist when the preview iframe is unloaded. No additional cleanup is needed when stopping the runtime during inspect mode.

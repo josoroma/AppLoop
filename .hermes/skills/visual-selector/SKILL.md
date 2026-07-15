@@ -191,6 +191,10 @@ Each paste appends a new screenshot (capped at 5 total per message). Remove indi
 | `lib/hermes/client.ts` | `ImageAttachment` type, `images` in payload |
 | `lib/visual-selector/types.ts` | `InspectorScreenshotMessage`, `ScreenshotAttachment` |
 
+### Chat Layout
+
+The builder's chat panel uses CSS Grid (`grid-rows-[auto_1fr_auto]`) with inline `height: 100%` to keep the textarea and buttons pinned at the bottom while the conversation area scrolls. Full explanation in `references/chat-layout-grid.md`.
+
 ## Pitfalls
 
 - **Templates have NO screenshot capture logic**: The inspector-provider only sends selection metadata via `apploop:inspector-select`. No `captureElementScreenshot`, no `apploop:request-screenshot`, no DOM-to-image libraries. If a user clicks an element and expects an automatic screenshot, explain that screenshots must be pasted manually.

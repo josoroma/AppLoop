@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { AlertTriangle, Bot, ChevronLeft, ChevronRight, FolderGit2, House, LoaderCircle, MousePointerClick, Play, RotateCcw, SendHorizontal, Settings2, Square, X } from "lucide-react";
@@ -212,6 +212,20 @@ export function BuilderShell({
     void startRuntimeAction(formData);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Restart runtime after Hermes completes a response to pick up CSS/JS changes
+  const prevStatusRef = useRef(chat.status);
+
+  useEffect(() => {
+    if (chat.status === "ready" && prevStatusRef.current === "streaming") {
+      const formData = new FormData();
+
+      formData.append("projectId", projectId);
+      void restartRuntimeAction(formData);
+    }
+
+    prevStatusRef.current = chat.status;
+  }, [chat.status, projectId]);
+
   useEffect(() => {
     const eventSource = new EventSource(`/api/projects/${projectId}/runtime/logs`);
 
@@ -294,8 +308,8 @@ export function BuilderShell({
         orientation="horizontal"
         resizeTargetMinimumSize={{ coarse: 36, fine: 20 }}
       >
-        <Panel collapsedSize={0} collapsible defaultSize={initialLayout.chat} id="chat" minSize={24} panelRef={chatPanelRef}>
-          <section className="flex h-full flex-col border-r bg-secondary/35">
+        <Panel className="relative" collapsedSize={0} collapsible defaultSize={initialLayout.chat} id="chat" minSize={24} panelRef={chatPanelRef}>
+          <section className="absolute inset-0 grid grid-rows-[auto_1fr_auto] border-r bg-secondary/35">
             <div className="border-b p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -316,7 +330,7 @@ export function BuilderShell({
                 </div>
               </div>
             </div>
-            <div className="min-h-0 flex-1 space-y-3 overflow-auto p-4" role="log">
+            <div className="space-y-3 overflow-x-hidden overflow-y-auto p-4" role="log">
               {chat.messages.length === 0 ? (
                 <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
                   <p className="font-medium text-foreground">Hermes is ready for this project.</p>
