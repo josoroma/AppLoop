@@ -118,19 +118,11 @@ export function BuilderShell({
   const setCheckpoints = useBuilderUiStore((state) => state.setCheckpoints);
   const chatBusy = chat.status === "submitted" || chat.status === "streaming";
   const hasInitialSessionRef = useRef(false);
-  const sessionCommandRef = useRef<string | null>(null);
   const sessionMessagesRef = useRef<MessageSnapshot[] | null>(null);
   const checkpointsLoadedRef = useRef(false);
 
-  // Handle session switch: send gateway command and load stored messages
+  // Handle session switch: load stored messages after new chat instance is ready
   useEffect(() => {
-    if (sessionCommandRef.current) {
-      const cmd = sessionCommandRef.current;
-
-      sessionCommandRef.current = null;
-      void chat.sendMessage({ text: cmd });
-    }
-
     if (sessionMessagesRef.current) {
       const msgs = sessionMessagesRef.current;
 
@@ -405,7 +397,6 @@ export function BuilderShell({
                   saveCheckpoint(`Session ${sessionNum}`, messageIds, hash, true, messageSnapshots);
                   useBuilderUiStore.getState().checkpoints.forEach((cp) => !cp.isSessionBoundary && useBuilderUiStore.getState().removeCheckpoint(cp.id));
                   setSessionKey((k) => k + 1);
-                  sessionCommandRef.current = `/new --yes "apploop:${projectId}:session-${sessionNum}"`;
                   clearSelectedElements();
                   clearScreenshots();
                   hasInitialSessionRef.current = false;
@@ -422,7 +413,6 @@ export function BuilderShell({
 
                     useBuilderUiStore.getState().updateCheckpointMessages(currentSession.id, currentMsgs);
                     setSessionKey((k) => k + 1);
-                    sessionCommandRef.current = `/resume "apploop:${projectId}:${cp.id}"`;
                     sessionMessagesRef.current = cp.messages;
                   } else {
                     chat.setMessages(
