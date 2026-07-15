@@ -106,8 +106,8 @@ select {
   position: sticky;
   top: 0;
   z-index: 40;
-  border-bottom: 1px solid var(--sidebar-border);
-  background: color-mix(in oklch, var(--sidebar) 88%, transparent);
+  border-bottom: 1px solid color-mix(in oklch, var(--sidebar-foreground) 12%, transparent);
+  background: color-mix(in oklch, var(--sidebar) 92%, var(--background));
   backdrop-filter: blur(18px);
 }
 
@@ -149,15 +149,15 @@ select {
 }
 
 .theme-toggle {
-  min-width: 5rem;
-  border: 1px solid var(--border);
+  min-width: 7rem;
+  border: 1px solid color-mix(in oklch, var(--sidebar-foreground) 15%, transparent);
   border-radius: calc(var(--radius) - 0.125rem);
   background: var(--card);
   color: var(--card-foreground);
   cursor: pointer;
   padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 700;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .admin-page,

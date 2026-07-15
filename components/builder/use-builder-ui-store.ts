@@ -3,12 +3,24 @@
 import { create } from "zustand";
 import type { ScreenshotAttachment, VisualSelection } from "@/lib/visual-selector/types";
 
+export type ChatCheckpoint = {
+  id: string;
+  name: string;
+  createdAt: number;
+  targets: VisualSelection[];
+  screenshots: ScreenshotAttachment[];
+  messageIds: string[];
+  /** Git commit hash in the generated project, for file-level rollback */
+  commitHash: string | null;
+};
+
 type BuilderUiState = {
   inspectorEnabled: boolean;
   settingsOpen: boolean;
   hoveredElement: VisualSelection | null;
   selectedElements: VisualSelection[];
   attachedScreenshots: ScreenshotAttachment[];
+  checkpoints: ChatCheckpoint[];
   clearSelectedElements: () => void;
   setHoveredElement: (selection: VisualSelection | null) => void;
   toggleSelectedElement: (selection: VisualSelection) => void;
@@ -20,14 +32,20 @@ type BuilderUiState = {
   attachClipboardImage: (screenshot: ScreenshotAttachment) => void;
   removeScreenshot: (id: string) => void;
   clearScreenshots: () => void;
+  saveCheckpoint: (name: string, messageIds: string[], commitHash?: string | null) => void;
+  loadCheckpoint: (id: string) => ChatCheckpoint | undefined;
+  removeCheckpoint: (id: string) => void;
 };
 
-export const useBuilderUiStore = create<BuilderUiState>((set) => ({
+let checkpointCounter = 0;
+
+export const useBuilderUiStore = create<BuilderUiState>((set, get) => ({
   inspectorEnabled: false,
   settingsOpen: false,
   hoveredElement: null,
   selectedElements: [],
   attachedScreenshots: [],
+  checkpoints: [],
   clearSelectedElements: () => set({ hoveredElement: null, selectedElements: [] }),
   setHoveredElement: (selection) => set({ hoveredElement: selection }),
   toggleSelectedElement: (selection) =>
@@ -71,4 +89,35 @@ export const useBuilderUiStore = create<BuilderUiState>((set) => ({
       attachedScreenshots: state.attachedScreenshots.filter((s) => s.id !== id),
     })),
   clearScreenshots: () => set({ attachedScreenshots: [] }),
+  saveCheckpoint: (name, messageIds) =>
+    set((state) => {
+      checkpointCounter += 1;
+      const checkpoint: ChatCheckpoint = {
+        id: `cp-${Date.now()}-${checkpointCounter}`,
+        name,
+        createdAt: Date.now(),
+        targets: [...state.selectedElements],
+        screenshots: [...state.attachedScreenshots],
+        messageIds,
+        commitHash: null,
+      };
+
+      return { checkpoints: [...state.checkpoints, checkpoint] };
+    }),
+  loadCheckpoint: (id) => {
+    const checkpoint = get().checkpoints.find((cp) => cp.id === id);
+
+    if (checkpoint) {
+      set({
+        selectedElements: [...checkpoint.targets],
+        attachedScreenshots: [...checkpoint.screenshots],
+      });
+    }
+
+    return checkpoint;
+  },
+  removeCheckpoint: (id) =>
+    set((state) => ({
+      checkpoints: state.checkpoints.filter((cp) => cp.id !== id),
+    })),
 }));

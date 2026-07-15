@@ -15,7 +15,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useBuilderUiStore } from "@/components/builder/use-builder-ui-store";
+import { JsonHighlight } from "@/components/builder/json-highlight";
 import { PreviewFrame } from "@/components/builder/preview-frame";
+import { ChatCheckpoints } from "@/components/builder/chat-checkpoints";
+import { HermesContextUsage } from "@/components/builder/hermes-context-usage";
+import { createFileSnapshot, revertToFileSnapshot } from "@/lib/chat/file-snapshot";
 import { getBuilderLayoutStorageKey, groupHermesActivities, parseBuilderSplitLayout, serializeBuilderSplitLayout } from "@/lib/builder/ux";
 import type { BuilderChatMessage } from "@/lib/chat/messages";
 import { getMessageText } from "@/lib/chat/messages";
@@ -106,6 +110,9 @@ export function BuilderShell({
   const attachClipboardImage = useBuilderUiStore((state) => state.attachClipboardImage);
   const removeScreenshot = useBuilderUiStore((state) => state.removeScreenshot);
   const clearScreenshots = useBuilderUiStore((state) => state.clearScreenshots);
+  const saveCheckpoint = useBuilderUiStore((state) => state.saveCheckpoint);
+  const loadCheckpoint = useBuilderUiStore((state) => state.loadCheckpoint);
+  const checkpoints = useBuilderUiStore((state) => state.checkpoints);
   const chatBusy = chat.status === "submitted" || chat.status === "streaming";
 
   const handleClipboardPasteStable = useCallback(
@@ -212,19 +219,17 @@ export function BuilderShell({
     void startRuntimeAction(formData);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Restart runtime after Hermes completes a response to pick up CSS/JS changes
+  // Reload preview after Hermes completes a response to pick up CSS/JS changes
+  const [previewReloadKey, setPreviewReloadKey] = useState(0);
   const prevStatusRef = useRef(chat.status);
 
   useEffect(() => {
     if (chat.status === "ready" && prevStatusRef.current === "streaming") {
-      const formData = new FormData();
-
-      formData.append("projectId", projectId);
-      void restartRuntimeAction(formData);
+      setPreviewReloadKey((k) => k + 1);
     }
 
     prevStatusRef.current = chat.status;
-  }, [chat.status, projectId]);
+  }, [chat.status]);
 
   useEffect(() => {
     const eventSource = new EventSource(`/api/projects/${projectId}/runtime/logs`);
@@ -330,6 +335,35 @@ export function BuilderShell({
                 </div>
               </div>
             </div>
+            <div className="border-b px-4 py-2">
+              <ChatCheckpoints
+                onNewSession={() => {
+                  useBuilderUiStore.getState().checkpoints.forEach((cp) => useBuilderUiStore.getState().removeCheckpoint(cp.id));
+                  chat.setMessages([]);
+                  clearSelectedElements();
+                  clearScreenshots();
+                }}
+                onRestoreCheckpoint={(cp) => {
+                  const idSet = new Set(cp.messageIds);
+
+                  chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
+                  loadCheckpoint(cp.id);
+                }}
+                onRestore={(ids) => {
+                  const idSet = new Set(ids);
+
+                  chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
+                }}
+                projectId={projectId}
+              />
+            </div>
+            {chat.messages.length > 0 && (
+              <div className="border-b px-4 py-2">
+                <HermesContextUsage
+                  messageCount={chat.messages.filter((m) => m.role === "user" || m.role === "assistant").length}
+                />
+              </div>
+            )}
             <div className="space-y-3 overflow-x-hidden overflow-y-auto p-4" role="log">
               {chat.messages.length === 0 ? (
                 <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
@@ -342,8 +376,87 @@ export function BuilderShell({
                     <p className="mb-2 flex items-center gap-2 font-semibold">
                       <Bot className="size-4 text-primary" />
                       {message.role === "user" ? "You" : "Hermes"}
+                      {message.role === "user" && (
+                        <button
+                          className="ml-auto text-[10px] text-muted-foreground hover:text-foreground"
+                          onClick={async () => {
+                            // Find the checkpoint before this message
+                            const cpIndex = checkpoints.findIndex((cp) => cp.messageIds.includes(message.id));
+                            const cp = cpIndex !== -1 ? checkpoints[cpIndex] : null;
+
+                            if (cp) {
+                              // Revert files
+                              if (cp.commitHash) {
+                                await revertToFileSnapshot(projectId, cp.commitHash);
+                              }
+
+                              // Restore messages to checkpoint
+                              const idSet = new Set(cp.messageIds);
+
+                              chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
+
+                              // Restore targets and screenshots
+                              loadCheckpoint(cp.id);
+
+                              // Pre-fill the textarea with the original prompt text
+                              const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]');
+                              const promptText = getMessageText(message).split("Target classnames")[0]?.trim() ?? "";
+
+                              if (textarea) {
+                                textarea.value = promptText;
+                                textarea.focus();
+                              }
+                            } else {
+                              // No checkpoint — just truncate to before this message
+                              const idx = chat.messages.indexOf(message);
+                              const truncated = chat.messages.slice(0, idx);
+
+                              chat.setMessages(truncated);
+
+                              const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]');
+                              const promptText = getMessageText(message).split("Target classnames")[0]?.trim() ?? "";
+
+                              if (textarea) {
+                                textarea.value = promptText;
+                                textarea.focus();
+                              }
+                            }
+                          }}
+                          title="Restore to before this prompt and edit"
+                          type="button"
+                        >
+                          Edit &amp; Resend
+                        </button>
+                      )}
                     </p>
-                    <p className="whitespace-pre-wrap text-muted-foreground">{getMessageText(message)}</p>
+                    {(() => {
+                        const text = getMessageText(message);
+                        const jsonMarker = "Target selections JSON:";
+                        const jsonIndex = text.indexOf(jsonMarker);
+
+                        if (message.role === "user" && jsonIndex !== -1) {
+                          const before = text.slice(0, jsonIndex);
+                          const jsonContent = text.slice(jsonIndex + jsonMarker.length);
+
+                          return (
+                            <>
+                              <p className="whitespace-pre-wrap text-muted-foreground">{before}</p>
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
+                                  {jsonMarker}
+                                </summary>
+                                <div className="mt-2 max-h-64 overflow-auto">
+                                  <JsonHighlight json={jsonContent} />
+                                </div>
+                              </details>
+                            </>
+                          );
+                        }
+
+                        return (
+                          <p className="whitespace-pre-wrap text-muted-foreground">{text}</p>
+                        );
+                      })()}
                     <HermesActivityCards message={message} />
                   </article>
                 ))
@@ -351,13 +464,21 @@ export function BuilderShell({
             </div>
             <form
               className="border-t bg-card p-4"
-              onSubmit={(event) => {
+              onSubmit={async (event) => {
                 event.preventDefault();
                 const formData = new FormData(event.currentTarget);
                 const prompt = String(formData.get("prompt") ?? "").trim();
 
                 if (prompt.length > 0 || attachedScreenshots.length > 0) {
                   const messageText = createVisualSelectionPrompt(prompt, selectedElements);
+
+                  // Auto-create checkpoint before sending
+                  const messageIds = chat.messages
+                    .filter((m) => m.role === "user" || m.role === "assistant")
+                    .map((m) => m.id);
+                  const hash = await createFileSnapshot(projectId);
+
+                  saveCheckpoint(`Prompt ${checkpoints.length + 1}`, messageIds, hash);
 
                   void chat.sendMessage({
                     text: messageText,
@@ -512,7 +633,7 @@ export function BuilderShell({
             </div>
             <PreviewFrame
               defaultRoute={defaultRoute}
-              key={projectId}
+              key={`${projectId}-${previewReloadKey}`}
               previewUrl={previewUrl}
               projectId={projectId}
               projectName={projectName}

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ExternalLink, Loader2, Monitor, RefreshCw, Smartphone, Tablet } from "lucide-react";
 import { toast } from "sonner";
 import { useBuilderUiStore } from "@/components/builder/use-builder-ui-store";
@@ -64,6 +65,11 @@ function readStoredViewport(projectId: string): PreviewViewport {
 export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, projectId, projectName, runtimeLogs, runtimeLogsCollapsed, runtimeStatus }: PreviewFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const viewportShellRef = useRef<HTMLDivElement>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   const pendingInspectorRouteRef = useRef<string | null>(null);
   const inspectorEnabled = useBuilderUiStore((state) => state.inspectorEnabled);
   const hoveredElement = useBuilderUiStore((state) => state.hoveredElement);
@@ -427,11 +433,29 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
               <p className="mt-2 max-w-sm text-muted-foreground">{runtimeCopy.detail}</p>
             </div>
           ) : null}
-          {overlaySelections.map((selection) => (
-            <SelectionOverlay key={selection.preferredSelector} locked={selectedElements.some((el) => el.preferredSelector === selection.preferredSelector)} selection={selection} />
-          ))}
         </div>
       </div>
+      {isClient && createPortal(
+        <div
+          className="pointer-events-none fixed"
+          style={{
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+          }}
+        >
+          {overlaySelections.map((selection) => (
+            <SelectionOverlay
+              key={selection.preferredSelector}
+              locked={selectedElements.some((el) => el.preferredSelector === selection.preferredSelector)}
+              selection={selection}
+              viewportFrameRef={viewportShellRef}
+            />
+          ))}
+        </div>,
+        document.body,
+      )}
       <button
         aria-controls="raw-runtime-logs"
         aria-expanded={!runtimeLogsCollapsed}
@@ -454,23 +478,26 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
   );
 }
 
-function SelectionOverlay({ locked, selection }: { locked: boolean; selection: VisualSelection }) {
+function SelectionOverlay({ locked, selection, viewportFrameRef }: { locked: boolean; selection: VisualSelection; viewportFrameRef: React.RefObject<HTMLDivElement | null> }) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const selector = getPreferredSelector(selection);
   const classNameLabel = getClassNameLabel(selection);
 
   useEffect(() => {
     const overlay = overlayRef.current;
+    const frame = viewportFrameRef.current;
 
-    if (!overlay) {
+    if (!overlay || !frame) {
       return;
     }
 
-    overlay.style.setProperty("--selection-x", `${selection.boundingRect.x}px`);
-    overlay.style.setProperty("--selection-y", `${selection.boundingRect.y}px`);
+    const frameRect = frame.getBoundingClientRect();
+
+    overlay.style.setProperty("--selection-x", `${frameRect.left + selection.boundingRect.x}px`);
+    overlay.style.setProperty("--selection-y", `${frameRect.top + selection.boundingRect.y}px`);
     overlay.style.setProperty("--selection-width", `${selection.boundingRect.width}px`);
     overlay.style.setProperty("--selection-height", `${selection.boundingRect.height}px`);
-  }, [selection]);
+  }, [selection, viewportFrameRef]);
 
   async function copySelector() {
     await navigator.clipboard?.writeText(selector);

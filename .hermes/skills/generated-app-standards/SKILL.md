@@ -119,3 +119,18 @@ Generated projects use Next.js 16 with Turbopack. File changes written by extern
 This forces polling (1s interval) instead of native OS events, reliable across all filesystems and external write sources. New projects get this automatically; existing projects need the script updated or recreation.
 
 **Verification**: After an edit, check the CSS hash changed: `curl -s http://127.0.0.1:<port>/ | grep -o 'href="[^"]*\\.css[^"]*"'`. Stale hash → clear `.next/` and restart.
+
+## Preview Reload After Code Changes
+
+Even with polling enabled, the preview iframe may show stale content after a Hermes response due to browser caching or iframe lifecycle quirks. The builder forces a reload: when `chat.status` transitions from `"streaming"` to `"ready"`, a `previewReloadKey` counter in `builder-shell.tsx` increments, changing the `PreviewFrame` component's `key` prop to `${projectId}-${previewReloadKey}`. React unmounts and remounts the iframe, serving fresh content from the Next.js dev server.
+
+This is the primary mechanism for making CSS/JS changes visible after Hermes prompts — it is lighter than a full runtime restart and works regardless of whether Turbopack's file watcher detected the change. If the preview still shows stale content after a prompt, verify `previewReloadKey` is incrementing by checking the preview element `key` attribute in React DevTools.
+
+## Generated CSS Contrast (Dark Mode)
+
+The admin-luma template uses a dark gradient background with a sticky header. In dark mode, the original header CSS used `color-mix(in oklch, var(--sidebar) 88%, transparent)` which is nearly identical to the background, making the header invisible. Similarly, the theme-toggle button border used `var(--border)` which is 10% white — nearly invisible on dark backgrounds.
+
+**When editing CSS for a generated admin-luma project**, ensure these elements remain visible:
+
+- **Admin header**: Use `color-mix(in oklch, var(--sidebar) 92%, var(--background))` for the background (slightly lighter than the shell gradient) and `color-mix(in oklch, var(--sidebar-foreground) 12%, transparent)` for the border-bottom (subtle but visible).
+- **Theme toggle**: Use `color-mix(in oklch, var(--sidebar-foreground) 15%, transparent)` for the border instead of `var(--border)` to ensure visibility in both light and dark modes. Keep `min-width: 7rem` and `font-size: 0.8125rem` to accommodate the "☀️ Light" / "🌙 Dark" labels.

@@ -186,7 +186,7 @@ export function createVisualSelectionPrompt(message: string, selections: VisualS
     })
     .join("\n");
 
-  return `${message}\n\nTarget classnames (ONLY change these elements — do NOT touch other elements with the same base classname):\n${targets}\n\nApply the requested change ONLY to the elements that match these EXACT selectors. Do NOT apply the change to other elements that share the same base classnames.\n\nTarget selections JSON:\n${JSON.stringify(selections)}`;
+  return `${message}\n\nTarget classnames (ONLY change these elements — do NOT touch other elements with the same base classname):\n${targets}\n\nApply the requested change ONLY to the elements that match these EXACT selectors. Do NOT apply the change to other elements that share the same base classnames.\n\nTarget selections JSON:\n${JSON.stringify(selections, null, 2)}`;
 }
 
 export function validateBuilderId(value: string) {
