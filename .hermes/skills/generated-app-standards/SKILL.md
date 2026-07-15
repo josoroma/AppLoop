@@ -242,3 +242,18 @@ The admin-luma template uses a dark gradient background with a sticky header. In
 
 - **Admin header**: Use `color-mix(in oklch, var(--sidebar) 92%, var(--background))` for the background (slightly lighter than the shell gradient) and `color-mix(in oklch, var(--sidebar-foreground) 12%, transparent)` for the border-bottom (subtle but visible).
 - **Theme toggle**: Use `color-mix(in oklch, var(--sidebar-foreground) 15%, transparent)` for the border instead of `var(--border)` to ensure visibility in both light and dark modes. Keep `min-width: 7rem` and `font-size: 0.8125rem` to accommodate the "☀️ Light" / "🌙 Dark" labels.
+
+## Session Lifecycle & Gateway Sync
+
+When the UI creates or switches managed sessions, it sends Hermes gateway commands to keep the agent's context in sync with the UI:
+
+- **Create**: `/new --yes "apploop:<projectId>:session-N"` — sent after `setSessionKey` on new session
+- **Resume**: `/resume "apploop:<projectId>:<checkpoint-id>"` — sent when switching to a saved session
+
+Commands are queued via `sessionCommandRef` and delivered by a `useEffect` watching `sessionKey`. The key change creates a fresh `useChat` instance, ensuring the command goes to the correct session's chat transport.
+
+**Save before switch**: Before switching sessions in the history dropdown, save the current chat's messages to the current session's checkpoint via `updateCheckpointMessages`. This prevents data loss — without it, switching away from a session discards any unsaved messages.
+
+**Message restoration**: After a session switch, don't call `chat.setMessages` on the old instance (it will be replaced). Queue target messages via `sessionMessagesRef` and apply them in the same `useEffect` that sends the gateway command. This loads messages on the new chat instance after the key change.
+
+For the full checkpoint architecture, git snapshots, DB schema, and store types, see [`references/chat-checkpoints.md`](references/chat-checkpoints.md).

@@ -47,6 +47,7 @@ type BuilderUiState = {
   loadCheckpoint: (id: string) => ChatCheckpoint | undefined;
   removeCheckpoint: (id: string) => void;
   setCheckpoints: (checkpoints: ChatCheckpoint[]) => void;
+  updateCheckpointMessages: (id: string, messages: MessageSnapshot[]) => void;
 };
 
 let checkpointCounter = 0;
@@ -137,5 +138,9 @@ export const useBuilderUiStore = create<BuilderUiState>((set, get) => ({
       checkpoints: state.checkpoints.filter((cp) => cp.id !== id),
     }));
   },
+  updateCheckpointMessages: (id, messages) =>
+    set((state) => ({
+      checkpoints: state.checkpoints.map((cp) => (cp.id === id ? { ...cp, messages, messageIds: messages.map((m) => m.id) } : cp)),
+    })),
   setCheckpoints: (checkpoints) => set({ checkpoints }),
 }));

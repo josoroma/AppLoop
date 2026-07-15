@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useBuilderUiStore, type ChatCheckpoint } from "@/components/builder/use-builder-ui-store";
+import { useBuilderUiStore, type ChatCheckpoint, type MessageSnapshot } from "@/components/builder/use-builder-ui-store";
 import { JsonHighlight } from "@/components/builder/json-highlight";
 import { PreviewFrame } from "@/components/builder/preview-frame";
 import { ChatCheckpoints } from "@/components/builder/chat-checkpoints";
@@ -91,7 +91,8 @@ export function BuilderShell({
   themeOptions,
   validationDepth,
 }: BuilderShellProps) {
-  const chat = useChat<BuilderChatMessage>({ id: projectId, messages: initialMessages, transport: chatTransport });
+  const [sessionKey, setSessionKey] = useState(0);
+  const chat = useChat<BuilderChatMessage>({ id: `${projectId}-${sessionKey}`, messages: initialMessages, transport: chatTransport });
   const chatPanelRef = usePanelRef();
   const previewPanelRef = usePanelRef();
   const hydratedClient = useHydratedClient();
@@ -117,6 +118,32 @@ export function BuilderShell({
   const setCheckpoints = useBuilderUiStore((state) => state.setCheckpoints);
   const chatBusy = chat.status === "submitted" || chat.status === "streaming";
   const hasInitialSessionRef = useRef(false);
+  const sessionCommandRef = useRef<string | null>(null);
+  const sessionMessagesRef = useRef<MessageSnapshot[] | null>(null);
+  const checkpointsLoadedRef = useRef(false);
+
+  // Handle session switch: send gateway command and load stored messages
+  useEffect(() => {
+    if (sessionCommandRef.current) {
+      const cmd = sessionCommandRef.current;
+
+      sessionCommandRef.current = null;
+      void chat.sendMessage({ text: cmd });
+    }
+
+    if (sessionMessagesRef.current) {
+      const msgs = sessionMessagesRef.current;
+
+      sessionMessagesRef.current = null;
+      chat.setMessages(
+        msgs.map((m) => ({
+          id: m.id,
+          role: m.role,
+          parts: [{ type: "text" as const, text: m.content }],
+        } as BuilderChatMessage)),
+      );
+    }
+  }, [sessionKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleClipboardPasteStable = useCallback(
     async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -215,13 +242,13 @@ export function BuilderShell({
           return { ...data, id: row.id, name: row.name, isSessionBoundary: row.isSessionBoundary, createdAt: Number(row.createdAt) };
         }),
       );
+    checkpointsLoadedRef.current = true;
     })();
   }, [projectId, setCheckpoints]);
 
   useEffect(() => {
-    const currentIds = new Set(checkpoints.map((cp) => cp.id));
+    if (!checkpointsLoadedRef.current) return;
 
-    // Persist each checkpoint to DB
     for (const cp of checkpoints) {
       void saveChatCheckpoint(cp.id, projectId, cp.name, cp.isSessionBoundary, JSON.stringify(cp));
     }
@@ -377,13 +404,27 @@ export function BuilderShell({
 
                   saveCheckpoint(`Session ${sessionNum}`, messageIds, hash, true, messageSnapshots);
                   useBuilderUiStore.getState().checkpoints.forEach((cp) => !cp.isSessionBoundary && useBuilderUiStore.getState().removeCheckpoint(cp.id));
-                  chat.setMessages([]);
+                  setSessionKey((k) => k + 1);
+                  sessionCommandRef.current = `/new --yes "apploop:${projectId}:session-${sessionNum}"`;
                   clearSelectedElements();
                   clearScreenshots();
                   hasInitialSessionRef.current = false;
                 }}
                 onRestoreCheckpoint={(cp) => {
-                  if (cp.messages.length > 0) {
+                  // Save current session before switching
+                  const sessions = checkpoints.filter((c) => c.isSessionBoundary);
+                  const currentSession = sessions[sessions.length - 1];
+
+                  if (currentSession && currentSession.id !== cp.id) {
+                    const currentMsgs = chat.messages
+                      .filter((m) => m.role === "user" || m.role === "assistant")
+                      .map((m) => ({ id: m.id, role: m.role as "user" | "assistant", content: getMessageText(m) }));
+
+                    useBuilderUiStore.getState().updateCheckpointMessages(currentSession.id, currentMsgs);
+                    setSessionKey((k) => k + 1);
+                    sessionCommandRef.current = `/resume "apploop:${projectId}:${cp.id}"`;
+                    sessionMessagesRef.current = cp.messages;
+                  } else {
                     chat.setMessages(
                       cp.messages.map((m) => ({
                         id: m.id,
@@ -391,10 +432,6 @@ export function BuilderShell({
                         parts: [{ type: "text" as const, text: m.content }],
                       } as BuilderChatMessage)),
                     );
-                  } else {
-                    const idSet = new Set(cp.messageIds);
-
-                    chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
                   }
 
                   loadCheckpoint(cp.id);
