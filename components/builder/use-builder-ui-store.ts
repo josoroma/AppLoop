@@ -10,8 +10,9 @@ export type ChatCheckpoint = {
   targets: VisualSelection[];
   screenshots: ScreenshotAttachment[];
   messageIds: string[];
-  /** Git commit hash in the generated project, for file-level rollback */
   commitHash: string | null;
+  /** True if this checkpoint represents a session boundary (visible in history). */
+  isSessionBoundary: boolean;
 };
 
 type BuilderUiState = {
@@ -32,7 +33,7 @@ type BuilderUiState = {
   attachClipboardImage: (screenshot: ScreenshotAttachment) => void;
   removeScreenshot: (id: string) => void;
   clearScreenshots: () => void;
-  saveCheckpoint: (name: string, messageIds: string[], commitHash?: string | null) => void;
+  saveCheckpoint: (name: string, messageIds: string[], commitHash?: string | null, isSessionBoundary?: boolean) => void;
   loadCheckpoint: (id: string) => ChatCheckpoint | undefined;
   removeCheckpoint: (id: string) => void;
 };
@@ -89,7 +90,7 @@ export const useBuilderUiStore = create<BuilderUiState>((set, get) => ({
       attachedScreenshots: state.attachedScreenshots.filter((s) => s.id !== id),
     })),
   clearScreenshots: () => set({ attachedScreenshots: [] }),
-  saveCheckpoint: (name, messageIds) =>
+  saveCheckpoint: (name, messageIds, commitHash = null, isSessionBoundary = false) =>
     set((state) => {
       checkpointCounter += 1;
       const checkpoint: ChatCheckpoint = {
@@ -99,7 +100,8 @@ export const useBuilderUiStore = create<BuilderUiState>((set, get) => ({
         targets: [...state.selectedElements],
         screenshots: [...state.attachedScreenshots],
         messageIds,
-        commitHash: null,
+        commitHash,
+        isSessionBoundary,
       };
 
       return { checkpoints: [...state.checkpoints, checkpoint] };

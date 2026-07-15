@@ -114,6 +114,7 @@ export function BuilderShell({
   const loadCheckpoint = useBuilderUiStore((state) => state.loadCheckpoint);
   const checkpoints = useBuilderUiStore((state) => state.checkpoints);
   const chatBusy = chat.status === "submitted" || chat.status === "streaming";
+  const hasInitialSessionRef = useRef(false);
 
   const handleClipboardPasteStable = useCallback(
     async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -337,11 +338,18 @@ export function BuilderShell({
             </div>
             <div className="border-b px-4 py-2">
               <ChatCheckpoints
-                onNewSession={() => {
-                  useBuilderUiStore.getState().checkpoints.forEach((cp) => useBuilderUiStore.getState().removeCheckpoint(cp.id));
+                onNewSession={async () => {
+                  const messageIds = chat.messages
+                    .filter((m) => m.role === "user" || m.role === "assistant")
+                    .map((m) => m.id);
+                  const hash = await createFileSnapshot(projectId);
+
+                  saveCheckpoint(`Session ${checkpoints.filter((cp) => cp.isSessionBoundary).length + 1}`, messageIds, hash, true);
+                  useBuilderUiStore.getState().checkpoints.forEach((cp) => !cp.isSessionBoundary && useBuilderUiStore.getState().removeCheckpoint(cp.id));
                   chat.setMessages([]);
                   clearSelectedElements();
                   clearScreenshots();
+                  hasInitialSessionRef.current = false;
                 }}
                 onRestoreCheckpoint={(cp) => {
                   const idSet = new Set(cp.messageIds);
@@ -479,7 +487,12 @@ export function BuilderShell({
                     .map((m) => m.id);
                   const hash = await createFileSnapshot(projectId);
 
-                  saveCheckpoint(`Prompt ${checkpoints.length + 1}`, messageIds, hash);
+                  if (!hasInitialSessionRef.current) {
+                    hasInitialSessionRef.current = true;
+                    saveCheckpoint("Session 1", messageIds, hash, true);
+                  }
+
+                  saveCheckpoint(`Prompt ${checkpoints.length + 1}`, messageIds, hash, false);
 
                   void chat.sendMessage({
                     text: messageText,

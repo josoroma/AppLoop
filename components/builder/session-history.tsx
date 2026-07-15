@@ -34,11 +34,12 @@ function getPromptPreview(checkpoint: ChatCheckpoint) {
 
 export function SessionHistory({ projectId, onRestore }: SessionHistoryProps) {
   const checkpoints = useBuilderUiStore((s) => s.checkpoints);
+  const sessionCheckpoints = checkpoints.filter((cp) => cp.isSessionBoundary);
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const totalPages = Math.max(1, Math.ceil(checkpoints.length / PAGE_SIZE));
-  const paged = checkpoints.slice(-(page + 1) * PAGE_SIZE, -(page * PAGE_SIZE) || undefined);
+  const totalPages = Math.max(1, Math.ceil(sessionCheckpoints.length / PAGE_SIZE));
+  const paged = sessionCheckpoints.slice(-(page + 1) * PAGE_SIZE, -(page * PAGE_SIZE) || undefined);
 
   async function handleRestore(cp: ChatCheckpoint) {
     if (cp.commitHash) {
@@ -69,7 +70,7 @@ export function SessionHistory({ projectId, onRestore }: SessionHistoryProps) {
         type="button"
       >
         <History className="size-3.5" />
-        Sessions ({checkpoints.length})
+        Sessions ({sessionCheckpoints.length})
       </button>
 
       {open &&
