@@ -193,6 +193,16 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
       return;
     }
 
+    const DISABLE_STYLE_ID = "apploop-inspector-disable-interactive";
+    let disableStyle = document.getElementById(DISABLE_STYLE_ID);
+
+    if (!disableStyle) {
+      disableStyle = document.createElement("style");
+      disableStyle.id = DISABLE_STYLE_ID;
+      disableStyle.textContent = "a[href], button{pointer-events:none;}";
+      document.head.appendChild(disableStyle);
+    }
+
     let selectedElement: HTMLElement | null = null;
     let hoveredElement: HTMLElement | null = null;
     let animationFrameId: number | null = null;
@@ -214,6 +224,21 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
       }
 
       window.parent.postMessage({ type: "apploop:inspector-select", projectId, previewNonce, selection }, parentOrigin);
+    };
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+
+      if (!target) {
+        return;
+      }
+
+      const actionable = target.closest<HTMLAnchorElement | HTMLButtonElement>("a[href], button");
+
+      if (actionable) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
     };
 
     const publishTrackedSelections = () => {
@@ -243,6 +268,7 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
 
     document.addEventListener("pointermove", handlePointerMove, { passive: true });
     document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("click", handleClick, true);
     document.addEventListener("scroll", publishTrackedSelections, true);
     window.addEventListener("scroll", publishTrackedSelections, true);
     window.addEventListener("resize", publishTrackedSelections);
@@ -257,9 +283,11 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
       }
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("click", handleClick, true);
       document.removeEventListener("scroll", publishTrackedSelections, true);
       window.removeEventListener("scroll", publishTrackedSelections, true);
       window.removeEventListener("resize", publishTrackedSelections);
+      document.getElementById(DISABLE_STYLE_ID)?.remove();
       window.parent.postMessage({ type: "apploop:inspector-hover", projectId, previewNonce, selection: null }, parentOrigin);
     };
   }, [enabled, previewNonce, projectId]);

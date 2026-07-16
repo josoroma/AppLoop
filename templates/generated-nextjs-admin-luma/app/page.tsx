@@ -12,15 +12,15 @@ export default function Home() {
     <main className="admin-page" data-builder-component="AdminHomePage" data-builder-id="admin-home-page">
       <section className="admin-hero dashboard-page-header" data-builder-component="AdminHero" data-builder-id="admin-hero">
         <div>
-          <p className="eyebrow admin-hero-eyebrow">Luma admin</p>
+          <p className="eyebrow dashboard-page-logo">Luma admin</p>
           <h1>Operate the workspace from one quiet command center.</h1>
         </div>
-        <a className="primary-link" data-builder-id="admin-primary-action" href="/reports">
+        <a className="primary-link dashboard-header-primary-link" data-builder-id="admin-primary-action" href="/reports">
           View reports
         </a>
       </section>
 
-      <section className="metric-grid dashboard-page-content" data-builder-id="admin-metrics">
+      <section className="metric-grid dashboard-content dashboard-page-content" data-builder-id="admin-metrics">
         {metrics.map((metric) => (
           <article className={`metric-card summary-card ${metric.className}`} data-builder-id={`metric-${metric.label.toLowerCase().replaceAll(" ", "-")}`} key={metric.label}>
             <p>{metric.label}</p>

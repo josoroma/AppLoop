@@ -216,6 +216,21 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
       window.parent.postMessage({ type: "apploop:inspector-select", projectId, previewNonce, selection }, parentOrigin);
     };
 
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+
+      if (!target) {
+        return;
+      }
+
+      const actionable = target.closest<HTMLAnchorElement | HTMLButtonElement>("a[href], button");
+
+      if (actionable) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
     const publishTrackedSelections = () => {
       if (animationFrameId !== null) {
         return;
@@ -243,6 +258,7 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
 
     document.addEventListener("pointermove", handlePointerMove, { passive: true });
     document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("click", handleClick, true);
     document.addEventListener("scroll", publishTrackedSelections, true);
     window.addEventListener("scroll", publishTrackedSelections, true);
     window.addEventListener("resize", publishTrackedSelections);
@@ -257,6 +273,7 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
       }
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("click", handleClick, true);
       document.removeEventListener("scroll", publishTrackedSelections, true);
       window.removeEventListener("scroll", publishTrackedSelections, true);
       window.removeEventListener("resize", publishTrackedSelections);
