@@ -4,6 +4,8 @@ AppLoop is a local-first visual builder for generated Next.js apps. It gives eac
 
 The builder itself runs on `http://localhost:3001`. Generated apps run separately on `http://127.0.0.1:3100+`.
 
+**Watch the demo:** [AppLoop on YouTube](https://www.youtube.com/watch?v=jPHKrebwvyA) — see it in action and build your first app in minutes.
+
 ## Table Of Contents
 
 - [Visual Targeting With Prompts](#visual-targeting-with-prompts)
@@ -657,13 +659,14 @@ The locked overlay follows iframe scroll and resize updates. While inspect mode 
 
 Templates are registered in `lib/projects/templates.ts`.
 
-| Template | Description | Default theme |
-|---|---|---|
-| `generated-nextjs-default` | Starter app with header navigation and light/dark mode. | `luma-blue-violet` |
-| `generated-nextjs-admin-luma` | Dark admin dashboard with navigation and reusable not-found state. | `luma-admin-amber` |
-| `generated-nextjs-ai-engineer-cv` | Portfolio-style AI engineer CV with expertise, experience, and proof points. | `luma-indigo-emerald` |
-| `generated-nextjs-deep-research-paper` | Long-form research paper with abstract, findings, methods, and citation protocol. | `luma-amber-slate` |
-| `generated-nextjs-webgl-particles-home` | Modern dark homepage with a native WebGL particle field and cinematic launch hero. | `luma-violet-cyan` |
+|| Template | Description | Default theme |
+||---|---|---|
+|| `generated-nextjs-default` | Starter app with header navigation and light/dark mode. | `luma-blue-violet` |
+|| `generated-nextjs-admin-luma` | Dark admin dashboard with navigation and reusable not-found state. | `luma-admin-amber` |
+|| `generated-nextjs-ai-engineer-cv` | Portfolio-style AI engineer CV with expertise, experience, and proof points. | `luma-cv-indigo` |
+|| `generated-nextjs-deep-research-paper` | Long-form research paper with abstract, findings, methods, and citation protocol. | `luma-amber-slate` |
+|| `generated-nextjs-webgl-particles-home` | Modern dark homepage with a native WebGL particle field and cinematic launch hero. | `luma-violet-cyan` |
+|| `generated-nextjs-solar-system` | Interactive 3D Solar System explorer with orbiting planets, gravitational grid, and NASA integration. | `luma-indigo-emerald` |
 
 Template source lives in `templates/`. Generated copies live under `.apploop/projects/`.
 
@@ -675,6 +678,7 @@ Built-in themes:
 
 - `luma-blue-violet`
 - `luma-admin-amber`
+- `luma-cv-indigo`
 - `luma-indigo-emerald`
 - `luma-violet-cyan`
 - `luma-amber-slate`
