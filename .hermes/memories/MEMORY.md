@@ -1,9 +1,15 @@
-Do not add automatic screenshot-on-click for inspect mode in AppLoop. Keep clipboard paste (Ctrl+V) as the only screenshot path. Client-side DOM-to-image libraries are NEVER pixel-perfect; server-side Playwright CDP is accurate but overengineered for this use case.
-§
-AppLoop inspect mode: manual screenshot via Ctrl+V paste only. Multi-select click-to-toggle. Overlays use position:absolute inside preview-viewport-frame (scrolled with content, not portaled). Labels use inline-grid+max-content+white-space:nowrap to expand, anchored to right edge (right:0) to avoid clipping. Repeated elements = base + unique classname (e.g. metric-card summary-card metric-revenue). Tracking updates (100ms) must NOT toggle selections.
+AppLoop inspect: clipboard paste (Ctrl+V) only screenshot. Multi-select toggle. Overlays absolute inside preview-viewport-frame. Labels inline-grid+max-content+nowrap, right:0. Repeated elements = base + unique last classname. Tracking 100ms updates rects only, not toggles. Never auto-screenshot.
 §
 User preference: If a visual/UI feature produces incorrect output and the user rejects it 2+ times ("no", "nope", "not equal", "still not the same"), stop iterating and offer removal or a fundamentally different approach. Don't repeatedly swap libraries/approaches when the user is signaling they want a different direction. This applies especially to screenshot/image capture features.
 §
-AppLoop: Never change useChat id (it doubles as projectId in /api/chat). Sessions per-project via chat_checkpoints DB table. Session state saved after every Hermes response AND on session switch. Session switch: save current session msgs before loading target. New session = chat.setMessages([]). Preview loading/failure states use dark bg (bg-black). CSS hot reload via restartRuntimeAction (full kill+start), not iframe reload.
+AppLoop: useChat id = projectId. Sessions in chat_checkpoints DB, saved after Hermes response + switch. New session = chat.setMessages([]). Preview loading bg-black. CSS reload via restartRuntimeAction.
 §
-AppLoop visual selector prompt: tells Hermes to modify only elements matching exact selectors or their descendants. "Target classnames (ONLY modify elements that match these exact selectors or are contained within them)" with explicit override clause.
+AppLoop visual prompt: "Target classnames (ONLY modify elements matching these selectors or their descendants)". Use preferredSelector (last classname), not shared base.
+§
+AppLoop restore: removes clicked prompt + all later messages from UI and persisted DB (timestamp-based delete to catch orphan assistant rows).
+§
+AppLoop model: default to deepseek/deepseek-v4-pro via OpenRouter for desktop, dashboard, and gateway.
+§
+WebGL particles template: native WebGL (no Three.js), dark-mode-first, luminous concentric laser rings in blue/pink/purple/white. Containers use dark gradients, nested text/controls use explicit high-contrast colors (not theme tokens).
+§
+Inspect multi-select scroll: template inspector-provider must track ALL selected elements in Map<string,HTMLElement>, iterate each on tracking updates so all overlays stay positioned after scroll.

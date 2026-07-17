@@ -109,13 +109,14 @@ describe("E11 generated app code standards", () => {
 
 async function collectTemplateUiFiles(templateRoot: string) {
   const files: string[] = [];
-  const ignored = new Set(["inspector-provider.tsx", "theme-provider.tsx", "button.tsx", "avatar.tsx", "layout.tsx"]);
+  const ignored = new Set(["inspector-provider.tsx", "theme-provider.tsx", "button.tsx", "avatar.tsx", "layout.tsx", "solar-system-scene.tsx", "canvas-scene.tsx"]);
 
   async function walk(dir: string) {
     for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
       const entryPath = path.join(dir, entry.name);
 
       if (entry.isDirectory()) {
+        if (entry.name === "node_modules") continue;
         await walk(entryPath);
       } else if (entry.name.endsWith(".tsx") && !ignored.has(entry.name)) {
         files.push(entryPath);

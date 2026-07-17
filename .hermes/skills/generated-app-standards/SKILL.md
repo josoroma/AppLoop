@@ -49,12 +49,15 @@ Do not use this skill to edit AppLoop builder source files.
 - Put reusable UI under colocated `components/` folders for the route or feature that owns them.
 - Put semantic class names on inspectable boundaries from the frontend design output.
 - Use stable semantic class names such as `dashboard-header`, `dashboard-content`, `left-column`, `center-column`, `right-column`, `dashboard-footer`, `analytics-card`, `summary-card`, `primary-actions`, and `secondary-actions` on user-meaningful boundaries.
-- The root `<body>` element must carry the template classname: `template-default` for `generated-nextjs-default`, `template-admin-luma` for `generated-nextjs-admin-luma`, `template-ai-engineer-cv` for `generated-nextjs-ai-engineer-cv`, `template-deep-research-paper` for `generated-nextjs-deep-research-paper`, or `template-webgl-particles-home` for `generated-nextjs-webgl-particles-home`. Never remove or rename this classname — it identifies the template source in inspect mode and disambiguates overlapping semantic classnames between templates.
+- The root `<body>` element must carry the template classname: `template-default` for `generated-nextjs-default`, `template-admin-luma` for `generated-nextjs-admin-luma`, `template-ai-engineer-cv` for `generated-nextjs-ai-engineer-cv`, `template-deep-research-paper` for `generated-nextjs-deep-research-paper`, `template-webgl-particles-home` for `generated-nextjs-webgl-particles-home`, or `template-solar-system` for `generated-nextjs-solar-system`. Never remove or rename this classname — it identifies the template source in inspect mode and disambiguates overlapping semantic classnames between templates.
 - Every user-visible template UI element should have classnames. Use shared/base classnames for styling and grouping, plus a unique, human-readable classname for inspect-mode targeting.
 - Repeated elements (e.g. cards rendered via `.map()`) must have both a shared base classname (for grouping, e.g. `metric-card summary-card`) AND a unique per-instance descriptive classname (for precise inspect-mode identification, e.g. `metric-revenue`, `metric-active-users`). Without the unique classname, all instances appear identical in inspect mode and the user cannot target a specific one.
   - **Write the unique classname LAST** in the className string: `metric-card summary-card metric-revenue`. The `createSelectionPayload` in `inspector-provider.tsx` picks the LAST classname as `preferredSelector`, which is the key used for multi-select toggling. If two elements share the same last classname, they collide and multi-select breaks.
   - This applies to child text elements too: use base + unique last classnames such as `metric-label metric-revenue-label`, `metric-value metric-revenue-value`, and `metric-change metric-revenue-change`. Template audits should reject missing className on visible elements and duplicate static last classnames.
 - **Pitfall — composable UI primitives and the classname audit**: The template audit test (`tests/generated-code-standards.test.ts`) matches `className="..."` and `` className={`...`} `` patterns, but NOT `className={cn(...)}` or `className={expression}`. Composable UI primitives (e.g. `components/ui/avatar.tsx`, `button.tsx`) that use `cn()` will produce false-positive "missing className" failures. **Workaround**: when adding a new composable primitive to a template that uses `cn()`, also add its filename to the `ignored` Set in `tests/generated-code-standards.test.ts` → `collectTemplateUiFiles`. The ignore list already includes `inspector-provider.tsx`, `theme-provider.tsx`, `button.tsx`, `avatar.tsx`, and `layout.tsx`.
+  - **Pitfall — TypeScript generics in JSX files**: The audit regex matches `<any`-named tags (e.g. `useState<any>(...)` in a `.tsx` file produces `<any>` which the regex treats as an HTML element). Avoid TypeScript generic type parameters in JSX files that the audit walks. Use typed state explicitly (`useState<PlanetInfo | null>`) or move the state to a non-audited file. If unavoidable, ensure the generic never contains a lowercase word like `any`.
+  - **Pitfall — R3F / Three.js template files**: Templates using React Three Fiber or raw Three.js JSX (`<mesh>`, `<group>`, `<points>`, etc.) will trigger false "missing className" failures because their element names don't carry classNames. Add these template-specific three-component filenames (e.g. `solar-system-scene.tsx`, `canvas-scene.tsx`) to the `ignored` Set in the audit test.
+  - **Pitfall — `node_modules` in template audit**: Templates with dependencies (React Three Fiber, Three.js) install `node_modules/`. The audit walk function traverses all directories including `node_modules/`, picking up `.tsx` files from installed packages. Add `if (entry.name === "node_modules") continue;` inside the directory branch of `collectTemplateUiFiles`. Without this, `node_modules/its-fine/src/index.tsx` and similar files will fail the audit.
 - Optional `data-builder-id` values must be kebab-case, unique in the rendered route, and describe the boundary rather than visual styling.
 - Optional `data-builder-component` values should name the owning PascalCase component and stay out of business logic.
 - Preserve semantic class names and builder metadata during refactors unless all source references are updated.
@@ -166,6 +169,23 @@ cp .apploop/projects/ai-engineer-cv/app/globals.css templates/generated-nextjs-a
 ```
 
 After syncing, run `npm --prefix templates/<id> run typecheck` to verify. If the visual palette changed, also update `defaultThemeId` in `lib/projects/templates.ts` and register a custom theme in `lib/themes/registry.ts` so the Create Project modal shows the correct palette.
+
+**Generated project → template source sync**: When the user customizes a generated project's design in the browser (AppLoop prompts, theme tweaks, manual CSS edits), those changes only exist in `.apploop/projects/<slug>/`. To make them permanent for new projects, copy the changed files back to the template source. Use `diff` first to identify which files changed, then `cp` them:
+
+```bash
+# Identify changes
+diff templates/generated-nextjs-ai-engineer-cv/app/globals.css .apploop/projects/ai-engineer-cv/app/globals.css
+
+# Sync all changed files back to template
+cp .apploop/projects/ai-engineer-cv/app/page.tsx templates/generated-nextjs-ai-engineer-cv/app/page.tsx
+cp .apploop/projects/ai-engineer-cv/app/globals.css templates/generated-nextjs-ai-engineer-cv/app/globals.css
+```
+
+After syncing, run `npm --prefix templates/<id> run typecheck` to verify. If the visual palette changed and the template has a custom look (dark gradients, unique accent colors), also:
+1. Register a custom theme in `lib/themes/registry.ts` (use `defineBuiltInTheme` with a unique id)
+2. Update `defaultThemeId` in `lib/projects/templates.ts`
+3. Add preview swatch CSS rules in `app/globals.css` with the same theme id
+4. Ensure the theme's `preview` object uses light-mode-consistent values (not near-black tokens), or the theme card shows black swatches
 
 **Critical pitfall — template mismatch**: Each generated project was created from exactly one template.
 

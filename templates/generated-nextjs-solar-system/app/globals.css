@@ -1,0 +1,394 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --ring: oklch(0.556 0 0);
+  --radius: 0.625rem;
+  color-scheme: dark;
+  font-family: "Avenir Next", "SF Pro Display", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--border);
+  outline-color: var(--ring);
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: #020210;
+  color: var(--foreground);
+}
+
+/* ── Shell & Canvas ──────────────────────── */
+
+.solar-shell {
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.solar-canvas {
+  position: absolute !important;
+  inset: 0;
+}
+
+/* ── Start Screen ───────────────────────── */
+
+.solar-start-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 20% 30%, oklch(0.08 0.08 265 / 60%), transparent 50rem),
+    radial-gradient(circle at 80% 70%, oklch(0.05 0.04 245 / 50%), transparent 40rem),
+    #020210;
+}
+
+.solar-start-content {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 42rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+.solar-start-title {
+  margin: 0;
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  background: linear-gradient(135deg, white 20%, oklch(0.7 0.18 265) 60%, oklch(0.5 0.2 230));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.solar-start-subtitle {
+  color: oklch(0.7 0.02 260);
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
+
+.solar-start-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  justify-self: center;
+  border: 1px solid oklch(1 0 0 / 15%);
+  border-radius: 999px;
+  padding: 0.85rem 2rem;
+  background: oklch(1 0 0 / 8%);
+  backdrop-filter: blur(14px);
+  color: white;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.solar-start-btn:hover {
+  background: oklch(1 0 0 / 16%);
+  border-color: oklch(1 0 0 / 30%);
+}
+
+/* ── Glassmorphism Panels ────────────────── */
+
+.solar-controls,
+.solar-planet-card,
+.solar-loading-card {
+  border: 1px solid oklch(1 0 0 / 10%);
+  border-radius: var(--radius-lg);
+  background: oklch(0.12 0.01 260 / 78%);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 8px 40px oklch(0 0 0 / 60%);
+}
+
+/* ── Controls Overlay ───────────────────── */
+
+.solar-controls {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  z-index: 10;
+}
+
+.solar-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid oklch(1 0 0 / 12%);
+  border-radius: var(--radius-md);
+  background: oklch(1 0 0 / 6%);
+  color: oklch(0.85 0.01 260);
+  cursor: pointer;
+}
+
+.solar-control-btn:hover {
+  background: oklch(1 0 0 / 14%);
+}
+
+.solar-control-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.solar-speed-group {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.solar-speed-label {
+  min-width: 2.6rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: oklch(0.7 0.14 265);
+}
+
+.solar-divider {
+  width: 1px;
+  height: 1.5rem;
+  background: oklch(1 0 0 / 10%);
+}
+
+.solar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: oklch(0.7 0.02 260);
+  cursor: pointer;
+}
+
+.solar-toggle input {
+  width: 0.85rem;
+  height: 0.85rem;
+  accent-color: oklch(0.5 0.22 265);
+}
+
+/* ── Planet Info Card ────────────────────── */
+
+.solar-planet-card {
+  position: fixed;
+  right: 1.5rem;
+  top: 50%;
+  translate: 0 -50%;
+  display: grid;
+  gap: 1rem;
+  width: 18rem;
+  padding: 1.5rem;
+  z-index: 10;
+}
+
+.solar-planet-card-close {
+  justify-self: end;
+  display: flex;
+  border: none;
+  background: oklch(1 0 0 / 8%);
+  border-radius: var(--radius-md);
+  padding: 0.25rem;
+  color: oklch(0.7 0.02 260);
+  cursor: pointer;
+}
+
+.solar-planet-card-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 7rem;
+  border-radius: var(--radius-md);
+}
+
+.solar-planet-card-orb {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 999px;
+}
+
+.solar-planet-card-name {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: white;
+}
+
+.solar-planet-card-stats {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.solar-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.82rem;
+}
+
+.solar-stat dt {
+  color: oklch(0.6 0.02 260);
+}
+
+.solar-stat dd {
+  font-weight: 700;
+  color: white;
+}
+
+.solar-planet-card-nasa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid oklch(1 0 0 / 12%);
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  background: oklch(1 0 0 / 6%);
+  color: oklch(0.8 0.14 265);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.solar-planet-card-nasa:hover {
+  background: oklch(1 0 0 / 14%);
+}
+
+/* ── Planet Labels ───────────────────────── */
+
+.solar-planet-label {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: oklch(0.1 0.02 260 / 85%);
+  backdrop-filter: blur(8px);
+  color: white;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── Loading Overlay ─────────────────────── */
+
+.solar-loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #020210ee;
+  z-index: 50;
+}
+
+.solar-loading-card {
+  display: grid;
+  gap: 1.25rem;
+  padding: 2.5rem;
+  width: 20rem;
+  text-align: center;
+}
+
+.solar-loading-spinner {
+  justify-self: center;
+}
+
+.solar-loading-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: white;
+}
+
+.solar-loading-bar-track {
+  position: relative;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: oklch(1 0 0 / 10%);
+  overflow: hidden;
+}
+
+.solar-loading-bar-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, oklch(0.5 0.22 265), oklch(0.65 0.18 265));
+  transition: width 0.2s;
+}
+
+.solar-loading-text {
+  margin: 0;
+  font-size: 0.78rem;
+  color: oklch(0.6 0.02 260);
+}
+
+/* ── Responsive ──────────────────────────── */
+
+@media (max-width: 768px) {
+  .solar-controls {
+    bottom: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.5rem;
+  }
+
+  .solar-planet-card {
+    right: 0.5rem;
+    width: 16rem;
+  }
+}

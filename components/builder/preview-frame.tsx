@@ -472,8 +472,12 @@ function SelectionOverlay({ locked, selection }: { locked: boolean; selection: V
   }, [selection]);
 
   async function copySelector() {
-    await navigator.clipboard?.writeText(selector);
-    toast.success(`Copied ${selector}`);
+    try {
+      await navigator.clipboard?.writeText(selector);
+      toast.success(`Copied ${selector}`);
+    } catch {
+      // Clipboard API blocked by permissions policy (iframe context)
+    }
   }
 
   return (

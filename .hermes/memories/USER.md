@@ -1,1 +1,5 @@
 User is building AppLoop, a Next.js visual app builder. Prefers manual control: removes features that fail 2+ times rather than iterating. Prefers CSS Grid over flexbox for layout (after flexbox failed repeatedly for chat panel scrolling). Wants git-based file snapshots for checkpoint/rollback. Expects auto-checkpoints on every prompt submit. Wants edit & resend with checkpoint restore. Prefers "New session" button over manual save. Wants Hermes context usage display when available. Expects runtime auto-start on project open with force-kill on stop. Prefers CHOKIDAR_USEPOLLING for reliable file watching from external tools. Expects prompt to include unique per-instance selectors, not shared base classnames.
+§
+User expects AppLoop project-edit prompts through Hermes gateway to use the repo-local .hermes agents/bundles/skills/hooks/commands, and expects all generated/template UI to be inspect-mode addressable: shared/base classnames where useful plus a unique human-readable classname written last on every user-visible element.
+§
+User's name is Joso (home directory /Users/josoroma, CV template uses "Joso R.").

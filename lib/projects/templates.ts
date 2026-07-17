@@ -36,6 +36,13 @@ export const BUILT_IN_PROJECT_TEMPLATES = [
     templatePath: "generated-nextjs-webgl-particles-home",
     defaultThemeId: "luma-violet-cyan",
   },
+  {
+    id: "generated-nextjs-solar-system",
+    name: "Solar System Explorer",
+    description: "Cinematic interactive 3D Solar System with orbiting planets, gravitational grid, and NASA integration.",
+    templatePath: "generated-nextjs-solar-system",
+    defaultThemeId: "luma-indigo-emerald",
+  },
 ] as const;
 
 export type ProjectTemplateId = (typeof BUILT_IN_PROJECT_TEMPLATES)[number]["id"];
