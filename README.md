@@ -148,7 +148,7 @@ AppLoop uses a small set of local configuration files. Secrets should stay in `.
 | `.env-example` | Template for local builder, Hermes gateway, OpenRouter, Tavily, preview ports, and SQLite settings. |
 | `.env` | Your uncommitted local copy of `.env-example`; loaded by Next.js and sourced by Makefile Hermes commands. |
 | `.hermes/.env` | Optional repo-local Hermes environment file; sourced by `make hermes-*` before `.env`. |
-| `.hermes/config.yaml` | Hermes YAML config. This repo currently enables the API server and routes `deepseek/deepseek-v4-pro` through OpenRouter. |
+| `.hermes/config.yaml` | Hermes YAML config. This repo currently enables the API server and routes `openai/gpt-5.5` through OpenRouter. |
 | `Makefile` | Defines `HERMES_HOME=.hermes`, gateway defaults, and helper commands such as `make hermes-gateway`. |
 
 The current `.hermes/config.yaml` shape is:
@@ -159,8 +159,8 @@ platforms:
     enabled: true
     extra:
       model_routes:
-        deepseek/deepseek-v4-pro:
-          model: deepseek/deepseek-v4-pro
+        "openai/gpt-5.5":
+          model: openai/gpt-5.5
           provider: openrouter
 ```
 
@@ -289,8 +289,8 @@ OpenRouter is the model provider configured by this repo's `.env-example` and `.
 OPENROUTER_API_KEY=sk-or-v1-...
 HERMES_INFERENCE_PROVIDER=openrouter
 HERMES_TUI_PROVIDER=openrouter
-HERMES_MODEL=deepseek/deepseek-v4-pro
-HERMES_INFERENCE_MODEL=deepseek/deepseek-v4-pro
+HERMES_MODEL=openai/gpt-5.5
+HERMES_INFERENCE_MODEL=openai/gpt-5.5
 ```
 
 3. Keep `.hermes/config.yaml` pointed at the same provider/model route:
@@ -301,8 +301,8 @@ platforms:
     enabled: true
     extra:
       model_routes:
-        deepseek/deepseek-v4-pro:
-          model: deepseek/deepseek-v4-pro
+        "openai/gpt-5.5":
+          model: openai/gpt-5.5
           provider: openrouter
 ```
 
@@ -409,8 +409,8 @@ platforms:
     enabled: true
     extra:
       model_routes:
-        deepseek/deepseek-v4-pro:
-          model: deepseek/deepseek-v4-pro
+        "openai/gpt-5.5":
+          model: openai/gpt-5.5
           provider: openrouter
         local-qwen3.6-27b-optiq-4bit:
           model: /Users/your-user/models/qwen/Qwen3.6-27B-OptiQ-4bit

@@ -8,8 +8,8 @@ platforms:
     enabled: true
     extra:
       model_routes:
-        deepseek/deepseek-v4-pro:
-          model: deepseek/deepseek-v4-pro
+        "openai/gpt-5.5":
+          model: openai/gpt-5.5
           provider: openrouter
 
 # ── Security ──────────────────────────────────────────────────────────

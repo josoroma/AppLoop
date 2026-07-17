@@ -54,6 +54,8 @@ export interface ProjectRepository {
   createMessage(message: NewMessage): Promise<void>;
   createMessageOnce(message: NewMessage): Promise<void>;
   listConversationMessages(conversationId: string, options?: MessagePageOptions): Promise<Message[]>;
+  deleteConversationMessages(conversationId: string, messageIds: string[]): Promise<void>;
+  deleteConversationMessagesFrom(conversationId: string, messageId: string): Promise<void>;
   createRun(run: NewRun): Promise<Run>;
   listActiveRuns(): Promise<Run[]>;
   createProjectSnapshot(snapshot: NewProjectSnapshot): Promise<void>;

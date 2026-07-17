@@ -132,18 +132,18 @@ select {
   gap: 0.25rem;
 }
 
-.admin-nav a,
+.admin-nav-link,
 .primary-link,
-.not-found-actions a {
+.not-found-action-link {
   border-radius: calc(var(--radius) - 0.125rem);
   color: var(--muted-foreground);
   padding: 0.5rem 0.75rem;
   text-decoration: none;
 }
 
-.admin-nav a:hover,
+.admin-nav-link:hover,
 .primary-link,
-.not-found-actions a:first-child {
+.not-found-overview-link {
   background: var(--primary);
   color: var(--primary-foreground);
 }
@@ -181,7 +181,7 @@ select {
 }
 
 .eyebrow,
-.metric-card p {
+.metric-label {
   color: var(--primary);
   font-size: 0.75rem;
   font-weight: 800;
@@ -189,8 +189,8 @@ select {
   text-transform: uppercase;
 }
 
-.admin-hero h1,
-.not-found-card h1 {
+.hero-title,
+.not-found-title {
   max-width: 46rem;
   margin: 0.5rem 0 0;
   font-size: clamp(2.25rem, 7vw, 4.75rem);
@@ -213,13 +213,13 @@ select {
   padding: 1rem;
 }
 
-.metric-card strong {
+.metric-value {
   display: block;
   margin-top: 0.75rem;
   font-size: 2rem;
 }
 
-.metric-card span {
+.metric-change {
   color: var(--chart-2);
   font-weight: 800;
 }
@@ -231,7 +231,7 @@ select {
   margin-top: 1rem;
 }
 
-.panel-card ul {
+.activity-list {
   display: grid;
   gap: 0.75rem;
   margin: 1rem 0 0;
@@ -239,9 +239,23 @@ select {
   list-style: none;
 }
 
-.panel-card li {
+.activity-list-item {
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.75rem;
+}
+
+.hero-copy-group,
+.not-found-copy-group {
+  min-width: 0;
+}
+
+.panel-title {
+  margin: 0;
+}
+
+.panel-copy,
+.not-found-copy {
+  color: var(--muted-foreground);
 }
 
 .accent-panel {

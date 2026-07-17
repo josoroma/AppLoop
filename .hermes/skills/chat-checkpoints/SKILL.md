@@ -87,15 +87,27 @@ The `reloadKey` prop flows from `builder-shell.tsx` → `PreviewFrame.reloadKey`
 
 This also ensures session state is durable across page refreshes — the current session's messages are saved after every prompt.
 
-### Edit & Resend (Restore + Edit as separate buttons)
+### Restore / Edit & Resend (per-prompt buttons)
 
 ```
-User clicks "Edit & Resend" on a past user message
+User clicks "Restore" or "Edit" on a past user message
   │
-  ├─► Find checkpoint with matching messageIds
-  ├─► revertToFileSnapshot → truncate chat → restore targets/screenshots
-  └─► Pre-fill textarea with original prompt (splits on "Target classnames")
+  ├─► Find the prompt checkpoint whose messageIds exactly match the ordered
+  │   user+assistant messages BEFORE the clicked user message
+  │   (do NOT search for the clicked message id inside checkpoint.messageIds)
+  ├─► revertToFileSnapshot(projectId, cp.commitHash)
+  ├─► Truncate in-memory chat to messages BEFORE the clicked prompt
+  │   (delete the clicked prompt itself and every later response/prompt)
+  ├─► Delete persisted DB rows for the clicked prompt and every later
+  │   user/assistant message so reload cannot resurrect them
+  ├─► Restore targets/screenshots
+  ├─► Restart runtime + bump preview reload key
+  └─► Edit only: pre-fill textarea with original prompt (splits on "Target classnames")
 ```
+
+Why the lookup is pre-message based: prompt checkpoints are created before `chat.sendMessage()`, so the new user message does not exist yet. The first prompt checkpoint intentionally has `messageIds: []`. A restore lookup like `checkpoint.messageIds.includes(clickedMessage.id)` will never find the correct checkpoint and will fall back to chat-only truncation without file rollback.
+
+DB deletion is part of restore semantics, not just UI cleanup. Use a helper like `messageIdsFromMessage(chat.messages, clickedMessage)` to collect IDs from the clicked prompt onward, and a server action/repository method scoped by the active conversation id to delete those rows. Otherwise the restored prompt and later messages disappear temporarily but reappear after page reload.
 
 ## Types
 
@@ -154,10 +166,16 @@ Server actions: `lib/chat/checkpoint-actions.ts`
 
 ## Git File Snapshots
 
+Each generated project gets its own `.git` repo initialized at **project creation time** by `initProjectGit()` in `lib/projects/files.ts`. The init creates `.gitignore` (node_modules, .next, .turbo, dist, out, logs, .apploop) and commits all template files. Both `createFileSnapshot` and `revertToFileSnapshot` only operate on the project's own git — never on AppLoop's parent repo.
+
 Server actions in `lib/chat/file-snapshot.ts`:
 
-- `createFileSnapshot(projectId)` — `git add -A && git commit --allow-empty`. Auto-inits git if needed. Returns hash or null.
-- `revertToFileSnapshot(projectId, commitHash)` — `git reset --hard <hash> && git clean -fd`. Discards ALL uncommitted changes.
+- `createFileSnapshot(projectId)` — `git add -A && git commit --allow-empty`. Returns null if `.git` is missing or git toplevel doesn't match the workspace (parent repo guard).
+- `revertToFileSnapshot(projectId, commitHash)` — `git reset --hard <hash>` only (NO `git clean -fd`). Three guards: (1) `.git` must exist in workspace, (2) `git rev-parse --show-toplevel` must match workspace, (3) commit must exist (`git cat-file -e`). Returns false on any guard failure.
+
+### Runtime Restart After Revert
+
+After `revertToFileSnapshot`, the Restore/Edit handlers in `builder-shell.tsx` call both `restartRuntimeAction` (server action: kill + start dev server for fresh reads) and `setPreviewReloadKey` (force iframe remount). This is needed because Turbopack's file watcher can miss atomic `git reset --hard` operations — the only reliable way to reflect reverted files in the preview is a full runtime restart.
 
 ## Component Structure
 
@@ -183,6 +201,10 @@ Server actions in `lib/chat/file-snapshot.ts`:
 
 - **Message snapshots enable cross-session restore**: `messages: MessageSnapshot[]` stores full content at session creation. When restoring, `chat.setMessages()` reconstructs from snapshots — works even when current chat is empty. Without snapshots, restoring would show 0 messages.
 
+- **Prompt restore must delete persisted DB messages from the clicked prompt onward**: UI truncation alone is not enough — on page reload, `listConversationMessages()` will hydrate any surviving `messages` rows. Prefer deleting by the clicked user message's persisted `createdAt` boundary (`deleteConversationMessagesFrom`) rather than only by visible client ids, because historical client-side assistant ids may not match DB assistant ids.
+
+- **Assistant UI id must match persisted DB id**: `/api/chat` must write the UI message `start` event with the same `messageId` that is later persisted for the assistant message. If `writer.write({ type: "start", messageId: randomUUID() })` differs from `repository.createMessageOnce({ id: assistantMessageIdForRun(runId) })`, restore/delete by visible message ids leaves orphan assistant rows in SQLite that reappear after reload and pollute edit/resend context.
+
 - **New session clears non-session checkpoints only**: `cp.isSessionBoundary && removeCheckpoint(cp.id)` — session boundaries persist across new sessions.
 
 - **Async form handler**: Capture `const form = event.currentTarget` BEFORE `await createFileSnapshot()`. React nulls synthetic events after async calls.
@@ -192,3 +214,5 @@ Server actions in `lib/chat/file-snapshot.ts`:
 - **Cache-bust preview after Hermes response**: Use `previewReloadKey` + `?_t=N` on the iframe src, NOT `restartRuntimeAction`. Runtime restart allocates new ports, creates a mismatch between `projects.preview_port` and `runtimes.port`, and leaves the iframe loading the wrong URL. The cache-bust approach forces a fresh browser load without port changes. Pass `reloadKey` as a prop to PreviewFrame and append it in `frameSrc`.
 
 - **Separate Restore and Edit buttons**: Each user message has two inline buttons. \"Restore\" reverts files/messages/targets without pre-filling the textarea. \"Edit\" also pre-fills the textarea. Both are wrapped in a `<div>` (not inside `<p>` to avoid \"div cannot be a descendant of p\" hydration errors).
+
+- **Per-project git repo isolation (critical)**: Without its own `.git`, git commands inside a workspace find AppLoop's parent `.git`. AppLoop's `.gitignore` has `.apploop/` → all workspace files are ignored → commits are empty → `git clean -fd` DELETES every workspace source file because they're untracked. This is why `git clean -fd` was removed from `revertToFileSnapshot` and replaced with three guards. Git is now initialized at project creation time in `createProjectWorkspace()` — `createFileSnapshot` returns null if `.git` is missing. For existing projects created before this fix, delete and recreate them.

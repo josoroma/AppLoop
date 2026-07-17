@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import type { BuilderDatabase } from "@/lib/db";
 import {
   builderPreferences,
@@ -106,6 +106,24 @@ export class SqliteProjectRepository implements ProjectRepository {
       .limit(limit);
 
     return rows.reverse();
+  }
+
+  async deleteConversationMessages(conversationId: string, messageIds: string[]) {
+    if (messageIds.length === 0) return;
+
+    await this.db.delete(messages).where(and(eq(messages.conversationId, conversationId), inArray(messages.id, messageIds)));
+  }
+
+  async deleteConversationMessagesFrom(conversationId: string, messageId: string) {
+    const [message] = await this.db
+      .select({ createdAt: messages.createdAt })
+      .from(messages)
+      .where(and(eq(messages.conversationId, conversationId), eq(messages.id, messageId)))
+      .limit(1);
+
+    if (!message) return;
+
+    await this.db.delete(messages).where(and(eq(messages.conversationId, conversationId), gte(messages.createdAt, message.createdAt)));
   }
 
   async createRun(run: NewRun) {

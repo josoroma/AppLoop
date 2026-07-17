@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   const stream = createUIMessageStream({
     originalMessages: messages,
     async execute({ writer }) {
-      writer.write({ type: "start", messageId: randomUUID(), messageMetadata: { projectId, runId } });
+      writer.write({ type: "start", messageId: textPartId, messageMetadata: { projectId, runId } });
       writer.write({ type: "text-start", id: textPartId });
 
       try {

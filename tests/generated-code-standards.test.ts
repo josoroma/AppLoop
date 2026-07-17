@@ -62,4 +62,57 @@ describe("E11 generated app code standards", () => {
       expect.arrayContaining([expect.objectContaining({ ruleId: "action-pattern-check" })]),
     );
   });
+
+  it("keeps template UI elements inspectable with unique last classnames", async () => {
+    for (const templateName of ["generated-nextjs-default", "generated-nextjs-admin-luma"]) {
+      const templateRoot = path.join(process.cwd(), "templates", templateName);
+      const files = await collectTemplateUiFiles(templateRoot);
+      const lastClassNames: string[] = [];
+
+      for (const file of files) {
+        const content = await fs.readFile(file, "utf8");
+        const elementMatches = content.matchAll(/<([a-z][\w-]*)\b([^>]*)>/g);
+
+        for (const match of elementMatches) {
+          const attrs = match[2] ?? "";
+          const literalClassName = attrs.match(/className="([^"]+)"/);
+          const templateClassName = attrs.match(/className=\{`([^`]+)`\}/);
+
+          expect(literalClassName || templateClassName, `${path.relative(templateRoot, file)} <${match[1]}> missing className`).toBeTruthy();
+
+          if (literalClassName) {
+            const classes = literalClassName[1].trim().split(/\s+/);
+
+            expect(classes.length, `${path.relative(templateRoot, file)} <${match[1]}> needs a classname`).toBeGreaterThan(0);
+            lastClassNames.push(classes[classes.length - 1]);
+          }
+        }
+      }
+
+      const duplicates = lastClassNames.filter((className, index) => lastClassNames.indexOf(className) !== index);
+
+      expect(duplicates, `${templateName} has repeated preferred/last classnames`).toEqual([]);
+    }
+  });
 });
+
+async function collectTemplateUiFiles(templateRoot: string) {
+  const files: string[] = [];
+  const ignored = new Set(["inspector-provider.tsx", "theme-provider.tsx", "button.tsx", "layout.tsx"]);
+
+  async function walk(dir: string) {
+    for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+      const entryPath = path.join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        await walk(entryPath);
+      } else if (entry.name.endsWith(".tsx") && !ignored.has(entry.name)) {
+        files.push(entryPath);
+      }
+    }
+  }
+
+  await walk(templateRoot);
+
+  return files;
+}

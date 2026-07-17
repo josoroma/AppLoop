@@ -57,7 +57,7 @@ describe("E4 Hermes backend and streaming chat", () => {
       apiKey: "secret",
       transport: "rest",
       gatewayIntegration: "local-gateway",
-      inferenceModel: "deepseek/deepseek-v4-pro",
+      inferenceModel: "openai/gpt-5.5",
       inferenceProvider: "openrouter",
     });
 
@@ -87,7 +87,7 @@ describe("E4 Hermes backend and streaming chat", () => {
     const requestInit = fetchMock.mock.calls[0]?.[1];
 
     expect(String(requestInit?.body)).toContain('"gatewayIntegration":"local-gateway"');
-    expect(String(requestInit?.body)).toContain('"model":"deepseek/deepseek-v4-pro"');
+    expect(String(requestInit?.body)).toContain('"model":"openai/gpt-5.5"');
     expect(String(requestInit?.body)).toContain('"orchestrator":{"id":"project-builder"');
     expect(String(requestInit?.body)).toContain('"skillBundle":{"id":"ui-builder"');
     expect(String(requestInit?.body)).toContain('"hooks":[{"id":"project-scope-guard"');
@@ -105,7 +105,7 @@ describe("E4 Hermes backend and streaming chat", () => {
       baseUrl: "http://127.0.0.1:8642",
       apiKey: "secret",
       transport: "rest",
-      inferenceModel: "deepseek/deepseek-v4-pro",
+      inferenceModel: "openai/gpt-5.5",
       inferenceProvider: "openrouter",
     });
     const events = [];
@@ -133,7 +133,7 @@ describe("E4 Hermes backend and streaming chat", () => {
       method: "POST",
       body: expect.stringContaining('"input":"Build a page"'),
     }));
-    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"model":"deepseek/deepseek-v4-pro"');
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"model":"openai/gpt-5.5"');
     expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"inferenceProvider":"openrouter"');
     expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain("AppLoop project builder");
     expect(fetchMock).toHaveBeenNthCalledWith(3, new URL("/v1/runs/gateway-run-1/events", "http://127.0.0.1:8642"), expect.objectContaining({

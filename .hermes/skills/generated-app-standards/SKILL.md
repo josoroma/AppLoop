@@ -50,8 +50,10 @@ Do not use this skill to edit AppLoop builder source files.
 - Put semantic class names on inspectable boundaries from the frontend design output.
 - Use stable semantic class names such as `dashboard-header`, `dashboard-content`, `left-column`, `center-column`, `right-column`, `dashboard-footer`, `analytics-card`, `summary-card`, `primary-actions`, and `secondary-actions` on user-meaningful boundaries.
 - The root `<body>` element must carry the template classname: `template-default` for `generated-nextjs-default` or `template-admin-luma` for `generated-nextjs-admin-luma`. Never remove or rename this classname — it identifies the template source in inspect mode and disambiguates overlapping semantic classnames between templates.
+- Every user-visible template UI element should have classnames. Use shared/base classnames for styling and grouping, plus a unique, human-readable classname for inspect-mode targeting.
 - Repeated elements (e.g. cards rendered via `.map()`) must have both a shared base classname (for grouping, e.g. `metric-card summary-card`) AND a unique per-instance descriptive classname (for precise inspect-mode identification, e.g. `metric-revenue`, `metric-active-users`). Without the unique classname, all instances appear identical in inspect mode and the user cannot target a specific one.
   - **Write the unique classname LAST** in the className string: `metric-card summary-card metric-revenue`. The `createSelectionPayload` in `inspector-provider.tsx` picks the LAST classname as `preferredSelector`, which is the key used for multi-select toggling. If two elements share the same last classname, they collide and multi-select breaks.
+  - This applies to child text elements too: use base + unique last classnames such as `metric-label metric-revenue-label`, `metric-value metric-revenue-value`, and `metric-change metric-revenue-change`. Template audits should reject missing className on visible elements and duplicate static last classnames.
 - Optional `data-builder-id` values must be kebab-case, unique in the rendered route, and describe the boundary rather than visual styling.
 - Optional `data-builder-component` values should name the owning PascalCase component and stay out of business logic.
 - Preserve semantic class names and builder metadata during refactors unless all source references are updated.
@@ -170,9 +172,9 @@ grep "template-" .apploop/projects/<slug>/app/layout.tsx
 
 ## Next.js Dev Server File Watching
 
-Generated projects use Next.js 16 with Turbopack. File changes written by external tools (Hermes prompts, the builder's file operations) may not be detected by Turbopack's native file system watcher (FSEvents/inotify). The symptom: `globals.css` is modified on disk, but the compiled CSS bundle hash never changes, even after a dev server restart. Only deleting `.next/` forces a recompile.
+Generated projects use Next.js 16 with Turbopack. File changes written by external tools (Hermes prompts, the builder's file operations) may not be detected by Turbopack's native file system watcher (FSEvents/inotify). The symptom: `globals.css` is modified on disk, but the compiled CSS bundle hash never changes — the page still serves the old hash even after file touches or HMR pings.
 
-**Fix**: Add `CHOKIDAR_USEPOLLING=true` to the `dev` script in the template's `package.json`:
+**Fix — layer 1 (preventative)**: Add `CHOKIDAR_USEPOLLING=true` to the `dev` script in the template's `package.json`:
 
 ```json
 "scripts": {
@@ -180,9 +182,39 @@ Generated projects use Next.js 16 with Turbopack. File changes written by extern
 }
 ```
 
-This forces polling (1s interval) instead of native OS events, reliable across all filesystems and external write sources. New projects get this automatically; existing projects need the script updated or recreation.
+This forces polling (1s interval) instead of native OS events. New projects get this automatically; existing projects need the script updated or recreation.
 
-**Verification**: After an edit, check the CSS hash changed: `curl -s http://127.0.0.1:<port>/ | grep -o 'href="[^"]*\\.css[^"]*"'`. Stale hash → clear `.next/` and restart.
+**Fix — layer 2 (recovery when polling didn't catch it)**: Even with `CHOKIDAR_USEPOLLING`, some file changes go undetected — `touch` on the file and browser reload don't help. The hash stays stale. Kill and restart the dev server:
+
+```bash
+kill $(lsof -ti:<port>)      # e.g. kill $(lsof -ti:3100)
+cd .apploop/projects/<slug> && CHOKIDAR_USEPOLLING=true npx next dev -p <port>
+```
+
+A clean kill+restart (new process) forces Turbopack to re-read all source files and rebuild the CSS chunks. This works in most cases without deleting `.next/`.
+
+**Fix — layer 3 (last resort)**: If kill+restart still serves the old hash, clear the build cache and restart:
+
+```bash
+kill $(lsof -ti:<port>)
+rm -rf .apploop/projects/<slug>/.next
+cd .apploop/projects/<slug> && CHOKIDAR_USEPOLLING=true npx next dev -p <port>
+```
+
+**Verification — browser-side**: Don't rely on curl alone. Check whether CSS rules are actually loaded in the browser:
+
+```js
+// Check if new rules exist in any stylesheet
+[...document.styleSheets].some(sheet => {
+  try { return [...sheet.cssRules].some(r => r.selectorText?.includes('.dashboard-page-header')) }
+  catch(e) { return false }
+})
+
+// Or verify computed styles directly
+getComputedStyle(document.querySelector('.dashboard-page-header')).backgroundImage
+```
+
+If the rule is on disk but missing from browser stylesheets, the hash is stale — proceed to layer 2.
 
 ## Preview Dark Loading States
 
@@ -248,6 +280,47 @@ The `.theme-toggle` also needs a visible border and wider width:
 ```
 
 These changes ensure the header strip and toggle button are always distinguishable from the dark background, in both light and dark modes.
+
+### Custom Gradient Headers (Non-Theme-Token Backgrounds)
+
+When the user wants a specific colored gradient (green, blue gradients, etc.) that should NOT change with light/dark mode, use hardcoded `oklch` values — NOT `--sidebar-primary` or other theme tokens. The gradient stays fixed across modes, so nested elements must use explicit white/translucent colors for contrast.
+
+Pattern — apply the gradient to the section's unique classname (e.g. `.dashboard-page-header`), placed AFTER the generic rule (`.admin-hero`) so it overrides:
+
+```css
+.dashboard-page-header {
+  border: 1px solid color-mix(in oklch, oklch(0.45 0.16 160) 30%, transparent);
+  background: linear-gradient(135deg, oklch(0.38 0.14 160), oklch(0.52 0.18 150));
+  box-shadow: 0 4px 32px color-mix(in oklch, oklch(0.32 0.12 155) 40%, transparent);
+}
+
+.dashboard-page-header .eyebrow {
+  color: color-mix(in oklch, white 78%, oklch(0.65 0.16 140));
+}
+
+.dashboard-page-header h1 {
+  color: white;
+}
+
+.dashboard-page-header .primary-link {
+  background: color-mix(in oklch, white 15%, transparent);
+  border: 1px solid color-mix(in oklch, white 30%, transparent);
+  color: white;
+}
+
+.dashboard-page-header .primary-link:hover {
+  background: color-mix(in oklch, white 24%, transparent);
+}
+```
+
+Key rules:
+- Use `color-mix(in oklch, white N%, ...)` for translucent overlays on colored backgrounds — it works without opacity issues
+- Borders matching the gradient: `color-mix(in oklch, <gradient-mid-color> 30%, transparent)` for a subtle tinted edge
+- Shadows matching the gradient: `color-mix(in oklch, <deep-color> 40%, transparent)` for depth without a generic black shadow
+- Eyebrow/accent text: mix white with a light tint of the gradient hue (78-85% white) — softer than pure white but still readable
+- Links/buttons: translucent white bg (15%) + white border (30%) + white text; hover bumps to 24%
+- These hardcoded values survive light/dark toggle unchanged since they don't reference theme tokens
+- Verify with `getComputedStyle(el).backgroundImage` in the browser console — the gradient should report identical oklch values in both modes
 
 ## Preview Reload After Code Changes
 

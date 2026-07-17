@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 export const BUILDER_PORT = 3001;
+export const DEFAULT_HERMES_MODEL = "openai/gpt-5.5";
+export const DEFAULT_HERMES_PROVIDER = "openrouter";
 
 export const serverEnvSchema = z
   .object({
@@ -9,9 +11,9 @@ export const serverEnvSchema = z
     HERMES_API_KEY: z.string().min(1).optional(),
     HERMES_TRANSPORT: z.enum(["rest", "websocket"]).default("rest"),
     HERMES_GATEWAY_INTEGRATION: z.string().min(1).optional(),
-    HERMES_MODEL: z.string().min(1).optional(),
-    HERMES_INFERENCE_MODEL: z.string().min(1).optional(),
-    HERMES_INFERENCE_PROVIDER: z.string().min(1).optional(),
+    HERMES_MODEL: z.string().min(1).default(DEFAULT_HERMES_MODEL),
+    HERMES_INFERENCE_MODEL: z.string().min(1).default(DEFAULT_HERMES_MODEL),
+    HERMES_INFERENCE_PROVIDER: z.string().min(1).default(DEFAULT_HERMES_PROVIDER),
     API_SERVER_KEY: z.string().min(1).optional(),
     API_SERVER_HOST: z.string().min(1).optional(),
     API_SERVER_PORT: z.coerce.number().int().min(1024).max(65535).optional(),

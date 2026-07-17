@@ -19,8 +19,10 @@ import { JsonHighlight } from "@/components/builder/json-highlight";
 import { PreviewFrame } from "@/components/builder/preview-frame";
 import { ChatCheckpoints } from "@/components/builder/chat-checkpoints";
 import { HermesContextUsage } from "@/components/builder/hermes-context-usage";
+import { findCheckpointBeforeMessage, messagesBeforeMessage } from "@/lib/chat/checkpoint-restore";
 import { createFileSnapshot, revertToFileSnapshot } from "@/lib/chat/file-snapshot";
-import { listChatCheckpoints, saveChatCheckpoint, deleteChatCheckpoint } from "@/lib/chat/checkpoint-actions";
+import { deleteProjectConversationMessagesFrom } from "@/lib/chat/message-actions";
+import { listChatCheckpoints, saveChatCheckpoint } from "@/lib/chat/checkpoint-actions";
 import { getBuilderLayoutStorageKey, groupHermesActivities, parseBuilderSplitLayout, serializeBuilderSplitLayout } from "@/lib/builder/ux";
 import type { BuilderChatMessage } from "@/lib/chat/messages";
 import { getMessageText } from "@/lib/chat/messages";
@@ -445,24 +447,25 @@ export function BuilderShell({
                           <button
                             className="text-[10px] text-muted-foreground hover:text-foreground"
                             onClick={async () => {
-                              const cpIndex = checkpoints.findIndex((cp) => cp.messageIds.includes(message.id));
-                              const cp = cpIndex !== -1 ? checkpoints[cpIndex] : null;
+                              const cp = findCheckpointBeforeMessage(checkpoints, chat.messages, message);
 
                               if (cp) {
                                 if (cp.commitHash) {
                                   await revertToFileSnapshot(projectId, cp.commitHash);
                                 }
 
-                                const idSet = new Set(cp.messageIds);
-
-                                chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
+                                chat.setMessages(messagesBeforeMessage(chat.messages, message));
                                 loadCheckpoint(cp.id);
                               } else {
-                                const idx = chat.messages.indexOf(message);
-                                const truncated = chat.messages.slice(0, idx);
-
-                                chat.setMessages(truncated);
+                                chat.setMessages(messagesBeforeMessage(chat.messages, message));
                               }
+
+                              await deleteProjectConversationMessagesFrom(projectId, message.id);
+
+                              const fd = new FormData();
+                              fd.append("projectId", projectId);
+                              await restartRuntimeAction(fd);
+                              setPreviewReloadKey((k) => k + 1);
                             }}
                             title="Restore project state to before this prompt"
                             type="button"
@@ -472,17 +475,14 @@ export function BuilderShell({
                           <button
                             className="text-[10px] text-muted-foreground hover:text-foreground"
                             onClick={async () => {
-                              const cpIndex = checkpoints.findIndex((cp) => cp.messageIds.includes(message.id));
-                              const cp = cpIndex !== -1 ? checkpoints[cpIndex] : null;
+                              const cp = findCheckpointBeforeMessage(checkpoints, chat.messages, message);
 
                               if (cp) {
                                 if (cp.commitHash) {
                                   await revertToFileSnapshot(projectId, cp.commitHash);
                                 }
 
-                                const idSet = new Set(cp.messageIds);
-
-                                chat.setMessages(chat.messages.filter((m) => idSet.has(m.id)));
+                                chat.setMessages(messagesBeforeMessage(chat.messages, message));
                                 loadCheckpoint(cp.id);
 
                                 const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]');
@@ -493,10 +493,7 @@ export function BuilderShell({
                                   textarea.focus();
                                 }
                               } else {
-                                const idx = chat.messages.indexOf(message);
-                                const truncated = chat.messages.slice(0, idx);
-
-                                chat.setMessages(truncated);
+                                chat.setMessages(messagesBeforeMessage(chat.messages, message));
 
                                 const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]');
                                 const promptText = getMessageText(message).split("Target classnames")[0]?.trim() ?? "";
@@ -506,6 +503,13 @@ export function BuilderShell({
                                   textarea.focus();
                                 }
                               }
+
+                              await deleteProjectConversationMessagesFrom(projectId, message.id);
+
+                              const fd = new FormData();
+                              fd.append("projectId", projectId);
+                              await restartRuntimeAction(fd);
+                              setPreviewReloadKey((k) => k + 1);
                             }}
                             title="Restore to before this prompt and edit"
                             type="button"

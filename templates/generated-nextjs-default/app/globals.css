@@ -129,7 +129,7 @@ select {
   gap: 0.25rem;
 }
 
-.site-nav a {
+.site-nav-link {
   border-radius: calc(var(--radius) - 0.125rem);
   color: var(--muted-foreground);
   padding: 0.5rem 0.75rem;
@@ -137,7 +137,7 @@ select {
   transition: background 160ms ease, color 160ms ease;
 }
 
-.site-nav a:hover {
+.site-nav-link:hover {
   background: var(--accent);
   color: var(--accent-foreground);
 }
@@ -193,7 +193,7 @@ select {
   box-shadow: 0 24px 70px color-mix(in oklch, var(--foreground) 10%, transparent);
 }
 
-.hero-section p {
+.hero-eyebrow {
   color: var(--primary);
   font-size: 0.78rem;
   font-weight: 700;
@@ -201,9 +201,27 @@ select {
   text-transform: uppercase;
 }
 
-.hero-section h1 {
+.hero-title {
   margin: 0.75rem 0 0;
   font-size: clamp(2.5rem, 8vw, 5rem);
   letter-spacing: 0;
   line-height: 0.95;
+}
+
+.hero-copy {
+  margin: 1rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.6;
+  text-transform: none;
+}
+
+.project-card-title {
+  margin: 0;
+}
+
+.project-card-description {
+  color: var(--muted-foreground);
 }

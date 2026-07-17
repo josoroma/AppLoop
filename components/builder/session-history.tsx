@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { type CSSProperties, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Clock, History } from "lucide-react";
 import { useBuilderUiStore, type ChatCheckpoint } from "@/components/builder/use-builder-ui-store";
@@ -37,6 +37,7 @@ export function SessionHistory({ projectId, onRestore }: SessionHistoryProps) {
   const sessionCheckpoints = checkpoints.filter((cp) => cp.isSessionBoundary);
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState(0);
+  const [dropdownPosition, setDropdownPosition] = useState<CSSProperties>({});
   const buttonRef = useRef<HTMLButtonElement>(null);
   const totalPages = Math.max(1, Math.ceil(sessionCheckpoints.length / PAGE_SIZE));
   const paged = sessionCheckpoints.slice(-(page + 1) * PAGE_SIZE, -(page * PAGE_SIZE) || undefined);
@@ -50,7 +51,15 @@ export function SessionHistory({ projectId, onRestore }: SessionHistoryProps) {
     setOpen(false);
   }
 
-  function getDropdownPosition() {
+  function toggleDropdown() {
+    if (!open) {
+      setDropdownPosition(getDropdownPosition());
+    }
+
+    setOpen(!open);
+  }
+
+  function getDropdownPosition(): CSSProperties {
     const rect = buttonRef.current?.getBoundingClientRect();
 
     if (!rect) return {};
@@ -65,7 +74,7 @@ export function SessionHistory({ projectId, onRestore }: SessionHistoryProps) {
     <>
       <button
         className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-        onClick={() => setOpen(!open)}
+        onClick={toggleDropdown}
         ref={buttonRef}
         type="button"
       >
@@ -79,7 +88,7 @@ export function SessionHistory({ projectId, onRestore }: SessionHistoryProps) {
             <div className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
             <div
               className="fixed z-[61] w-72 rounded-lg border bg-card shadow-lg"
-              style={getDropdownPosition()}
+              style={dropdownPosition}
             >
               <div className="flex items-center justify-between border-b px-3 py-2">
                 <span className="text-xs font-semibold text-foreground">Session history</span>
