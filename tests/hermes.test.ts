@@ -57,7 +57,7 @@ describe("E4 Hermes backend and streaming chat", () => {
       apiKey: "secret",
       transport: "rest",
       gatewayIntegration: "local-gateway",
-      inferenceModel: "openai/gpt-5.5",
+      inferenceModel: "deepseek/deepseek-v4-pro",
       inferenceProvider: "openrouter",
     });
 
@@ -87,7 +87,7 @@ describe("E4 Hermes backend and streaming chat", () => {
     const requestInit = fetchMock.mock.calls[0]?.[1];
 
     expect(String(requestInit?.body)).toContain('"gatewayIntegration":"local-gateway"');
-    expect(String(requestInit?.body)).toContain('"model":"openai/gpt-5.5"');
+    expect(String(requestInit?.body)).toContain('"model":"deepseek/deepseek-v4-pro"');
     expect(String(requestInit?.body)).toContain('"orchestrator":{"id":"project-builder"');
     expect(String(requestInit?.body)).toContain('"skillBundle":{"id":"ui-builder"');
     expect(String(requestInit?.body)).toContain('"hooks":[{"id":"project-scope-guard"');
@@ -105,7 +105,7 @@ describe("E4 Hermes backend and streaming chat", () => {
       baseUrl: "http://127.0.0.1:8642",
       apiKey: "secret",
       transport: "rest",
-      inferenceModel: "openai/gpt-5.5",
+      inferenceModel: "deepseek/deepseek-v4-pro",
       inferenceProvider: "openrouter",
     });
     const events = [];
@@ -133,9 +133,16 @@ describe("E4 Hermes backend and streaming chat", () => {
       method: "POST",
       body: expect.stringContaining('"input":"Build a page"'),
     }));
-    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"model":"openai/gpt-5.5"');
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"model":"deepseek/deepseek-v4-pro"');
     expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"inferenceProvider":"openrouter"');
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"agentBundle":{"orchestrator":{"id":"project-builder"');
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"skillBundle":{"id":"ui-builder"');
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"hooks":[{"id":"project-scope-guard"');
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"commands":[{"id":"project-build"');
     expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain("AppLoop project builder");
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain("repo-local AppLoop Hermes project bundle");
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain("unique, human-readable classname");
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain(".hermes/agents/project-builder.md");
     expect(fetchMock).toHaveBeenNthCalledWith(3, new URL("/v1/runs/gateway-run-1/events", "http://127.0.0.1:8642"), expect.objectContaining({
       headers: expect.objectContaining({ Accept: "text/event-stream" }),
     }));
@@ -176,6 +183,8 @@ describe("E4 Hermes backend and streaming chat", () => {
       "security-auditor",
     ]);
     expect(bundle.isolationRules).toContain("workspacePath is the only writable root");
+    expect(bundle.isolationRules).toContain("new generated UI must keep shared/base classnames plus unique inspect-mode classnames");
+    expect(bundle.completionCriteria).toContain("generated-ui-elements-have-unique-human-readable-last-classnames");
     expect(HERMES_AGENT_DEFINITIONS["security-auditor"].responsibilities).toContain("path-containment");
     expect(bundle.skillBundle.skills.map((skill) => skill.id)).toEqual(UI_BUILDER_SKILL_BUNDLE.activationOrder);
     expect(bundle.hooks.map((hook) => hook.id)).toEqual(UI_BUILDER_HOOK_ORDER);
@@ -187,6 +196,7 @@ describe("E4 Hermes backend and streaming chat", () => {
     expect(UI_BUILDER_SKILL_BUNDLE.path).toBe(".hermes/bundles/ui-builder/BUNDLE.md");
     expect(UI_BUILDER_SKILL_BUNDLE.skills.map((skill) => skill.command)).toEqual([
       "/security-review",
+      "/hermes-gateway",
       "/visual-selector",
       "/theme-system",
       "/frontend-design",
@@ -195,7 +205,9 @@ describe("E4 Hermes backend and streaming chat", () => {
     ]);
     expect(HERMES_SKILL_DEFINITIONS["frontend-design"].capabilities).toContain("layout-hierarchy");
     expect(HERMES_SKILL_DEFINITIONS["generated-app-standards"].capabilities).toContain("schema-action-patterns");
+    expect(HERMES_SKILL_DEFINITIONS["generated-app-standards"].capabilities).toContain("unique-inspect-classnames");
     expect(HERMES_SKILL_DEFINITIONS["hermes-gateway"].capabilities).toContain("stream-normalization");
+    expect(HERMES_SKILL_DEFINITIONS["hermes-gateway"].capabilities).toContain("agent-bundle-forwarding");
     expect(HERMES_SKILL_DEFINITIONS["theme-system"].capabilities).toContain("rollback");
   });
 
@@ -203,6 +215,7 @@ describe("E4 Hermes backend and streaming chat", () => {
     expect(UI_BUILDER_HOOK_ORDER).toEqual(["project-scope-guard", "generated-code-review", "theme-integrity", "preview-readiness"]);
     expect(HERMES_HOOK_DEFINITIONS["project-scope-guard"].enforcement).toContain("resolve-symlinks");
     expect(HERMES_HOOK_DEFINITIONS["generated-code-review"].enforcement).toContain("default-export-check");
+    expect(HERMES_HOOK_DEFINITIONS["generated-code-review"].enforcement).toContain("unique-inspect-classname-check");
     expect(HERMES_HOOK_DEFINITIONS["theme-integrity"].enforcement).toContain("hard-coded-color-detection");
     expect(HERMES_HOOK_DEFINITIONS["preview-readiness"].outputs).toContain("previewReady");
 
@@ -228,7 +241,7 @@ describe("E4 Hermes backend and streaming chat", () => {
       "selected AppLoop theme",
     );
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "agents", "nextjs-implementer.md"), "utf8")).resolves.toContain(
-      "kebab-case filenames",
+      "unique human-readable classname LAST",
     );
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "agents", "validation-repair.md"), "utf8")).resolves.toContain(
       "three repair attempts",
@@ -248,6 +261,9 @@ describe("E4 Hermes backend and streaming chat", () => {
     await expect(
       fs.readFile(path.join(process.cwd(), ".hermes", "skills", "generated-app-standards", "SKILL.md"), "utf8"),
     ).resolves.toContain("Schema And Action Patterns");
+    await expect(
+      fs.readFile(path.join(process.cwd(), ".hermes", "skills", "generated-app-standards", "SKILL.md"), "utf8"),
+    ).resolves.toContain("unique, human-readable classname");
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "skills", "hermes-gateway", "SKILL.md"), "utf8")).resolves.toContain(
       "server-only",
     );
@@ -264,7 +280,7 @@ describe("E4 Hermes backend and streaming chat", () => {
       "Iframe boundary",
     );
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "bundles", "ui-builder", "BUNDLE.md"), "utf8")).resolves.toContain(
-      "/frontend-design",
+      "/hermes-gateway",
     );
   });
 
@@ -273,7 +289,7 @@ describe("E4 Hermes backend and streaming chat", () => {
       "Resolve symlinks",
     );
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "hooks", "generated-code-review", "HOOK.md"), "utf8")).resolves.toContain(
-      "Default exports",
+      "unique, human-readable LAST classname",
     );
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "hooks", "theme-integrity", "HOOK.md"), "utf8")).resolves.toContain(
       "hard-coded colors",
@@ -282,7 +298,7 @@ describe("E4 Hermes backend and streaming chat", () => {
       "preview-ready",
     );
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "commands", "project-build.md"), "utf8")).resolves.toContain(
-      "/project-build",
+      "classname compliance",
     );
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "commands", "project-element-edit.md"), "utf8")).resolves.toContain(
       "Selector payload",

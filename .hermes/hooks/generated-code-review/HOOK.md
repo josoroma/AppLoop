@@ -31,10 +31,13 @@ trigger: post-edit
 - `schema.ts` files missing the `PositionSchema` plus `z.infer<typeof PositionSchema>` pattern.
 - `actions.ts` files missing exported async verb-noun function declarations.
 - Missing semantic class names on inspectable boundaries when required by design output.
+- Missing className on any user-visible generated UI element.
+- Missing unique, human-readable LAST classname for inspect-mode targeting on generated UI elements.
+- Child text elements under generated boundaries missing base + unique classnames, such as `metric-label metric-revenue-label`.
 - Generic boundary names such as `box`, `item`, or `wrapper` on important layout regions.
 - Duplicate `data-builder-id` values in the same rendered route.
 - Invalid `data-builder-id` values; use kebab-case identifiers such as `dashboard-revenue-card`.
-- Missing or wrong template classname on `<body>`: must be `template-default` for generated-nextjs-default projects or `template-admin-luma` for generated-nextjs-admin-luma projects.
+- Missing or wrong template classname on `<body>`: must match the selected project template (`template-default`, `template-admin-luma`, `template-ai-engineer-cv`, `template-deep-research-paper`, or `template-webgl-particles-home`).
 - Template classname removed, renamed, or moved from `<body>` to a descendant element.
 - Repeated elements (`.map()` rendered items) missing unique per-instance classnames. Shared classnames like `metric-card summary-card` are not sufficient — each instance needs a unique descriptive classname (e.g. `metric-revenue`, `metric-active-users`).
 - Repeated elements using generic suffixes like `-1`, `-2`, `-a`, `-b` instead of descriptive kebab-case names.

@@ -25,5 +25,6 @@ command: /project-build
 3. Run project scope guard before tool operations.
 4. Delegate implementation through project-builder orchestration.
 5. Generate route files from controlled template conventions when creating a new page.
-6. Snapshot existing files before edits.
-7. Validate and report affected files, package policy decisions, and the result.
+6. Ensure every generated user-visible UI element has shared/base classnames where useful and a unique, human-readable classname written last for inspect-mode targeting.
+7. Snapshot existing files before edits.
+8. Validate and report affected files, package policy decisions, classname compliance, and the result.

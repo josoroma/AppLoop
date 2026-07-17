@@ -10,6 +10,7 @@ import {
   isKebabCaseFileName,
   validateGeneratedSourceFile,
 } from "@/lib/generated-code/standards";
+import { BUILT_IN_PROJECT_TEMPLATES } from "@/lib/projects/templates";
 
 describe("E11 generated app code standards", () => {
   it("defines generated-app formatter rules and template scripts", async () => {
@@ -64,7 +65,7 @@ describe("E11 generated app code standards", () => {
   });
 
   it("keeps template UI elements inspectable with unique last classnames", async () => {
-    for (const templateName of ["generated-nextjs-default", "generated-nextjs-admin-luma"]) {
+    for (const templateName of BUILT_IN_PROJECT_TEMPLATES.map((template) => template.templatePath)) {
       const templateRoot = path.join(process.cwd(), "templates", templateName);
       const files = await collectTemplateUiFiles(templateRoot);
       const lastClassNames: string[] = [];
@@ -94,11 +95,21 @@ describe("E11 generated app code standards", () => {
       expect(duplicates, `${templateName} has repeated preferred/last classnames`).toEqual([]);
     }
   });
+
+  it("keeps template inspector providers tracking all selected elements during scroll", async () => {
+    for (const templateName of BUILT_IN_PROJECT_TEMPLATES.map((template) => template.templatePath)) {
+      const providerSource = await fs.readFile(path.join(process.cwd(), "templates", templateName, "components", "inspector-provider.tsx"), "utf8");
+
+      expect(providerSource).toContain("const selectedElements = new Map<string, HTMLElement>()");
+      expect(providerSource).toContain("for (const [preferredSelector, element] of selectedElements)");
+      expect(providerSource).not.toContain("let selectedElement: HTMLElement | null");
+    }
+  });
 });
 
 async function collectTemplateUiFiles(templateRoot: string) {
   const files: string[] = [];
-  const ignored = new Set(["inspector-provider.tsx", "theme-provider.tsx", "button.tsx", "layout.tsx"]);
+  const ignored = new Set(["inspector-provider.tsx", "theme-provider.tsx", "button.tsx", "avatar.tsx", "layout.tsx"]);
 
   async function walk(dir: string) {
     for (const entry of await fs.readdir(dir, { withFileTypes: true })) {

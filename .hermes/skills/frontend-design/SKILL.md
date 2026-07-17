@@ -53,6 +53,16 @@ Do not use this skill for pure data-model, API, dependency, or runtime-only chan
 - Use icon buttons for compact tool actions and text buttons for primary commands.
 - Keep component responsibilities clear: shells arrange regions, feature components own data presentation, and primitives own interaction semantics.
 
+## Fullscreen Modal And Scrollbar Patterns
+
+Use this pattern when a modal or drawer is a primary workflow surface, such as project creation or settings with long card grids:
+
+- Make the dialog truly fullscreen with viewport sizing (`h-dvh w-dvw max-w-none`), no rounded/windowed shell, and no outer clipping that hides content.
+- Use CSS Grid for structure: header row (`auto`), scrollable content row (`1fr`), and optional pinned action footer (`auto`). This keeps titles and actions reachable while long forms scroll.
+- Put vertical scrolling on the inner content region, not the page, with `min-h-0 overflow-y-scroll` so the grid child can shrink and scroll.
+- When the user explicitly asks for a visible scrollbar, do not rely on macOS/Chromium overlay scrollbars. Add a named scroll area class plus CSS (`scrollbar-gutter: stable`, `scrollbar-width`, `scrollbar-color`, and `::-webkit-scrollbar` track/thumb rules). If native scrollbars are still hidden until interaction, add a subtle persistent right-side rail/background so the scroll affordance is visible.
+- For fullscreen modals with selectable cards, increase card padding/min-height and use wider responsive grids (`md:grid-cols-2`, `xl:grid-cols-3`) so the fullscreen layout uses available space instead of looking like a centered small dialog.
+
 ## Output Contract
 
 Produce:
@@ -61,4 +71,5 @@ Produce:
 - Responsive behavior for each region.
 - Visual states that must be implemented.
 - Semantic class names for inspectable boundaries. Repeated elements (lists, grids, card sets) need both a shared base classname for grouping AND a unique per-instance descriptive classname so inspect mode can distinguish individual items. E.g. `metric-card summary-card metric-revenue` — not just `metric-card summary-card`. **Write the unique classname LAST** — the `createSelectionPayload` function in the inspector picks the last classname as `preferredSelector`, which is used for multi-select toggling. If two elements share the same last classname, they collide and cannot be distinguished. Document the base classname and each unique instance name.
-- Which template the design targets (`template-default` vs `template-admin-luma`), so generated code uses the correct root classname on `<body>`.
+- Which template the design targets (`template-default`, `template-admin-luma`, `template-ai-engineer-cv`, `template-deep-research-paper`, or `template-webgl-particles-home`), so generated code uses the correct root classname on `<body>`.
+- For **any dark-gradient container** (sidebar, header, card, hero), nested text/icon/button colors must be explicit hardcoded values (`oklch(...)` or `color-mix(in oklch, white N%, ...)`) — never bare theme tokens like `var(--muted-foreground)`, which blend into dark surfaces. See `generated-app-standards` → Dark Container Nested Contrast for the full pattern.

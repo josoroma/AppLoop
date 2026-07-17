@@ -232,6 +232,7 @@ export class HermesClient {
       instructions: createGatewayInstructions(request),
       model: this.config.inferenceModel,
       session_id: request.sessionId ?? undefined,
+      agentBundle: request.agentBundle,
       metadata: {
         projectId: request.projectId,
         conversationId: request.conversationId,
@@ -263,6 +264,8 @@ async function readGatewayRunId(response: Response) {
 }
 
 function createGatewayInstructions(request: HermesRunRequest) {
+  const bundle = request.agentBundle;
+
   return [
     "You are the AppLoop project builder for a local generated Next.js workspace.",
     `Project ID: ${request.projectId}`,
@@ -271,7 +274,24 @@ function createGatewayInstructions(request: HermesRunRequest) {
     `Selected theme: ${request.agentBundle.projectContext.selectedThemeId}`,
     `Package install policy: ${request.agentBundle.projectContext.packageInstallPolicy}`,
     `Validation depth: ${request.agentBundle.projectContext.validationDepth}`,
-    "Use the provided AppLoop agent bundle metadata to plan, edit, validate, and report observable activity. Do not reveal private reasoning.",
+    "",
+    "Use this repo-local AppLoop Hermes project bundle for every generated-project change:",
+    `- Orchestrator: ${bundle.orchestrator.id} (${bundle.orchestrator.path})`,
+    `- Delegate agents: ${bundle.delegates.map((agent) => `${agent.id} (${agent.path})`).join(", ")}`,
+    `- Skill bundle: ${bundle.skillBundle.id} (${bundle.skillBundle.path})`,
+    `- Skills, in activation order: ${bundle.skillBundle.activationOrder.join(", ")}`,
+    `- Hooks: ${bundle.hooks.map((hook) => `${hook.id} (${hook.path})`).join(", ")}`,
+    `- Commands: ${bundle.commands.map((command) => `${command.command} (${command.path})`).join(", ")}`,
+    `- Layout validation script: ${bundle.layoutValidationScript}`,
+    "",
+    "Generated-code classname contract:",
+    "- Every user-visible generated UI element must have classnames.",
+    "- Use shared/base classnames for styling and grouping, plus a unique, human-readable classname for inspect-mode targeting.",
+    "- Put the unique classname LAST because inspect mode uses the last classname as preferredSelector.",
+    "- Repeated elements and their child text elements need unique per-instance classnames; generic suffixes like -1/-2 are not acceptable.",
+    "- Preserve the template body classname: template-default or template-admin-luma.",
+    "",
+    "Use the AppLoop bundle metadata to plan, edit, validate, and report observable activity. Do not reveal private reasoning.",
   ].join("\n");
 }
 

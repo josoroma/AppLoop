@@ -198,6 +198,37 @@ select {
   border-radius: var(--radius-sm);
 }
 
+.project-create-scrollarea {
+  position: relative;
+  scrollbar-gutter: stable;
+  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 58%, transparent) color-mix(in oklch, var(--secondary) 70%, transparent);
+  scrollbar-width: thin;
+  background-image:
+    linear-gradient(color-mix(in oklch, var(--secondary) 72%, transparent), color-mix(in oklch, var(--secondary) 72%, transparent)),
+    linear-gradient(color-mix(in oklch, var(--muted-foreground) 62%, transparent), color-mix(in oklch, var(--muted-foreground) 62%, transparent));
+  background-position:
+    right 0.5rem top 1rem,
+    right 0.5rem top 1rem;
+  background-repeat: no-repeat;
+  background-size:
+    0.25rem calc(100% - 2rem),
+    0.25rem 8rem;
+}
+
+.project-create-scrollarea::-webkit-scrollbar {
+  width: 0.625rem;
+}
+
+.project-create-scrollarea::-webkit-scrollbar-track {
+  background: color-mix(in oklch, var(--secondary) 70%, transparent);
+}
+
+.project-create-scrollarea::-webkit-scrollbar-thumb {
+  border: 2px solid color-mix(in oklch, var(--secondary) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--muted-foreground) 58%, transparent);
+}
+
 .theme-preview-swatch {
   display: block;
 }
@@ -214,6 +245,10 @@ select {
 .theme-card-preview[data-theme-id="luma-indigo-emerald"] .theme-preview-secondary { background: oklch(0.967 0.001 286.375); }
 .theme-card-preview[data-theme-id="luma-indigo-emerald"] .theme-preview-accent { background: oklch(0.845 0.143 164.978); }
 .theme-card-preview[data-theme-id="luma-indigo-emerald"] .theme-preview-background { background: oklch(1 0 0); }
+.theme-card-preview[data-theme-id="luma-cv-indigo"] .theme-preview-primary { background: oklch(0.52 0.28 275); }
+.theme-card-preview[data-theme-id="luma-cv-indigo"] .theme-preview-secondary { background: oklch(0.967 0.001 286.375); }
+.theme-card-preview[data-theme-id="luma-cv-indigo"] .theme-preview-accent { background: oklch(0.82 0.18 78); }
+.theme-card-preview[data-theme-id="luma-cv-indigo"] .theme-preview-background { background: oklch(1 0 0); }
 .theme-card-preview[data-theme-id="luma-violet-cyan"] .theme-preview-primary { background: oklch(0.52 0.24 302); }
 .theme-card-preview[data-theme-id="luma-violet-cyan"] .theme-preview-secondary { background: oklch(0.967 0.012 285); }
 .theme-card-preview[data-theme-id="luma-violet-cyan"] .theme-preview-accent { background: oklch(0.9 0.09 190); }

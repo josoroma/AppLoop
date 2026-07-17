@@ -16,8 +16,10 @@ Generated-code standards:
 - Prefer named imports and project-local helpers over deep relative paths.
 - Do not edit builder source files from a generated-project run.
 - Generate pages from the controlled template conventions: App Router route file, route-local components, semantic theme classes, and inspector metadata.
-- Preserve the template classname on the root `<body>` element (`template-default` or `template-admin-luma` depending on the template). Never remove, rename, or change this classname.
+- Preserve the selected template classname on the root `<body>` element (`template-default`, `template-admin-luma`, `template-ai-engineer-cv`, `template-deep-research-paper`, or `template-webgl-particles-home`). Never remove, rename, or change this classname.
+- Every user-visible generated element must have classnames. Use shared/base classnames for styling and grouping, and write a unique human-readable classname LAST for inspect mode. Example: `hero-title admin-hero-title`, `panel-copy health-panel-copy`.
 - **Repeated elements** (items rendered via `.map()`) must have both a shared base classname AND a unique per-instance descriptive classname. E.g. `metric-card summary-card metric-revenue` — not just `metric-card summary-card`. Without the unique classname, inspect mode cannot distinguish individual cards in a grid.
+- Child elements inside repeated items also need unique per-instance last classnames: `metric-label metric-revenue-label`, `metric-value metric-revenue-value`, `metric-change metric-revenue-change`.
 - Preserve unrelated implementation details when editing existing files.
 
 Route and action rules:

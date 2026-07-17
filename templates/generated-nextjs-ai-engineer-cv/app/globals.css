@@ -1,0 +1,411 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.845 0.143 164.978);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.596 0.145 163.225);
+  --chart-4: oklch(0.508 0.118 165.612);
+  --chart-5: oklch(0.432 0.095 166.913);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.546 0.245 262.881);
+  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  color-scheme: light;
+  font-family: "Avenir Next", "SF Pro Display", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.424 0.199 265.638);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.845 0.143 164.978);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.596 0.145 163.225);
+  --chart-4: oklch(0.508 0.118 165.612);
+  --chart-5: oklch(0.432 0.095 166.913);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.623 0.214 259.815);
+  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--border);
+  outline-color: var(--ring);
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  line-height: 1.65;
+}
+
+.cv-page-layout {
+  display: grid;
+  grid-template-columns: 18rem minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+@media (max-width: 860px) {
+  .cv-page-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Sidebar ─────────────────────────────── */
+
+.cv-sidebar {
+  display: grid;
+  grid-auto-rows: auto;
+  align-content: start;
+  gap: 1.75rem;
+  padding: 2.25rem 2rem 3rem;
+  background:
+    radial-gradient(circle at 20% 10%, color-mix(in oklch, white 6%, transparent), transparent 18rem),
+    radial-gradient(circle at 80% 90%, color-mix(in oklch, oklch(0.32 0.2 265) 24%, transparent), transparent 22rem),
+    linear-gradient(180deg, oklch(0.12 0.04 260), oklch(0.08 0.03 255) 45%, oklch(0.06 0.025 252));
+  border-right: 1px solid oklch(1 0 0 / 8%);
+  color: oklch(1 0 0 / 92%);
+}
+
+.cv-profile-header {
+  display: grid;
+  gap: 1rem;
+}
+
+.cv-profile-avatar {
+  justify-self: center;
+  border-color: oklch(0.56 0.22 268 / 35%);
+  background: oklch(0.42 0.22 268 / 12%);
+}
+
+.cv-profile-name {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  color: oklch(1 0 0 / 95%);
+}
+
+.cv-profile-tagline {
+  margin: 0.35rem 0 0;
+  color: oklch(1 0 0 / 55%);
+  font-size: 0.88rem;
+}
+
+.cv-contact-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.cv-contact-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: oklch(1 0 0 / 78%);
+  font-size: 0.82rem;
+}
+
+.cv-contact-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: oklch(0.68 0.16 265 / 72%);
+}
+
+.cv-sidebar-heading {
+  margin: 0 0 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: oklch(0.72 0.14 265 / 75%);
+}
+
+.cv-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0;
+  list-style: none;
+}
+
+.cv-tag-item {
+  border: 1px solid oklch(0.56 0.22 268 / 30%);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: oklch(1 0 0 / 88%);
+  background: oklch(0.42 0.22 268 / 12%);
+}
+
+/* ── Main panel ──────────────────────────── */
+
+.cv-main-panel {
+  padding: 2.25rem 2.5rem 4rem;
+  background: var(--background);
+}
+
+@media (max-width: 860px) {
+  .cv-main-panel {
+    padding: 1.5rem 1.25rem 3rem;
+  }
+}
+
+.cv-main-section {
+  margin-bottom: 2.5rem;
+}
+
+.cv-main-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1.25rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--foreground);
+}
+
+.cv-section-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: var(--primary);
+}
+
+.cv-main-text {
+  margin: 0;
+  max-width: 58rem;
+  font-size: 0.96rem;
+  line-height: 1.8;
+  color: var(--muted-foreground);
+}
+
+/* ── Vertical timeline ──────────────────── */
+
+.cv-timeline {
+  display: grid;
+  gap: 0;
+}
+
+.cv-timeline-entry {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  gap: 0.85rem;
+  padding: 1.05rem 0;
+}
+
+.cv-timeline-entry + .cv-timeline-entry {
+  border-top: 1px solid var(--border);
+}
+
+.cv-timeline-marker {
+  position: relative;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-top: 0.55rem;
+  border-radius: 999px;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.cv-timeline-period {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.cv-timeline-role {
+  margin: 0.2rem 0 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.cv-timeline-company {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+}
+
+/* ── Professional skill bars ────────────── */
+
+.cv-skill-indicators {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 2rem;
+  max-width: 56rem;
+}
+
+.cv-skill-row {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.cv-skill-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.cv-skill-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--primary);
+}
+
+.cv-skill-bar-track {
+  position: relative;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--secondary);
+  overflow: hidden;
+}
+
+.cv-skill-bar-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+/* ── Professional skills gradient card ──── */
+
+.cv-main-section.cv-professional-skills {
+  padding: 2rem;
+  background:
+    radial-gradient(circle at 10% 20%, color-mix(in oklch, white 16%, transparent), transparent 14rem),
+    linear-gradient(135deg, oklch(0.88 0.14 82), oklch(0.72 0.18 68) 45%, oklch(0.64 0.16 58));
+  border-radius: 0.75rem;
+}
+
+.cv-main-section.cv-professional-skills .cv-main-heading {
+  color: oklch(0.18 0.04 75);
+  border-bottom-color: oklch(0.18 0.04 75 / 28%);
+}
+
+.cv-main-section.cv-professional-skills .cv-section-icon {
+  color: oklch(0.18 0.04 75);
+}
+
+.cv-main-section.cv-professional-skills .cv-skill-label-row {
+  color: oklch(0.18 0.04 75);
+}
+
+.cv-main-section.cv-professional-skills .cv-skill-icon {
+  color: oklch(0.18 0.04 75);
+}
+
+.cv-main-section.cv-professional-skills .cv-skill-bar-track {
+  background: oklch(0.18 0.04 75 / 20%);
+}
+
+.cv-main-section.cv-professional-skills .cv-skill-bar-fill {
+  background: oklch(0.18 0.04 75);
+}
+
+@media (max-width: 860px) {
+  .cv-skill-indicators {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Print friendly ─────────────────────── */
+
+@media print {
+  .cv-sidebar {
+    border-right: 1px solid oklch(0.88 0 0);
+  }
+}

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const BUILDER_PORT = 3001;
-export const DEFAULT_HERMES_MODEL = "openai/gpt-5.5";
+export const DEFAULT_HERMES_MODEL = "deepseek/deepseek-v4-pro";
 export const DEFAULT_HERMES_PROVIDER = "openrouter";
 
 export const serverEnvSchema = z

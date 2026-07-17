@@ -7,6 +7,7 @@ The builder itself runs on `http://localhost:3001`. Generated apps run separatel
 ## Table Of Contents
 
 - [Visual Targeting With Prompts](#visual-targeting-with-prompts)
+- [Project Edit Help](#project-edit-help)
 - [Screenshots And Wireframes](#screenshots-and-wireframes)
 - [What It Does](#what-it-does)
 - [Tech Stack](#tech-stack)
@@ -39,6 +40,124 @@ AppLoop's standout workflow is visual targeting: click `Inspect`, hover over the
 When you click a highlighted element, AppLoop locks it as the prompt target and shows a `Target classname` card in the chat panel. That card records the selected classname, the preferred selector sent to Hermes, and the surrounding visual selection metadata. Your next prompt is automatically enriched with that target context, so a request like "make this hero tighter" is grounded to the selected element instead of relying on a vague description.
 
 This makes AppLoop feel closer to a design tool than a plain chat box: inspect the running app, select the exact UI surface, write the change you want, and let Hermes operate on the intended classname with project context, theme rules, and preview validation.
+
+## Project Edit Help
+
+Project edit is the main AppLoop workflow inside `app/projects/[projectId]/page.tsx`: a persisted Hermes conversation sits beside a live iframe preview of the generated Next.js app. A project edit can be a plain text request, a targeted visual edit, an edit-and-resend retry, or a restore to an earlier pre-prompt state.
+
+### What Project Edit Controls
+
+| Surface | Owner | Behavior |
+|---|---|---|
+| Chat panel | AppLoop builder | Captures prompts, shows Hermes responses, tracks checkpoints, supports Restore/Edit, and persists messages to SQLite. |
+| Preview iframe | Generated Next.js app | Runs from `.apploop/projects/<slug>` on a preview port in the `3100-3199` range. |
+| Runtime controls | AppLoop runtime service | Starts, stops, restarts, and tails logs for the generated app process. |
+| Hermes run | Hermes gateway | Receives project context, workspace path, prompt text, model/provider metadata, and the AppLoop agent bundle. |
+| Source files | Hermes agents | Make generated-project edits only inside the trusted `workspacePath`. |
+
+### Prompt Flow
+
+1. The user writes a prompt in the project builder textarea.
+2. If inspect targets are selected, AppLoop expands the prompt with the selected target list and `Target selections JSON`.
+3. Before sending, AppLoop creates a git-backed file checkpoint in the generated workspace.
+4. `/api/chat` stores the user message, creates a run record, resolves the project, and calls Hermes through `lib/hermes/client.ts`.
+5. `createProjectAgentBundle()` attaches the repo-local AppLoop Hermes metadata: agents, `/ui-builder` bundle, skills, hooks, commands, isolation rules, completion criteria, and validation script.
+6. Hermes streams text and activity events back to the chat panel.
+7. AppLoop persists the assistant message, updates run status, refreshes preview state, and saves current session messages.
+
+### Gateway Bundle Usage
+
+Every project edit sent through the Hermes gateway includes the AppLoop project bundle. The gateway payload carries `agentBundle` as top-level data and inside metadata so Hermes can follow the repo-local assets:
+
+- Agents in `.hermes/agents/`
+- Bundle in `.hermes/bundles/ui-builder/BUNDLE.md`
+- Skills in `.hermes/skills/`
+- Hooks in `.hermes/hooks/`
+- Commands in `.hermes/commands/`
+
+The `/ui-builder` bundle activates, in order: `/security-review`, `/hermes-gateway`, `/visual-selector`, `/theme-system`, `/frontend-design`, `/generated-app-standards`, and `/project-runtime`. The gateway instructions also restate the generated-code classname contract so prompt-created UI remains inspectable.
+
+### How The Prompt Is Designed For Senior Modern Design
+
+AppLoop prompts are intentionally more structured than raw chat. They combine the user's natural-language request with project and visual context so Hermes can behave like a senior product engineer/designer rather than a generic code generator:
+
+- **Concrete target**: selected elements send exact classnames, preferred selectors, route, ancestry, text preview, and bounding box metadata.
+- **Boundary discipline**: targeted prompts say to modify only the exact selected elements or their descendants unless the user explicitly asks for a broader change.
+- **Theme awareness**: the selected Luma/shadcn theme, custom token settings, and theme-system rules are included through the agent bundle.
+- **Modern UI expectations**: `/frontend-design` asks Hermes to think in hierarchy, spacing, contrast, responsive behavior, accessibility, and coherent component composition.
+- **Generated-code standards**: `/generated-app-standards` forces TypeScript-safe, route-local, named-export, template-compatible code.
+- **Inspectability contract**: any new user-visible UI must include shared/base classnames where useful plus a unique, human-readable classname written last for inspect-mode selection.
+- **Validation loop**: hooks and commands tell Hermes to validate, repair bounded failures, and report affected files and blockers.
+
+### Unique Classname Rule For Generated UI
+
+All template and prompt-created UI must remain selectable in inspect mode. That means every user-visible generated element needs classnames, and every element needs a unique, human-readable selector classname.
+
+Use this pattern:
+
+```txt
+base-class optional-shared-class unique-human-readable-class
+```
+
+Examples:
+
+```txt
+hero-title admin-hero-title
+metric-card summary-card metric-revenue
+metric-label metric-revenue-label
+metric-value metric-revenue-value
+panel-copy health-panel-copy
+site-nav-link site-nav-pricing
+```
+
+Important details:
+
+- The unique classname goes **last** because `inspector-provider.tsx` uses the last classname as `preferredSelector`.
+- Repeated elements must get unique classnames from their data model, not generic suffixes like `card-1` or `item-2`.
+- Child text elements inside repeated cards also need unique classnames, not just the parent card.
+- Shared/base classnames are still useful for styling groups, but they are not enough for inspect mode.
+- The template body classname must stay on `<body>`: `template-default` or `template-admin-luma`.
+
+### Project Edit Triggers And Actions
+
+| Trigger | What AppLoop does | What Hermes should do |
+|---|---|---|
+| Send prompt | Creates a file checkpoint, persists user message, sends prompt + bundle to Hermes. | Read relevant files, edit generated workspace, validate, report changed files. |
+| Send prompt with selected target | Adds target selectors and selection JSON to the prompt. | Locate the exact selected boundary and limit edits to it or descendants. |
+| Paste image into prompt | Uploads and attaches the image as context. | Use the image as visual reference; still edit source files, not pixels. |
+| Stop prompt | Calls chat stop and `/api/chat/cancel`. | Stop the active Hermes run if possible. |
+| Restore on a past user message | Reverts files to the pre-prompt git checkpoint, removes that prompt and later messages from UI and DB, restarts preview. | No new Hermes run is sent. |
+| Edit on a past user message | Performs Restore, then pre-fills the textarea with the original prompt. | Wait for the user to resend the edited prompt. |
+| New session | Saves current session boundary, clears chat UI, clears targets/screenshots, preserves project workspace. | Future prompts start with fresh conversation context. |
+| Runtime restart | Kills and starts the generated Next.js process for fresh source reads. | Use logs/validation if preview health is involved. |
+
+### Restore, Edit, And Persistence
+
+Before every prompt, AppLoop snapshots generated project files with git. Restore/Edit uses that snapshot to undo source changes from the selected prompt. It also truncates the chat and deletes persisted SQLite messages from the clicked prompt onward, including the triggering prompt itself, so stale prompts and assistant replies do not reappear after reload.
+
+- **Restore**: revert files, delete the prompt and everything after it, clear the future conversation, restart preview.
+- **Edit**: same as Restore, then put the original prompt text back in the textarea for editing and resending.
+- **New session**: save the current chat as a session boundary and begin a clean conversation without rolling back files.
+
+### Validation And Completion
+
+Hermes should not treat a project edit as complete after only writing files. The expected completion path is:
+
+1. Inspect existing files before modifying them.
+2. Keep writes inside the generated `workspacePath`.
+3. Preserve or add unique inspect classnames for all generated UI elements.
+4. Run the relevant generated-project checks, normally typecheck and lint.
+5. Check runtime or preview health when the visual result is affected.
+6. Report affected files, validation results, and any unresolved blocker.
+
+### Common Behaviors And Pitfalls
+
+- Inspect mode disables link/button navigation so clicks select boundaries instead of navigating away.
+- The prompt target should use `preferredSelector`, not a shared base classname.
+- If the user says the wrong element changed, inspect similarly named classnames such as `dashboard-header` versus `dashboard-page-header` before retrying.
+- CSS hot reload can be stale; restarting the runtime forces Turbopack to reread generated files.
+- Gateway prompts must keep the AppLoop bundle attached so Hermes sees agents, skills, hooks, commands, and classname rules.
+- The generated project owns app code; the builder owns project records, runtime control, chat persistence, and preview routing.
 
 ## Screenshots And Wireframes
 
@@ -148,7 +267,7 @@ AppLoop uses a small set of local configuration files. Secrets should stay in `.
 | `.env-example` | Template for local builder, Hermes gateway, OpenRouter, Tavily, preview ports, and SQLite settings. |
 | `.env` | Your uncommitted local copy of `.env-example`; loaded by Next.js and sourced by Makefile Hermes commands. |
 | `.hermes/.env` | Optional repo-local Hermes environment file; sourced by `make hermes-*` before `.env`. |
-| `.hermes/config.yaml` | Hermes YAML config. This repo currently enables the API server and routes `openai/gpt-5.5` through OpenRouter. |
+| `.hermes/config.yaml` | Hermes YAML config. This repo currently enables the API server and routes `deepseek/deepseek-v4-pro` through OpenRouter. |
 | `Makefile` | Defines `HERMES_HOME=.hermes`, gateway defaults, and helper commands such as `make hermes-gateway`. |
 
 The current `.hermes/config.yaml` shape is:
@@ -159,8 +278,8 @@ platforms:
     enabled: true
     extra:
       model_routes:
-        "openai/gpt-5.5":
-          model: openai/gpt-5.5
+        "deepseek/deepseek-v4-pro":
+          model: deepseek/deepseek-v4-pro
           provider: openrouter
 ```
 
@@ -198,11 +317,11 @@ The main bundle is `.hermes/bundles/ui-builder/BUNDLE.md` and is registered as `
 
 | Bundle | Used when | What it activates |
 |---|---|---|
-| `/ui-builder` | Every generated-project run sent from AppLoop to Hermes. | The AppLoop UI builder skill set in this order: security review, visual selector, theme system, frontend design, generated app standards, and project runtime. |
+| `/ui-builder` | Every generated-project run sent from AppLoop to Hermes. | The AppLoop UI builder skill set in this order: security review, Hermes gateway, visual selector, theme system, frontend design, generated app standards, and project runtime. |
 
 ### Skills
 
-AppLoop registers the skills below in `lib/hermes/skills.ts`. The `/ui-builder` bundle activates `/security-review`, `/visual-selector`, `/theme-system`, `/frontend-design`, `/generated-app-standards`, and `/project-runtime` for generated-project work. `/hermes-gateway` is a registered support skill for the Hermes integration itself. Other folders may exist under `.hermes/skills/`, but they are not included in AppLoop's project-run bundle unless Hermes is invoked manually outside this flow.
+AppLoop registers the skills below in `lib/hermes/skills.ts`. The `/ui-builder` bundle activates `/security-review`, `/hermes-gateway`, `/visual-selector`, `/theme-system`, `/frontend-design`, `/generated-app-standards`, and `/project-runtime` for generated-project work. Other folders may exist under `.hermes/skills/`, but they are not included in AppLoop's project-run bundle unless Hermes is invoked manually outside this flow.
 
 | Skill | File | Used when |
 |---|---|---|
@@ -289,8 +408,8 @@ OpenRouter is the model provider configured by this repo's `.env-example` and `.
 OPENROUTER_API_KEY=sk-or-v1-...
 HERMES_INFERENCE_PROVIDER=openrouter
 HERMES_TUI_PROVIDER=openrouter
-HERMES_MODEL=openai/gpt-5.5
-HERMES_INFERENCE_MODEL=openai/gpt-5.5
+HERMES_MODEL=deepseek/deepseek-v4-pro
+HERMES_INFERENCE_MODEL=deepseek/deepseek-v4-pro
 ```
 
 3. Keep `.hermes/config.yaml` pointed at the same provider/model route:
@@ -301,8 +420,8 @@ platforms:
     enabled: true
     extra:
       model_routes:
-        "openai/gpt-5.5":
-          model: openai/gpt-5.5
+        "deepseek/deepseek-v4-pro":
+          model: deepseek/deepseek-v4-pro
           provider: openrouter
 ```
 
@@ -409,8 +528,8 @@ platforms:
     enabled: true
     extra:
       model_routes:
-        "openai/gpt-5.5":
-          model: openai/gpt-5.5
+        "deepseek/deepseek-v4-pro":
+          model: deepseek/deepseek-v4-pro
           provider: openrouter
         local-qwen3.6-27b-optiq-4bit:
           model: /Users/your-user/models/qwen/Qwen3.6-27B-OptiQ-4bit
@@ -532,7 +651,7 @@ AppLoop copies the selected template into `.apploop/projects/<slug>`, assigns a 
 6. Type a change request in the prompt box.
 7. AppLoop appends the selected classname and selection JSON to the prompt sent to Hermes.
 
-The locked overlay follows iframe scroll and resize updates. Interactive elements such as links and buttons still receive their normal click behavior.
+The locked overlay follows iframe scroll and resize updates. While inspect mode is enabled, links and buttons are disabled for navigation/click actions so the click can select a visual boundary instead of changing routes.
 
 ## Templates
 
@@ -542,6 +661,9 @@ Templates are registered in `lib/projects/templates.ts`.
 |---|---|---|
 | `generated-nextjs-default` | Starter app with header navigation and light/dark mode. | `luma-blue-violet` |
 | `generated-nextjs-admin-luma` | Dark admin dashboard with navigation and reusable not-found state. | `luma-admin-amber` |
+| `generated-nextjs-ai-engineer-cv` | Portfolio-style AI engineer CV with expertise, experience, and proof points. | `luma-indigo-emerald` |
+| `generated-nextjs-deep-research-paper` | Long-form research paper with abstract, findings, methods, and citation protocol. | `luma-amber-slate` |
+| `generated-nextjs-webgl-particles-home` | Modern dark homepage with a native WebGL particle field and cinematic launch hero. | `luma-violet-cyan` |
 
 Template source lives in `templates/`. Generated copies live under `.apploop/projects/`.
 

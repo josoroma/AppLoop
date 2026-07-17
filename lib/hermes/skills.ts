@@ -39,14 +39,14 @@ export const HERMES_SKILL_DEFINITIONS: Record<HermesSkillId, HermesSkillDefiniti
     command: "/generated-app-standards",
     title: "Generated App Standards",
     path: ".hermes/skills/generated-app-standards/SKILL.md",
-    capabilities: ["formatting", "named-exports", "component-rules", "route-colocation", "schema-action-patterns"],
+    capabilities: ["formatting", "named-exports", "component-rules", "route-colocation", "schema-action-patterns", "unique-inspect-classnames"],
   },
   "hermes-gateway": {
     id: "hermes-gateway",
     command: "/hermes-gateway",
     title: "Hermes Gateway",
     path: ".hermes/skills/hermes-gateway/SKILL.md",
-    capabilities: ["server-only-auth", "session-context", "stream-normalization", "cancellation", "user-safe-errors"],
+    capabilities: ["server-only-auth", "session-context", "agent-bundle-forwarding", "stream-normalization", "cancellation", "user-safe-errors"],
   },
   "theme-system": {
     id: "theme-system",
@@ -80,6 +80,7 @@ export const HERMES_SKILL_DEFINITIONS: Record<HermesSkillId, HermesSkillDefiniti
 
 export const UI_BUILDER_SKILL_ORDER: HermesSkillId[] = [
   "security-review",
+  "hermes-gateway",
   "visual-selector",
   "theme-system",
   "frontend-design",

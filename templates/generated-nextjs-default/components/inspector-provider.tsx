@@ -63,6 +63,9 @@ const SEMANTIC_CLASS_NAMES = new Set([
   "secondary-actions",
   "template-default",
   "template-admin-luma",
+  "template-ai-engineer-cv",
+  "template-deep-research-paper",
+  "template-webgl-particles-home",
   "metric-revenue",
   "metric-active-users",
   "metric-conversion",
@@ -203,7 +206,7 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
       document.head.appendChild(disableStyle);
     }
 
-    let selectedElement: HTMLElement | null = null;
+    const selectedElements = new Map<string, HTMLElement>();
     let hoveredElement: HTMLElement | null = null;
     let animationFrameId: number | null = null;
     let trackingIntervalId: number | null = null;
@@ -216,11 +219,17 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
     };
 
     const handlePointerDown = (event: PointerEvent) => {
-      selectedElement = getInspectableElement(event.target);
-      const selection = createSelectionPayload(selectedElement, projectId, previewNonce);
+      const element = getInspectableElement(event.target);
+      const selection = createSelectionPayload(element, projectId, previewNonce);
 
-      if (!selection) {
+      if (!selection || !element) {
         return;
+      }
+
+      if (selectedElements.has(selection.preferredSelector)) {
+        selectedElements.delete(selection.preferredSelector);
+      } else {
+        selectedElements.set(selection.preferredSelector, element);
       }
 
       window.parent.postMessage({ type: "apploop:inspector-select", projectId, previewNonce, selection }, parentOrigin);
@@ -249,8 +258,13 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
       animationFrameId = window.requestAnimationFrame(() => {
         animationFrameId = null;
 
-        if (selectedElement && document.contains(selectedElement)) {
-          const selection = createSelectionPayload(selectedElement, projectId, previewNonce);
+        for (const [preferredSelector, element] of selectedElements) {
+          if (!document.contains(element)) {
+            selectedElements.delete(preferredSelector);
+            continue;
+          }
+
+          const selection = createSelectionPayload(element, projectId, previewNonce);
 
           if (selection) {
             window.parent.postMessage({ type: "apploop:inspector-select", projectId, previewNonce, selection, update: true }, parentOrigin);

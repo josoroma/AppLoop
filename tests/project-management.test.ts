@@ -73,4 +73,23 @@ describe("E2 project management", () => {
     await expect(fs.readFile(path.join(workspacePath, "app", "page.tsx"), "utf8")).resolves.toContain("AdminHomePage");
     await expect(fs.readFile(path.join(workspacePath, "app", "not-found.tsx"), "utf8")).resolves.toContain("NotFoundView");
   });
+
+  it("registers specialty project templates", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "apploop-specialty-template-"));
+
+    for (const [templateId, bodyClassName, pageMarker] of [
+      ["generated-nextjs-ai-engineer-cv", "template-ai-engineer-cv", "AiEngineerCvPage"],
+      ["generated-nextjs-deep-research-paper", "template-deep-research-paper", "DeepResearchPaperPage"],
+      ["generated-nextjs-webgl-particles-home", "template-webgl-particles-home", "ParticlesHomePage"],
+    ] as const) {
+      const workspacePath = path.join(tempRoot, templateId);
+
+      await createProjectWorkspace(tempRoot, workspacePath, {
+        template: assertProjectTemplate(templateId),
+      });
+
+      await expect(fs.readFile(path.join(workspacePath, "app", "layout.tsx"), "utf8")).resolves.toContain(bodyClassName);
+      await expect(fs.readFile(path.join(workspacePath, "app", "page.tsx"), "utf8")).resolves.toContain(pageMarker);
+    }
+  });
 });

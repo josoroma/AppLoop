@@ -25,5 +25,6 @@ command: /project-element-edit
 3. Detect ambiguous selector matches before writing files.
 4. Snapshot the affected source files.
 5. Apply frontend design and generated app standards.
-6. Run generated code review and theme integrity hooks.
-7. Validate and report affected files plus any scope expansion.
+6. Preserve or add unique human-readable last classnames for the edited boundary and any generated descendants so future inspect-mode selections remain exact.
+7. Run generated code review and theme integrity hooks.
+8. Validate and report affected files plus any scope expansion.

@@ -93,6 +93,8 @@ export function createProjectAgentBundle(context: ProjectAgentContext): ProjectA
       "typecheck-passed-or-bounded-failure-reported",
       "lint-passed-or-bounded-failure-reported",
       "runtime-health-checked-when-preview-affected",
+      "generated-ui-elements-have-unique-human-readable-last-classnames",
+      "repo-local-hermes-agents-skills-hooks-commands-used",
       "affected-files-reported",
       "rollback-snapshot-created-before-existing-file-edits",
       "dependency-policy-respected-before-package-changes",
@@ -103,6 +105,7 @@ export function createProjectAgentBundle(context: ProjectAgentContext): ProjectA
       "Hermes API keys stay server-side",
       "private model reasoning must not be rendered as activity",
       "source inspection is required before editing existing generated files",
+      "new generated UI must keep shared/base classnames plus unique inspect-mode classnames",
     ],
   };
 }

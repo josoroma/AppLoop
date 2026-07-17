@@ -25,6 +25,8 @@ Rules:
 - Delegate isolation, secret, command, and iframe-boundary concerns to `security-auditor`.
 - Do not access files outside the scoped project workspace.
 - Inspect existing source before editing it and create a rollback snapshot before applying changes.
+- Use the repo-local AppLoop Hermes assets supplied in the project bundle: `.hermes/agents/`, `.hermes/bundles/ui-builder/BUNDLE.md`, `.hermes/skills/`, `.hermes/hooks/`, and `.hermes/commands/`.
+- Enforce the generated-code classname contract on every UI-producing prompt: every user-visible element must have shared/base classnames where useful plus a unique, human-readable classname written last for inspect-mode targeting.
 - Report affected files for every generated-project change.
 - Follow package install policy before adding dependencies or running a package manager.
 
@@ -33,5 +35,6 @@ Completion criteria:
 - TypeScript validation has passed or a bounded repair attempt has failed clearly.
 - Lint validation has passed or a bounded repair attempt has failed clearly.
 - Runtime health has been checked when the change affects preview behavior.
+- Generated UI classnames are unique and inspectable.
 - Affected files and any rollback snapshot status are reported.
 - The final response summarizes user-visible changes and any remaining blocker.

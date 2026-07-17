@@ -124,7 +124,16 @@ Portal-rendered to `document.body` to avoid overflow clipping.
 
 ## Edit & Resend
 
-Each past user message has an "Edit & Resend" button. Clicking restores to the checkpoint BEFORE that prompt (non-boundary, auto-created), reverts files, truncates chat, pre-fills textarea. Uses stored `messageIds` for ID-based filtering since non-boundary checkpoints don't store full message snapshots.
+Each past user message has a **Restore** and **Edit** button. Both follow the same flow:
+
+1. Find the checkpoint whose `messageIds` include this message's ID
+2. If `commitHash` exists: `revertToFileSnapshot(projectId, commitHash)` — `git reset --hard <hash>` + `git clean -fd`
+3. Truncate chat to checkpoint message IDs: `chat.setMessages(messages.filter(m => idSet.has(m.id)))`
+4. `loadCheckpoint(cp.id)` — restore targets + screenshots
+5. **Edit only**: pre-fill textarea with original prompt (stripping "Target classnames" suffix)
+6. **`setPreviewReloadKey(k => k + 1)`** — force iframe remount so the preview shows reverted state
+
+The preview reload is critical: `git reset --hard` changes many files atomically, and the Next.js dev server's file watchers often miss this. The iframe's `key` prop (`key={frameSrc-reloadKey}` in `preview-frame.tsx`) forces React to unmount/remount on key change.
 
 ## Async Form Handler Pitfall
 

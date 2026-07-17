@@ -39,6 +39,8 @@ export const HERMES_HOOK_DEFINITIONS: Record<HermesHookId, HermesHookDefinition>
       "route-colocation-check",
       "schema-pattern-check",
       "action-pattern-check",
+      "unique-inspect-classname-check",
+      "base-plus-unique-classname-check",
     ],
   },
   "theme-integrity": {

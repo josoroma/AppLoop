@@ -27,11 +27,16 @@ builder-shell.tsx
   ▼
 /api/chat/route.ts (server)
   ├── extractImagesFromMessage(userMessage, projectId)
-  │     ├── Filter parts where type === "file" && mediaType starts with "image/"
-  │     ├── Resolve URL → screenshotId → DB row → fs.readFile
-  │     ├── Buffer → base64
-  │     └── Return ImageAttachment[]: { mediaType, data }
-  └── HermesClient.streamProjectRun({ ..., images })
+       │     ├── Filter parts where type === "file" && mediaType starts with "image/"
+       │     ├── Resolve URL → screenshotId → DB row → fs.readFile
+       │     ├── Buffer → base64
+       │     └── Return ImageAttachment[]: { mediaType, data }
+    ├── saveScreenshotsToWorkspace(images, workspacePath)
+       │     ├── mkdir workspacePath/.apploop/screenshots/
+       │     ├── Write base64-decoded PNG/JPG files
+       │     └── Return workspace-relative paths: [".apploop/screenshots/<file>.png"]
+    └── appendScreenshotPaths(prompt, paths)
+          └── Appends "[Screenshots attached — use vision_analyze with these workspace-relative paths]" block
   │
   ▼
 Hermes API

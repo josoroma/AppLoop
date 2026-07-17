@@ -154,14 +154,22 @@ export class RuntimeService {
 
   private async resolveRuntimePort(overview: ProjectOverview) {
     const currentPort = overview.runtime?.port ?? overview.project.previewPort;
+    const otherOverviews = (await this.repository.listProjectOverviews()).filter((candidate) => candidate.project.id !== overview.project.id);
+    const usedPorts = new Set<number>();
 
-    if (await isPortAvailable(currentPort)) {
+    for (const candidate of otherOverviews) {
+      usedPorts.add(candidate.project.previewPort);
+
+      if (candidate.runtime?.port) {
+        usedPorts.add(candidate.runtime.port);
+      }
+    }
+
+    if (!usedPorts.has(currentPort) && await isPortAvailable(currentPort)) {
       return currentPort;
     }
 
-    const usedPorts = (await this.repository.listAllocatedPreviewPorts()).filter((port) => port !== currentPort);
-
-    return findAvailablePreviewPort(usedPorts, this.previewPortRange);
+    return findAvailablePreviewPort([...usedPorts], this.previewPortRange);
   }
 }
 

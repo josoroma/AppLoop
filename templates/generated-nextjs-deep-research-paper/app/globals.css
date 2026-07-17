@@ -1,0 +1,174 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: oklch(0.975 0.011 82);
+  --foreground: oklch(0.19 0.025 72);
+  --card: oklch(0.995 0.004 82);
+  --card-foreground: oklch(0.19 0.025 72);
+  --primary: oklch(0.43 0.12 78);
+  --primary-foreground: oklch(0.98 0.01 82);
+  --secondary: oklch(0.92 0.025 82);
+  --secondary-foreground: oklch(0.24 0.045 72);
+  --muted: oklch(0.92 0.018 82);
+  --muted-foreground: oklch(0.46 0.035 72);
+  --border: oklch(0.82 0.025 82);
+  --ring: oklch(0.55 0.11 78);
+  --radius: 0.85rem;
+  color-scheme: light;
+  font-family: "Iowan Old Style", "Georgia", serif;
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--border);
+  outline-color: var(--ring);
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.paper-shell {
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, color-mix(in oklch, var(--border) 36%, transparent) 1px, transparent 1px),
+    linear-gradient(var(--background), color-mix(in oklch, var(--secondary) 62%, white));
+  background-size: 5rem 5rem, auto;
+}
+
+.paper-page-shell {
+  padding: clamp(1rem, 4vw, 4rem);
+}
+
+.paper-document {
+  width: min(68rem, 100%);
+  margin: 0 auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--card) 94%, transparent);
+  box-shadow: 0 30px 90px color-mix(in oklch, var(--foreground) 10%, transparent);
+}
+
+.paper-research-document {
+  padding: clamp(1.5rem, 4vw, 4rem);
+}
+
+.paper-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 2rem;
+}
+
+.paper-kicker,
+.paper-section-title {
+  color: var(--primary);
+  font-family: "Avenir Next", "SF Pro Display", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.paper-title {
+  max-width: 58rem;
+  margin: 0.75rem 0 0;
+  font-size: clamp(2.8rem, 6.5vw, 6rem);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+.paper-abstract,
+.paper-body-copy,
+.paper-finding-copy {
+  color: var(--muted-foreground);
+  font-size: 1.05rem;
+  line-height: 1.8;
+}
+
+.paper-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.paper-meta-item {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  color: var(--muted-foreground);
+  font-family: "Avenir Next", "SF Pro Display", sans-serif;
+  font-size: 0.82rem;
+}
+
+.paper-summary,
+.paper-citation-panel {
+  margin-top: 2rem;
+  border-left: 4px solid var(--primary);
+  background: color-mix(in oklch, var(--secondary) 45%, transparent);
+  padding: 1.25rem;
+}
+
+.paper-findings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.paper-finding-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 1.25rem;
+}
+
+.paper-finding-title,
+.paper-section-heading {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.paper-section-list {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.paper-content-section {
+  border-top: 1px solid var(--border);
+  padding-top: 1.5rem;
+}
+
+@media (max-width: 820px) {
+  .paper-findings-grid {
+    grid-template-columns: 1fr;
+  }
+}
