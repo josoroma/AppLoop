@@ -142,6 +142,10 @@ describe("E4 Hermes backend and streaming chat", () => {
     expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain("AppLoop project builder");
     expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain("repo-local AppLoop Hermes project bundle");
     expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain("unique, human-readable classname");
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain("Hard project isolation guardrail");
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain("The only writable root for this run is exactly: /tmp/project-1");
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain("Do not modify AppLoop builder source files");
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain("Do not modify sibling generated projects under .apploop/projects/*");
     expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain(".hermes/agents/project-builder.md");
     expect(fetchMock).toHaveBeenNthCalledWith(3, new URL("/v1/runs/gateway-run-1/events", "http://127.0.0.1:8642"), expect.objectContaining({
       headers: expect.objectContaining({ Accept: "text/event-stream" }),
@@ -183,6 +187,8 @@ describe("E4 Hermes backend and streaming chat", () => {
       "security-auditor",
     ]);
     expect(bundle.isolationRules).toContain("workspacePath is the only writable root");
+    expect(bundle.isolationRules).toContain("project-edit runs must never modify AppLoop source files, templates/, or sibling .apploop/projects/* workspaces");
+    expect(bundle.isolationRules).toContain("a path under .apploop/projects is writable only when it is inside this run's exact workspacePath");
     expect(bundle.isolationRules).toContain("new generated UI must keep shared/base classnames plus unique inspect-mode classnames");
     expect(bundle.completionCriteria).toContain("generated-ui-elements-have-unique-human-readable-last-classnames");
     expect(HERMES_AGENT_DEFINITIONS["security-auditor"].responsibilities).toContain("path-containment");
@@ -249,6 +255,9 @@ describe("E4 Hermes backend and streaming chat", () => {
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "agents", "security-auditor.md"), "utf8")).resolves.toContain(
       "Path containment",
     );
+    await expect(fs.readFile(path.join(process.cwd(), ".hermes", "agents", "security-auditor.md"), "utf8")).resolves.toContain(
+      "Project-edit containment",
+    );
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "agents", "project-builder.md"), "utf8")).resolves.toContain(
       "version: 1.0.0",
     );
@@ -279,6 +288,9 @@ describe("E4 Hermes backend and streaming chat", () => {
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "skills", "security-review", "SKILL.md"), "utf8")).resolves.toContain(
       "Iframe boundary",
     );
+    await expect(fs.readFile(path.join(process.cwd(), ".hermes", "skills", "security-review", "SKILL.md"), "utf8")).resolves.toContain(
+      "Project-edit guardrail",
+    );
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "bundles", "ui-builder", "BUNDLE.md"), "utf8")).resolves.toContain(
       "/hermes-gateway",
     );
@@ -287,6 +299,9 @@ describe("E4 Hermes backend and streaming chat", () => {
   it("ships the required Hermes hook and command files", async () => {
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "hooks", "project-scope-guard", "HOOK.md"), "utf8")).resolves.toContain(
       "Resolve symlinks",
+    );
+    await expect(fs.readFile(path.join(process.cwd(), ".hermes", "hooks", "project-scope-guard", "HOOK.md"), "utf8")).resolves.toContain(
+      "sibling generated workspaces",
     );
     await expect(fs.readFile(path.join(process.cwd(), ".hermes", "hooks", "generated-code-review", "HOOK.md"), "utf8")).resolves.toContain(
       "unique, human-readable LAST classname",

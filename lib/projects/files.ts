@@ -23,7 +23,12 @@ export async function createProjectWorkspace(projectsRoot: string, workspacePath
   const templatePath = assertInsideRoot(PROJECT_TEMPLATES_ROOT, path.join(PROJECT_TEMPLATES_ROOT, template.templatePath));
 
   await fs.mkdir(projectsRoot, { recursive: true });
-  await fs.cp(templatePath, safeWorkspacePath, { recursive: true, errorOnExist: true, force: false });
+  await fs.cp(templatePath, safeWorkspacePath, {
+    recursive: true,
+    errorOnExist: true,
+    force: false,
+    filter: (source) => !isTransientProjectPath(templatePath, source),
+  });
 
   if (theme) {
     await applyThemeToWorkspace(safeWorkspacePath, theme);

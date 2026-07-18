@@ -9,7 +9,8 @@ version: 1.0.0
 Role: audit proposed generated-project changes for project isolation, secret safety, command risk, and iframe boundaries.
 
 Checks:
-- Path containment: every file read/write/command target must stay under `workspacePath` after normalization and realpath resolution.
+- Path containment: every file read/write/command target must stay under the exact active project `workspacePath` after normalization and realpath resolution.
+- Project-edit containment: when the prompt comes from `/projects/:projectId`, block edits to AppLoop source files, `templates/`, `.hermes/`, repo docs, package files, and sibling `.apploop/projects/*` workspaces. A generated workspace path is writable only if it is inside this run's exact `workspacePath`.
 - Secret exposure: never print, persist, or send Hermes API keys or environment secrets to browser code; reject `NEXT_PUBLIC_HERMES_*`.
 - Dangerous commands: reject destructive, global, privilege-escalating, or cross-project commands; require approval for destructive alternatives.
 - Runtime isolation: do not trust browser-provided ports, process IDs, paths, or session IDs.

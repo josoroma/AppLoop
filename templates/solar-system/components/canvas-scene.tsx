@@ -19,19 +19,20 @@ export function CanvasScene({ paused, showGrid, showLabels, showOrbits, speed, o
 }) {
   return (
     <Canvas
-      camera={{ position: [0, 18, 28], fov: 50, near: 0.1, far: 200 }}
+      camera={{ position: [0, 24, 42], fov: 48, near: 0.1, far: 260 }}
       className="solar-canvas"
-      gl={{ antialias: true, alpha: false }}
+      gl={{ antialias: true, alpha: false, toneMappingExposure: 1.05 }}
       onCreated={() => {
         let p = 0;
         const interval = setInterval(() => { p = Math.min(100, p + Math.random() * 18); onProgress(p); if (p >= 100) clearInterval(interval); }, 200);
       }}
     >
       <color attach="background" args={["#020210"]} />
-      <fog attach="fog" args={["#020210", 40, 120]} />
-      <ambientLight intensity={0.2} />
-      <pointLight position={[0, 0, 0]} intensity={2} distance={60} decay={1.2} color="#fff8e7" />
-      <Stars count={2000} depth={80} factor={3} fade radius={80} saturation={0} speed={0.5} />
+      <fog attach="fog" args={["#020210", 54, 150]} />
+      <ambientLight intensity={0.08} />
+      <pointLight position={[0, 0, 0]} intensity={4.6} distance={90} decay={1.65} color="#fff3c2" />
+      <hemisphereLight args={["#172a66", "#05030b", 0.22]} />
+      <Stars count={3200} depth={110} factor={3.4} fade radius={105} saturation={0.2} speed={0.22} />
       <Suspense fallback={null}>
         <SolarSystemScene
           paused={paused}

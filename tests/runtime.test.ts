@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { RuntimeLogBuffer, redactRuntimeLogMessage } from "@/lib/runtime/logs";
-import { createRuntimeCommand, LocalProcessRuntimeProvider } from "@/lib/runtime/local-process";
+import { createInstallCommand, createRuntimeCommand, LocalProcessRuntimeProvider } from "@/lib/runtime/local-process";
 import { findAvailablePreviewPort } from "@/lib/runtime/port-probe";
 import { mapExitToRuntimeStatus } from "@/lib/runtime/state";
 
@@ -23,6 +23,8 @@ describe("E3 generated project runtime", () => {
       bin: "pnpm",
       args: ["dev", "--hostname", "127.0.0.1", "--port", "3100"],
     });
+    expect(createInstallCommand("npm")).toEqual({ bin: "npm", args: ["install"] });
+    expect(createInstallCommand("pnpm")).toEqual({ bin: "pnpm", args: ["install"] });
   });
 
   it("keeps a bounded per-project log buffer", () => {
@@ -55,6 +57,7 @@ describe("E3 generated project runtime", () => {
       path.join(workspacePath, "package.json"),
       JSON.stringify({ scripts: { dev: "node server.mjs" } }),
     );
+    await fs.mkdir(path.join(workspacePath, "node_modules"));
     await fs.writeFile(
       path.join(workspacePath, "server.mjs"),
       `import http from "node:http";

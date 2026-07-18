@@ -51,6 +51,7 @@ export class LocalProcessRuntimeProvider implements ProjectRuntimeProvider {
     await fs.writeFile(logPath, "");
 
     const packageManager = await detectPackageManager(request.workspacePath);
+    await ensureDependenciesInstalled(request.projectId, request.workspacePath, packageManager);
     const command = createRuntimeCommand(packageManager, request.port);
     assertProjectCommandAllowed(command.bin, command.args);
     appendRuntimeLog(request.projectId, "lifecycle", `Starting ${command.bin} ${command.args.join(" ")}`);
@@ -166,6 +167,50 @@ export function createRuntimeCommand(packageManager: PackageManager, port: numbe
     bin: "npm",
     args: ["run", "dev", "--", "--hostname", "127.0.0.1", "--port", String(port)],
   };
+}
+
+export function createInstallCommand(packageManager: PackageManager) {
+  if (packageManager === "pnpm") {
+    return {
+      bin: "pnpm",
+      args: ["install"],
+    };
+  }
+
+  return {
+    bin: "npm",
+    args: ["install"],
+  };
+}
+
+async function ensureDependenciesInstalled(projectId: string, workspacePath: string, packageManager: PackageManager) {
+  if (await pathExists(path.join(workspacePath, "node_modules"))) {
+    return;
+  }
+
+  const command = createInstallCommand(packageManager);
+  assertProjectCommandAllowed(command.bin, command.args);
+  appendRuntimeLog(projectId, "lifecycle", `Installing dependencies with ${command.bin} ${command.args.join(" ")}`);
+
+  try {
+    const { stdout, stderr } = await execFileAsync(command.bin, command.args, {
+      cwd: workspacePath,
+      env: createAllowedCommandEnvironment(),
+      timeout: 120000,
+      maxBuffer: 1024 * 1024 * 8,
+    });
+
+    if (stdout.trim()) {
+      appendRuntimeLog(projectId, "stdout", stdout);
+    }
+
+    if (stderr.trim()) {
+      appendRuntimeLog(projectId, "stderr", stderr);
+    }
+  } catch (error) {
+    appendRuntimeLog(projectId, "lifecycle", `Dependency installation failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
+  }
 }
 
 async function detectPackageManager(workspacePath: string): Promise<PackageManager> {

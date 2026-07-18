@@ -21,7 +21,8 @@ Use this skill when a generated-project run needs to communicate with the Hermes
 - `projectId` from trusted server routing.
 - `workspacePath` from the project repository.
 - `conversationId` and optional server-resolved Hermes session id.
-- User message text.
+- User message text. In AppLoop project-edit runs this is the composed prompt from `getMessageText(userMessage)`, including any `Target selections JSON:` block produced by `createVisualSelectionPrompt()`.
+- Prompt metadata persisted by AppLoop when available: raw user prompt, composed prompt, visual selection JSON, screenshot IDs.
 - Agent, skill, hook, and command metadata for the run.
 - The full AppLoop `agentBundle` metadata, including repo-local paths for `.hermes/agents/`, `.hermes/bundles/ui-builder/BUNDLE.md`, `.hermes/skills/`, `.hermes/hooks/`, and `.hermes/commands/`.
 
@@ -34,8 +35,10 @@ Use this skill when a generated-project run needs to communicate with the Hermes
 ## Rules
 
 - Never send `HERMES_API_KEY` or raw environment values to browser code.
-- Strip browser-provided reserved session placeholders before calling Hermes.
+- Strip/normalize `reserved:` session placeholders before calling Hermes; a reserved conversation session should be sent to Hermes as `null` so the first prompt creates a real Hermes session.
+- Treat the active AppLoop conversation's Hermes session as the next-run authority; the project-level Hermes session is only a convenience mirror.
 - Include project-scoped metadata with every run.
+- Project-edit gateway instructions must name the exact `workspacePath` as the only writable root and forbid edits to `templates/`, `.hermes/`, AppLoop builder source files, repo docs/package files, and sibling `.apploop/projects/*` workspaces.
 - Include `agentBundle` as top-level gateway payload data and inside metadata so gateway-run prompts can load and follow the repo-local AppLoop agents, skill bundle, skills, hooks, and commands.
 - Gateway instructions must restate the generated-code classname contract: every user-visible generated UI element needs shared/base classnames where useful plus a unique, human-readable classname written last for inspect-mode targeting.
 - Map transport and authentication failures to user-safe messages.

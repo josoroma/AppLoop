@@ -25,12 +25,16 @@ trigger: pre-tool-use
 2. Resolve symlinks before containment checks.
 3. Reject path traversal segments that escape `workspacePath`.
 4. Reject absolute paths outside `workspacePath`.
-5. Reject special filesystem targets such as `/dev`, `/proc`, and `/sys`.
-6. Log blocked operations without secrets or full environment dumps.
+5. Reject AppLoop source paths such as `templates/`, `.hermes/`, repo docs, builder code, or package files when the request came from project-edit chat.
+6. Reject sibling generated workspaces under `.apploop/projects/*` unless the resolved path is inside this run's exact `workspacePath`.
+7. Reject special filesystem targets such as `/dev`, `/proc`, and `/sys`.
+8. Log blocked operations without secrets or full environment dumps.
 
 ## Block Reasons
 
 - `outside-workspace`
+- `template-or-builder-source`
+- `sibling-project-workspace`
 - `path-traversal`
 - `unresolved-realpath`
 - `special-filesystem-path`

@@ -112,6 +112,28 @@ Remaining limitations:
 - Per-prompt Restore/Edit still truncates AppLoop messages and restores files from the pre-prompt git checkpoint; it does not yet fork or rewind the corresponding Hermes session.
 - `session_events` and `hermes_session_links` exist in schema for observability/mapping, but the current prompt path mainly updates `projects`, `conversations`, `messages`, and `runs`.
 
+### Project Edit Workspace Guardrail
+
+When a prompt is sent from a project builder URL such as `http://localhost:3001/projects/dfa830d9-ebb5-45eb-95bb-54eb441f72ad`, AppLoop must treat that prompt as scoped to that one generated workspace only.
+
+The server resolves the trusted `workspacePath` from the project repository in `/api/chat`; the browser-provided project id, paths, ports, process ids, and Hermes session ids are not trusted. The Hermes run receives this `workspacePath` in the top-level payload, gateway metadata, project agent bundle, and gateway instructions.
+
+Hard rule for project-edit prompts:
+
+- The only writable root is the exact generated workspace for the active project, for example `.apploop/projects/<active-project-slug>`.
+- Hermes must not edit AppLoop builder source files such as `app/`, `components/`, `lib/`, `tests/`, or root package/config files.
+- Hermes must not edit source templates in `templates/` from a project-edit chat.
+- Hermes must not edit repo-local `.hermes/` assets from a project-edit chat.
+- Hermes must not edit sibling generated workspaces under `.apploop/projects/*`; a path under `.apploop/projects` is writable only if it is inside the exact active `workspacePath`.
+- If the user asks for a template or cross-project change while chatting inside a project page, Hermes should refuse that scope and explain that project-edit prompts can only affect the active generated workspace. Durable template changes should be requested from the AppLoop repo context, not from a generated-project edit chat.
+
+This guardrail is repeated in:
+
+- `lib/hermes/client.ts` via `createGatewayInstructions()`.
+- `lib/hermes/agents.ts` via `ProjectAgentBundle.isolationRules`.
+- `.hermes/hooks/project-scope-guard/HOOK.md`.
+- `.hermes/agents/security-auditor.md` and `.hermes/skills/security-review/SKILL.md`.
+
 ### Gateway Bundle Usage
 
 Every project edit sent through the Hermes gateway includes the AppLoop project bundle. The gateway payload carries `agentBundle` as top-level data and inside metadata so Hermes can follow the repo-local assets:

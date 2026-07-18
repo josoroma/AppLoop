@@ -64,7 +64,7 @@ function PlanetInfoCard({ planet, onClose }: { planet: PlanetInfo | null; onClos
       <h3 className="solar-planet-card-name">{planet.name}</h3>
       <dl className="solar-planet-card-stats">
         <div className="solar-stat solar-stat-diameter"><dt className="solar-stat-label solar-stat-diameter-label">Diameter</dt><dd className="solar-stat-value solar-stat-diameter-value">{planet.diameter}</dd></div>
-        <div className="solar-stat solar-stat-distance"><dt className="solar-stat-label solar-stat-distance-label">Distance from Sun</dt><dd className="solar-stat-value solar-stat-distance-value">{planet.distanceFromSun}</dd></div>
+        <div className="solar-stat solar-stat-distance"><dt className="solar-stat-label solar-stat-distance-label">{planet.name === "Sun" ? "Role" : "Distance from Sun"}</dt><dd className="solar-stat-value solar-stat-distance-value">{planet.distanceFromSun}</dd></div>
         <div className="solar-stat solar-stat-orbit"><dt className="solar-stat-label solar-stat-orbit-label">Orbital period</dt><dd className="solar-stat-value solar-stat-orbit-value">{planet.orbitalPeriod}</dd></div>
       </dl>
       <a className="solar-planet-card-nasa" href={planet.nasaUrl} rel="noopener noreferrer" target="_blank">

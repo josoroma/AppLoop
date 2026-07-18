@@ -24,7 +24,8 @@ Use this skill to review generated-project plans and edits before completion. It
 
 ## Checks
 
-- Path containment: every file read, write, and command target must stay under `workspacePath` after normalization and realpath resolution.
+- Path containment: every file read, write, and command target must stay under the exact active project `workspacePath` after normalization and realpath resolution.
+- Project-edit guardrail: prompts sent from `/projects/:projectId` may modify only that active generated workspace. They must not modify AppLoop source files, `templates/`, `.hermes/`, repo docs, package files, or sibling `.apploop/projects/*` workspaces.
 - Secret exposure: never print, persist, or send Hermes API keys or environment secrets to browser code; `NEXT_PUBLIC_HERMES_*` is forbidden.
 - Dangerous commands: reject destructive, global, privilege-escalating, or cross-project commands and use an allowlisted environment.
 - Runtime isolation: do not trust browser-provided ports, process IDs, paths, or session IDs.

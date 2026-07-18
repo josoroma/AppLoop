@@ -29,6 +29,7 @@ Do not use this skill to start the AppLoop builder process itself.
 - Use the project runtime provider instead of browser-provided ports or process IDs.
 - Start the dev server from `workspacePath` only.
 - Prefer the package manager recorded for the generated project.
+- Before starting, verify `package.json` exists and `node_modules/` is present. If dependencies are missing but `package.json` is valid, install from inside `workspacePath` (`npm install` or `pnpm install`) before launching `next dev`; copied templates intentionally exclude `node_modules`.
 - Restart only when files affecting runtime behavior changed or the existing process is unhealthy.
 - When choosing a runtime port, treat both other projects' `projects.preview_port` values and existing `runtimes.port` rows as reserved. A stopped/stale runtime row can still trip the SQLite `runtimes_port_idx` unique index even if the OS port is available, so don't filter by port value alone — exclude only the current project's own runtime/preview ports.
 
@@ -138,6 +139,30 @@ Each project workspace MUST have its own independent `.git` repo — it cannot o
 ## Runtime Stop Behavior
 
 When the runtime is stopped (manually or via `stopRuntimeAction`), the builder automatically clears all inspect-mode selections via a `useEffect` watching `runtimeStatus`. This ensures stale selection overlays don't persist when the preview iframe is unloaded. No additional cleanup is needed when stopping the runtime during inspect mode.
+
+## Missing `package.json` In Generated Workspace
+
+**Symptom**: Starting a generated project runtime fails with:
+
+```text
+Generated project workspace is missing package.json.
+```
+
+**Durable causes to check**:
+1. The `projects.workspace_path` DB row points at a directory that does not exist or was partially created.
+2. The selected source template contains transient folders such as `node_modules/` or `.next/`, and project creation copied them directly; huge transient copies can leave broken or incomplete generated workspaces.
+3. A generated workspace was repaired or copied without preserving root files such as `package.json`, `app/`, `components/`, `tsconfig.json`, and lockfiles.
+
+**Fix pattern**:
+1. Query the project row and verify `workspace_path`.
+2. Check `workspace_path/package.json`, `workspace_path/app/layout.tsx`, and the template body classname.
+3. Repair by recopying from the matching `templates/<id>/` into the exact DB `workspace_path`, excluding transient folders: `.next`, `.turbo`, `node_modules`, `out`, `dist`, and `logs`.
+4. Recreate the generated workspace `.gitignore` and initialize its local git repo if needed.
+5. Run `npm install` or `pnpm install` inside the generated workspace if dependencies are missing; `Module not found` for template dependencies such as `@react-three/fiber`, `@react-three/drei`, or `three` usually means `node_modules/` is absent after a transient-filtered copy.
+6. Validate with `npm run typecheck`, then start the generated app directly with `npm run dev -- --hostname 127.0.0.1 --port <project.preview_port>` and confirm `curl` returns HTTP 200.
+7. Stop the manual dev server before handing control back to AppLoop's runtime provider.
+
+**Prevention in AppLoop source**: `createProjectWorkspace()` must filter transient template paths just like `duplicateProjectWorkspace()` does. Add/keep tests proving specialty templates, especially large templates like `solar-system`, create workspaces with `package.json` while excluding `node_modules` and `.next`.
 
 ## Stuck Server Diagnosis
 

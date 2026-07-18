@@ -74,6 +74,21 @@ describe("E2 project management", () => {
     await expect(fs.readFile(path.join(workspacePath, "app", "not-found.tsx"), "utf8")).resolves.toContain("NotFoundView");
   });
 
+  it("creates solar-system workspaces with package metadata and without transient template output", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "apploop-solar-template-"));
+    const workspacePath = path.join(tempRoot, "solar-project");
+
+    await createProjectWorkspace(tempRoot, workspacePath, {
+      template: assertProjectTemplate("solar-system"),
+    });
+
+    await expect(fs.readFile(path.join(workspacePath, "package.json"), "utf8")).resolves.toContain("@react-three/fiber");
+    await expect(fs.readFile(path.join(workspacePath, "app", "layout.tsx"), "utf8")).resolves.toContain("template-solar-system");
+    await expect(fs.readFile(path.join(workspacePath, "components", "solar-system-scene.tsx"), "utf8")).resolves.toContain("SolarSystemScene");
+    await expect(fs.access(path.join(workspacePath, "node_modules"))).rejects.toThrow();
+    await expect(fs.access(path.join(workspacePath, ".next"))).rejects.toThrow();
+  });
+
   it("registers specialty project templates", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "apploop-specialty-template-"));
 
@@ -81,6 +96,7 @@ describe("E2 project management", () => {
       ["ai-engineer-cv", "template-ai-engineer-cv", "AiEngineerCvPage"],
       ["deep-research-paper", "template-deep-research-paper", "DeepResearchPaperPage"],
       ["luminous-rings", "template-luminous-rings", "ParticlesHomePage"],
+      ["solar-system", "template-solar-system", "SolarSystemPage"],
     ] as const) {
       const workspacePath = path.join(tempRoot, templateId);
 

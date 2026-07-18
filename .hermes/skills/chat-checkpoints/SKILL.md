@@ -47,11 +47,19 @@ User presses Send
 User clicks "New session"
   │
   ├─► Capture current messages as MessageSnapshot[]
+  ├─► createFileSnapshot(projectId)
   ├─► saveCheckpoint("Session N", messageIds, hash, true, messageSnapshots)
   ├─► Remove non-session checkpoints (isSessionBoundary: false)
+  ├─► startNewProjectConversationAction(projectId)
+  │     ├─► create conversations row: kind="session"
+  │     ├─► parent_conversation_id = previous active conversation
+  │     ├─► hermes_session_id = reserved:<newConversationId>
+  │     └─► update projects.active_conversation_id
   ├─► chat.setMessages([])
   └─► clearSelectedElements(), clearScreenshots()
 ```
+
+New session is now more than a visual reset: it creates a new active AppLoop conversation. The first prompt in that conversation resolves the reserved Hermes session to `null`, causing Hermes to create a fresh real session and return it in a `session` event.
 
 ### Session Restore (via history dropdown)
 
@@ -102,8 +110,10 @@ User clicks "Restore" or "Edit" on a past user message
   │   user/assistant message so reload cannot resurrect them
   ├─► Restore targets/screenshots
   ├─► Restart runtime + bump preview reload key
-  └─► Edit only: pre-fill textarea with original prompt (splits on "Target classnames")
+  └─► Edit only: pre-fill textarea from the persisted/raw user prompt when available
 ```
+
+Edit/resend should use `messages.raw_user_prompt` / hydrated `rawUserPrompt` whenever possible. Do not split rendered composed text on an old marker such as `Target classnames`; current targeted prompts use `Target selections JSON:` and persisted rows keep raw and composed prompt metadata separately.
 
 Why the lookup is pre-message based: prompt checkpoints are created before `chat.sendMessage()`, so the new user message does not exist yet. The first prompt checkpoint intentionally has `messageIds: []`. A restore lookup like `checkpoint.messageIds.includes(clickedMessage.id)` will never find the correct checkpoint and will fall back to chat-only truncation without file rollback.
 
@@ -146,12 +156,22 @@ export type ChatCheckpoint = {
 
 Table: `chat_checkpoints` (see `lib/db/schema.ts`)
 
+Core columns:
+
 | Column | Type | Description |
 |--------|------|-------------|
 | id | text (PK) | e.g. "cp-1721000000-1" |
 | projectId | text (FK) | Project reference |
+| conversationId | text (FK, nullable) | Conversation scope for synchronized sessions/checkpoints. |
 | name | text | Display name |
 | isSessionBoundary | boolean | 1 for sessions, 0 for auto-checkpoints |
+| runId | text (FK, nullable) | Associated run, when available. |
+| parentCheckpointId | text | Parent checkpoint for branches/restore lineage. |
+| kind | text | `prompt-before`, `prompt-after`, `session-boundary`, `restore-point`, or `branch-point`. |
+| hermesSessionId | text | Hermes session for this checkpoint, when known. |
+| hermesMessageCursor | integer | Optional Hermes cursor / last message marker. |
+| commitHash | text | Queryable git snapshot commit. |
+| createdByEventId | text | Related `session_events` row, when logged. |
 | dataJson | text | Full ChatCheckpoint as JSON |
 | createdAt | integer | Epoch ms |
 

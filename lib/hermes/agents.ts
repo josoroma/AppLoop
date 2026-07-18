@@ -101,6 +101,8 @@ export function createProjectAgentBundle(context: ProjectAgentContext): ProjectA
     ],
     isolationRules: [
       "workspacePath is the only writable root",
+      "project-edit runs must never modify AppLoop source files, templates/, or sibling .apploop/projects/* workspaces",
+      "a path under .apploop/projects is writable only when it is inside this run's exact workspacePath",
       "browser-provided paths, ports, process IDs, and Hermes session IDs are untrusted",
       "Hermes API keys stay server-side",
       "private model reasoning must not be rendered as activity",
