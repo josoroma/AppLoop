@@ -20,7 +20,7 @@ import type {
   ProjectRepository,
   RuntimePatch,
 } from "@/lib/db/repository";
-import type { NewGitCommit, NewMessage, NewProject, NewProjectSettings, NewProjectSnapshot, NewProjectTheme, NewRun, NewScreenshot, Project } from "@/lib/db/schema";
+import type { NewConversation, NewGitCommit, NewMessage, NewProject, NewProjectSettings, NewProjectSnapshot, NewProjectTheme, NewRun, NewScreenshot, Project } from "@/lib/db/schema";
 
 export class SqliteProjectRepository implements ProjectRepository {
   constructor(private readonly db: BuilderDatabase) {}
@@ -47,6 +47,12 @@ export class SqliteProjectRepository implements ProjectRepository {
     return overview;
   }
 
+  async createConversation(conversation: NewConversation) {
+    const [createdConversation] = await this.db.insert(conversations).values(conversation).returning();
+
+    return createdConversation;
+  }
+
   async deleteProject(projectId: string) {
     await this.db.delete(projects).where(eq(projects.id, projectId));
   }
@@ -55,6 +61,12 @@ export class SqliteProjectRepository implements ProjectRepository {
     const [project] = await this.db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
 
     return project ?? null;
+  }
+
+  async findConversationById(conversationId: string) {
+    const [conversation] = await this.db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
+
+    return conversation ?? null;
   }
 
   async findProjectOverviewById(projectId: string) {
@@ -158,6 +170,20 @@ export class SqliteProjectRepository implements ProjectRepository {
         target: builderPreferences.id,
         set: { lastOpenedProjectId: projectId, selectedElementJson: null, updatedAt: now },
       });
+  }
+
+  async setActiveConversation(projectId: string, conversationId: string, hermesSessionId: string | null) {
+    const [project] = await this.db
+      .update(projects)
+      .set({ activeConversationId: conversationId, hermesSessionId, updatedAt: new Date() })
+      .where(eq(projects.id, projectId))
+      .returning();
+
+    if (!project) {
+      throw new Error("Project not found.");
+    }
+
+    return project;
   }
 
   async updateConversationHermesSession(conversationId: string, hermesSessionId: string) {
@@ -313,11 +339,14 @@ export class SqliteProjectRepository implements ProjectRepository {
   }
 
   private async hydrateProjectOverview(project: Project): Promise<ProjectOverview> {
-    const [conversation] = await this.db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.projectId, project.id))
-      .limit(1);
+    const activeConversation = project.activeConversationId ? await this.findConversationById(project.activeConversationId) : null;
+    const [fallbackConversation] = activeConversation
+      ? [activeConversation]
+      : await this.db
+          .select()
+          .from(conversations)
+          .where(eq(conversations.projectId, project.id))
+          .limit(1);
     const [runtime] = await this.db.select().from(runtimes).where(eq(runtimes.projectId, project.id)).limit(1);
     const [theme] = await this.db.select().from(projectThemes).where(eq(projectThemes.projectId, project.id)).limit(1);
     const [settings] = await this.db
@@ -328,7 +357,7 @@ export class SqliteProjectRepository implements ProjectRepository {
 
     return {
       project,
-      conversation: conversation ?? null,
+      conversation: activeConversation ?? fallbackConversation ?? null,
       runtime: runtime ?? null,
       theme: theme ?? null,
       settings: settings ?? null,

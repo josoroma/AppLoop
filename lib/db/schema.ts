@@ -19,6 +19,7 @@ export const projects = sqliteTable(
     slug: text("slug").notNull(),
     workspacePath: text("workspace_path").notNull(),
     hermesSessionId: text("hermes_session_id"),
+    activeConversationId: text("active_conversation_id"),
     themeId: text("theme_id").notNull().default(DEFAULT_THEME_ID),
     previewPort: integer("preview_port").notNull(),
     status: text("status", { enum: ["active", "archived", "deleted"] }).notNull().default("active"),
@@ -36,6 +37,12 @@ export const conversations = sqliteTable(
       .references(() => projects.id, { onDelete: "cascade" }),
     hermesSessionId: text("hermes_session_id"),
     title: text("title").notNull().default("Builder chat"),
+    status: text("status", { enum: ["active", "archived", "deleted"] }).notNull().default("active"),
+    kind: text("kind", { enum: ["main", "session", "branch"] }).notNull().default("main"),
+    parentConversationId: text("parent_conversation_id"),
+    branchedFromMessageId: text("branched_from_message_id"),
+    branchedFromCheckpointId: text("branched_from_checkpoint_id"),
+    fileSnapshotCommit: text("file_snapshot_commit"),
     ...timestamps,
   },
   (table) => [index("conversations_project_id_idx").on(table.projectId)],
@@ -51,6 +58,14 @@ export const messages = sqliteTable(
     role: text("role", { enum: ["user", "assistant", "system", "tool"] }).notNull(),
     content: text("content").notNull(),
     metadataJson: text("metadata_json"),
+    rawUserPrompt: text("raw_user_prompt"),
+    composedPrompt: text("composed_prompt"),
+    visualSelectionJson: text("visual_selection_json"),
+    screenshotIdsJson: text("screenshot_ids_json"),
+    checkpointBeforeId: text("checkpoint_before_id"),
+    checkpointAfterId: text("checkpoint_after_id"),
+    hermesSessionId: text("hermes_session_id"),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
     createdAt: timestamps.createdAt,
   },
   (table) => [index("messages_conversation_id_idx").on(table.conversationId)],
@@ -65,6 +80,10 @@ export const runs = sqliteTable(
       .references(() => projects.id, { onDelete: "cascade" }),
     conversationId: text("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
     hermesRunId: text("hermes_run_id"),
+    hermesSessionIdAtStart: text("hermes_session_id_at_start"),
+    hermesSessionIdAtEnd: text("hermes_session_id_at_end"),
+    checkpointBeforeId: text("checkpoint_before_id"),
+    checkpointAfterId: text("checkpoint_after_id"),
     status: text("status", { enum: ["queued", "running", "succeeded", "failed", "cancelled", "interrupted"] })
       .notNull()
       .default("queued"),
@@ -180,12 +199,61 @@ export const chatCheckpoints = sqliteTable(
     projectId: text("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
+    conversationId: text("conversation_id").references(() => conversations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     isSessionBoundary: integer("is_session_boundary", { mode: "boolean" }).notNull().default(false),
+    runId: text("run_id").references(() => runs.id, { onDelete: "set null" }),
+    parentCheckpointId: text("parent_checkpoint_id"),
+    kind: text("kind", { enum: ["prompt-before", "prompt-after", "session-boundary", "restore-point", "branch-point"] }),
+    hermesSessionId: text("hermes_session_id"),
+    hermesMessageCursor: integer("hermes_message_cursor"),
+    commitHash: text("commit_hash"),
+    createdByEventId: text("created_by_event_id"),
     dataJson: text("data_json").notNull(),
     createdAt: timestamps.createdAt,
   },
   (table) => [index("chat_checkpoints_project_id_idx").on(table.projectId)],
+);
+
+export const sessionEvents = sqliteTable(
+  "session_events",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    conversationId: text("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+    hermesSessionId: text("hermes_session_id"),
+    type: text("type", {
+      enum: ["project-created", "session-created", "prompt-submitted", "run-started", "run-completed", "checkpoint-saved", "restored", "branched", "resumed", "cancelled", "synced"],
+    }).notNull(),
+    previousConversationId: text("previous_conversation_id"),
+    previousHermesSessionId: text("previous_hermes_session_id"),
+    checkpointId: text("checkpoint_id"),
+    runId: text("run_id"),
+    metadataJson: text("metadata_json"),
+    createdAt: timestamps.createdAt,
+  },
+  (table) => [index("session_events_project_id_idx").on(table.projectId), index("session_events_conversation_id_idx").on(table.conversationId)],
+);
+
+export const hermesSessionLinks = sqliteTable(
+  "hermes_session_links",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    hermesSessionId: text("hermes_session_id").notNull(),
+    source: text("source", { enum: ["created", "resumed", "forked", "imported", "reserved"] }).notNull().default("reserved"),
+    parentHermesSessionId: text("parent_hermes_session_id"),
+    status: text("status", { enum: ["active", "superseded", "archived", "invalid"] }).notNull().default("active"),
+    ...timestamps,
+  },
+  (table) => [index("hermes_session_links_project_id_idx").on(table.projectId), index("hermes_session_links_conversation_id_idx").on(table.conversationId)],
 );
 
 export const projectRelations = relations(projects, ({ one, many }) => ({
@@ -217,6 +285,9 @@ export const builderTables = {
   projectSettings,
   builderPreferences,
   screenshots,
+  chatCheckpoints,
+  sessionEvents,
+  hermesSessionLinks,
 };
 
 export type Project = typeof projects.$inferSelect;
@@ -241,3 +312,7 @@ export type Screenshot = typeof screenshots.$inferSelect;
 export type NewScreenshot = typeof screenshots.$inferInsert;
 export type ChatCheckpointRow = typeof chatCheckpoints.$inferSelect;
 export type NewChatCheckpointRow = typeof chatCheckpoints.$inferInsert;
+export type SessionEvent = typeof sessionEvents.$inferSelect;
+export type NewSessionEvent = typeof sessionEvents.$inferInsert;
+export type HermesSessionLink = typeof hermesSessionLinks.$inferSelect;
+export type NewHermesSessionLink = typeof hermesSessionLinks.$inferInsert;

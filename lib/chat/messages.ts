@@ -47,7 +47,7 @@ export function serializeAssistantMessageMetadata(metadata: AssistantMessageMeta
   });
 }
 
-export function toBuilderChatMessages(messages: Pick<Message, "id" | "role" | "content" | "metadataJson">[]): BuilderChatMessage[] {
+export function toBuilderChatMessages(messages: Array<Pick<Message, "id" | "role" | "content" | "metadataJson"> & Partial<Pick<Message, "rawUserPrompt">>>): BuilderChatMessage[] {
   return messages.flatMap((message) => {
     if (message.role === "tool") {
       return [];
@@ -62,7 +62,7 @@ export function toBuilderChatMessages(messages: Pick<Message, "id" | "role" | "c
     return {
       id: message.id,
       role: message.role,
-      parts: [...activityParts, { type: "text", text: message.content }],
+      parts: [...activityParts, { type: "text", text: message.role === "user" ? message.rawUserPrompt ?? message.content : message.content }],
     } satisfies BuilderChatMessage;
   });
 }

@@ -29,6 +29,7 @@ function createProjectOverview(projectId: string, previewPort: number, runtimePo
       slug: projectId,
       workspacePath: `/tmp/${projectId}`,
       hermesSessionId: null,
+      activeConversationId: null,
       themeId: "luma-indigo-emerald",
       previewPort,
       status: "active",

@@ -67,6 +67,51 @@ Project edit is the main AppLoop workflow inside `app/projects/[projectId]/page.
 6. Hermes streams text and activity events back to the chat panel.
 7. AppLoop persists the assistant message, updates run status, refreshes preview state, and saves current session messages.
 
+### Project Edit Prompt Trace
+
+The project edit prompt starts in the project builder UI and is sent to Hermes from the server-side chat route.
+
+1. `components/builder/builder-shell.tsx` reads the textarea value on submit.
+2. `createVisualSelectionPrompt(prompt, selectedElements)` appends visual-target instructions and the `Target selections JSON:` block when inspect-mode targets are selected.
+3. `chat.sendMessage({ text: messageText, files })` sends the composed text and optional pasted-image file parts through the AI SDK transport to `POST /api/chat`.
+4. `app/api/chat/route.ts` extracts the text with `getMessageText(userMessage)`. That text is the full composed prompt, not just the raw textarea text.
+5. `extractPromptMetadata(prompt, screenshotIds)` in `lib/chat/prompt-metadata.ts` splits and persists:
+   - `rawUserPrompt`: the user-authored text before target metadata.
+   - `composedPrompt`: the full prompt sent to Hermes.
+   - `visualSelectionJson`: the JSON after `Target selections JSON:`.
+   - `screenshotIdsJson`: pasted or attached screenshot IDs.
+6. `/api/chat` calls `getHermesClient().streamProjectRun()` with `message: prompt`, the generated `workspacePath`, the active `conversationId`, the resolved Hermes `sessionId`, optional base64 `images`, and `agentBundle: createProjectAgentBundle(...)`.
+
+`lib/hermes/client.ts` then sends the prompt through the configured transport:
+
+| Transport | Endpoint | Prompt field(s) | Notes |
+|---|---|---|---|
+| REST streaming | `POST /v1/runs/stream` | `message` and `input` | Sends `projectId`, `conversationId`, `workspacePath`, `sessionId`, `session_id`, `model`, `agentBundle`, and optional `images`. |
+| Gateway fallback | `POST /v1/runs`, then `GET /v1/runs/:runId/events` | `input` | Adds `instructions: createGatewayInstructions(request)`, top-level `agentBundle`, and metadata containing project/conversation/workspace/model/provider/bundle context. |
+| WebSocket | `ws(s)://.../v1/runs/stream` | `message` | Sends the prompt and project context once the socket opens. |
+
+For gateway fallback, `createGatewayInstructions()` restates the AppLoop role, project ID, workspace path, default route, selected theme, package policy, validation depth, bundle paths, hooks, commands, validation script, and generated-code classname contract.
+
+### Session Synchronization
+
+AppLoop now treats the active chat as a database-backed conversation, not only a client-side `useChat` reset. The session sync schema is in `lib/db/schema.ts` and migration `lib/db/migrations/0007_session_sync.sql`.
+
+Current sync model:
+
+- `projects.active_conversation_id` points at the conversation loaded by `app/projects/[projectId]/page.tsx`.
+- `conversations.hermes_session_id` is the authority for the next Hermes run; `projects.hermes_session_id` mirrors the active conversation as a convenience pointer.
+- New projects and duplicated projects create an initial conversation with `kind: main`, `status: active`, and `hermes_session_id = reserved:<conversationId>`.
+- The **New session** button calls `startNewProjectConversationAction(projectId)`, which creates a new `conversations` row with `kind: session`, `parent_conversation_id` set to the previous active conversation, and `hermes_session_id = reserved:<newConversationId>`, then updates `projects.active_conversation_id`.
+- `/api/chat` resolves the Hermes session with `resolveRunHermesSessionId(project, conversation)`, which normalizes missing or `reserved:` IDs to `null`. The first prompt in a new conversation therefore asks Hermes to create a real session.
+- When Hermes emits a `session` event, `/api/chat` writes the real session ID back to both the active conversation and project mirror.
+- User messages persist both raw and composed prompt metadata so edit/resend can use the human-authored text while the audit trail keeps the exact target-enriched prompt.
+
+Remaining limitations:
+
+- Session-history restore currently rebuilds visible chat from checkpoint message snapshots; it does not yet switch `projects.active_conversation_id` back to a historical conversation.
+- Per-prompt Restore/Edit still truncates AppLoop messages and restores files from the pre-prompt git checkpoint; it does not yet fork or rewind the corresponding Hermes session.
+- `session_events` and `hermes_session_links` exist in schema for observability/mapping, but the current prompt path mainly updates `projects`, `conversations`, `messages`, and `runs`.
+
 ### Gateway Bundle Usage
 
 Every project edit sent through the Hermes gateway includes the AppLoop project bundle. The gateway payload carries `agentBundle` as top-level data and inside metadata so Hermes can follow the repo-local assets:
@@ -130,7 +175,7 @@ Important details:
 | Stop prompt | Calls chat stop and `/api/chat/cancel`. | Stop the active Hermes run if possible. |
 | Restore on a past user message | Reverts files to the pre-prompt git checkpoint, removes that prompt and later messages from UI and DB, restarts preview. | No new Hermes run is sent. |
 | Edit on a past user message | Performs Restore, then pre-fills the textarea with the original prompt. | Wait for the user to resend the edited prompt. |
-| New session | Saves current session boundary, clears chat UI, clears targets/screenshots, preserves project workspace. | Future prompts start with fresh conversation context. |
+| New session | Saves current session boundary, creates a new active AppLoop conversation, clears chat UI, clears targets/screenshots, preserves project workspace. | The first future prompt sends `sessionId: null` so Hermes creates a fresh real session for that conversation. |
 | Runtime restart | Kills and starts the generated Next.js process for fresh source reads. | Use logs/validation if preview health is involved. |
 
 ### Restore, Edit, And Persistence
@@ -139,7 +184,7 @@ Before every prompt, AppLoop snapshots generated project files with git. Restore
 
 - **Restore**: revert files, delete the prompt and everything after it, clear the future conversation, restart preview.
 - **Edit**: same as Restore, then put the original prompt text back in the textarea for editing and resending.
-- **New session**: save the current chat as a session boundary and begin a clean conversation without rolling back files.
+- **New session**: save the current chat as a session boundary, create a new active conversation row, and begin a clean conversation without rolling back files.
 
 ### Validation And Completion
 

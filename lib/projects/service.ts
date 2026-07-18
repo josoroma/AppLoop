@@ -70,9 +70,10 @@ export class ProjectService {
     const existingProjects = await this.repository.listProjects();
     const slug = createUniqueSlug(parsedInput.name, existingProjects.map((project) => project.slug));
     const projectId = randomUUID();
+    const conversationId = randomUUID();
     const previewPort = allocatePreviewPort(await this.repository.listAllocatedPreviewPorts(), this.previewPortRange);
     const workspacePath = resolveProjectWorkspacePath(projectsRoot, slug);
-    const hermesSessionId = reserveHermesSessionId(projectId);
+    const hermesSessionId = reserveHermesSessionId(conversationId);
 
     return this.repository.createProjectBundle({
       project: {
@@ -81,14 +82,17 @@ export class ProjectService {
         slug,
         workspacePath,
         hermesSessionId,
+        activeConversationId: conversationId,
         themeId: parsedInput.themeId,
         previewPort,
       },
       conversation: {
-        id: randomUUID(),
+        id: conversationId,
         projectId,
         hermesSessionId,
         title: `${parsedInput.name} chat`,
+        status: "active",
+        kind: "main",
       },
       runtime: {
         projectId,
@@ -118,9 +122,10 @@ export class ProjectService {
     const name = copiedName?.trim() || `${source.project.name} Copy`;
     const slug = createUniqueSlug(name, existingProjects.map((project) => project.slug));
     const newProjectId = randomUUID();
+    const conversationId = randomUUID();
     const previewPort = allocatePreviewPort(await this.repository.listAllocatedPreviewPorts(), this.previewPortRange);
     const workspacePath = path.join(path.dirname(source.project.workspacePath), slug);
-    const hermesSessionId = reserveHermesSessionId(newProjectId);
+    const hermesSessionId = reserveHermesSessionId(conversationId);
 
     return this.repository.createProjectBundle({
       project: {
@@ -129,14 +134,17 @@ export class ProjectService {
         slug,
         workspacePath,
         hermesSessionId,
+        activeConversationId: conversationId,
         themeId: source.project.themeId,
         previewPort,
       },
       conversation: {
-        id: randomUUID(),
+        id: conversationId,
         projectId: newProjectId,
         hermesSessionId,
         title: `${name} chat`,
+        status: "active",
+        kind: "main",
       },
       runtime: {
         projectId: newProjectId,
@@ -177,6 +185,30 @@ export class ProjectService {
 
   findProjectOverview(projectId: string) {
     return this.repository.findProjectOverviewById(projectId);
+  }
+
+  async startNewProjectConversation(projectId: string) {
+    const overview = await this.repository.findProjectOverviewById(projectId);
+
+    if (!overview) {
+      throw new Error("Project not found.");
+    }
+
+    const conversationId = randomUUID();
+    const hermesSessionId = reserveHermesSessionId(conversationId);
+    const conversation = await this.repository.createConversation({
+      id: conversationId,
+      projectId,
+      hermesSessionId,
+      title: `${overview.project.name} session`,
+      status: "active",
+      kind: "session",
+      parentConversationId: overview.conversation?.id ?? null,
+    });
+
+    await this.repository.setActiveConversation(projectId, conversation.id, conversation.hermesSessionId);
+
+    return conversation;
   }
 
   rememberLastOpenedProject(projectId: string) {

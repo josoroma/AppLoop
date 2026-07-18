@@ -3,11 +3,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from "ai";
 import { assistantMessageIdForRun, getMessageText, getLastUserMessage, serializeAssistantMessageMetadata, type HermesActivityData } from "@/lib/chat/messages";
+import { extractPromptMetadata } from "@/lib/chat/prompt-metadata";
 import { clearActiveHermesRun, rememberActiveHermesRun } from "@/lib/chat/run-store";
 import { createProjectAgentBundle } from "@/lib/hermes/agents";
 import { hermesErrorToUserMessage, HermesError, mapHermesError } from "@/lib/hermes/errors";
 import type { ImageAttachment } from "@/lib/hermes/client";
 import { getHermesClient } from "@/lib/hermes/store";
+import { resolveRunHermesSessionId } from "@/lib/hermes/session-sync";
 import { categorizeFailure, getDurationMs, recordStructuredEvent, startDurationTimer } from "@/lib/observability/events";
 import { getProjectRepository } from "@/lib/projects/store";
 import { projectAccessErrorResponse, requireProjectAccess } from "@/lib/security/authorization";
@@ -44,6 +46,8 @@ export async function POST(request: Request) {
   const { conversation, project } = overview;
   const prompt = getMessageText(userMessage);
   const images = await extractImagesFromMessage(userMessage, projectId);
+  const promptMetadata = extractPromptMetadata(prompt, extractScreenshotIds(userMessage));
+  const hermesSessionId = resolveRunHermesSessionId(project, conversation);
   const runId = randomUUID();
   const correlationId = runId;
   const runStartedTimer = startDurationTimer();
@@ -58,6 +62,11 @@ export async function POST(request: Request) {
     conversationId: conversation.id,
     role: "user",
     content: prompt,
+    rawUserPrompt: promptMetadata.rawUserPrompt,
+    composedPrompt: promptMetadata.composedPrompt,
+    visualSelectionJson: promptMetadata.visualSelectionJson,
+    screenshotIdsJson: promptMetadata.screenshotIdsJson,
+    hermesSessionId,
   });
   await repository.createRun({
     id: runId,
@@ -81,7 +90,7 @@ export async function POST(request: Request) {
           conversationId: conversation.id,
           message: prompt,
           workspacePath: project.workspacePath,
-          sessionId: resolveHermesSessionId(project.hermesSessionId ?? conversation.hermesSessionId),
+          sessionId: hermesSessionId,
           agentBundle: createProjectAgentBundle({
             projectId,
             workspacePath: project.workspacePath,
@@ -185,12 +194,22 @@ export async function POST(request: Request) {
   return createUIMessageStreamResponse({ stream });
 }
 
-function resolveHermesSessionId(sessionId: string | null | undefined) {
-  if (!sessionId || sessionId.startsWith("reserved:")) {
-    return null;
-  }
+function extractScreenshotIds(userMessage: UIMessage) {
+  return userMessage.parts.flatMap((part) => {
+    if (part.type !== "file" || !part.url) {
+      return [];
+    }
 
-  return sessionId;
+    try {
+      const urlPath = new URL(part.url, "http://localhost").pathname;
+      const segments = urlPath.split("/").filter(Boolean);
+      const screenshotId = segments[segments.length - 1];
+
+      return screenshotId ? [screenshotId] : [];
+    } catch {
+      return [];
+    }
+  });
 }
 
 async function extractImagesFromMessage(userMessage: UIMessage, projectId: string): Promise<ImageAttachment[]> {

@@ -22,6 +22,7 @@ import { HermesContextUsage } from "@/components/builder/hermes-context-usage";
 import { findCheckpointBeforeMessage, messagesBeforeMessage } from "@/lib/chat/checkpoint-restore";
 import { createFileSnapshot, revertToFileSnapshot } from "@/lib/chat/file-snapshot";
 import { deleteProjectConversationMessagesFrom } from "@/lib/chat/message-actions";
+import { startNewProjectConversationAction } from "@/lib/chat/session-actions";
 import { listChatCheckpoints, saveChatCheckpoint } from "@/lib/chat/checkpoint-actions";
 import { getBuilderLayoutStorageKey, groupHermesActivities, parseBuilderSplitLayout, serializeBuilderSplitLayout } from "@/lib/builder/ux";
 import type { BuilderChatMessage } from "@/lib/chat/messages";
@@ -392,6 +393,7 @@ export function BuilderShell({
 
                   saveCheckpoint(`Session ${sessionNum}`, messageIds, hash, true, messageSnapshots);
                   useBuilderUiStore.getState().checkpoints.forEach((cp) => !cp.isSessionBoundary && useBuilderUiStore.getState().removeCheckpoint(cp.id));
+                  await startNewProjectConversationAction(projectId);
                   chat.setMessages([]);
                   clearSelectedElements();
                   clearScreenshots();

@@ -45,7 +45,9 @@ export type MessagePageOptions = {
 export interface ProjectRepository {
   createProject(project: NewProject): Promise<Project>;
   createProjectBundle(bundle: CreateProjectBundle): Promise<ProjectOverview>;
+  createConversation(conversation: NewConversation): Promise<Conversation>;
   deleteProject(projectId: string): Promise<void>;
+  findConversationById(conversationId: string): Promise<Conversation | null>;
   findProjectById(projectId: string): Promise<Project | null>;
   findProjectOverviewById(projectId: string): Promise<ProjectOverview | null>;
   listProjects(): Promise<Project[]>;
@@ -62,6 +64,7 @@ export interface ProjectRepository {
   markProjectSnapshotRestored(snapshotId: string, restoredAt: Date): Promise<void>;
   createGitCommit(commit: NewGitCommit): Promise<void>;
   rememberLastOpenedProject(projectId: string): Promise<void>;
+  setActiveConversation(projectId: string, conversationId: string, hermesSessionId: string | null): Promise<Project>;
   updateConversationHermesSession(conversationId: string, hermesSessionId: string): Promise<void>;
   updateProjectHermesSession(projectId: string, hermesSessionId: string): Promise<Project>;
   updateProjectName(projectId: string, name: string, slug: string): Promise<Project>;
