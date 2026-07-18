@@ -246,6 +246,22 @@ body {
   background: transparent;
 }
 
+.cv-sidebar-avatar-fallback {
+  background:
+    radial-gradient(circle at 30% 20%, oklch(1 0 0 / 16%), transparent 38%),
+    radial-gradient(circle at 70% 75%, oklch(0.599 0.225 -64.449 / 26%), transparent 42%),
+    linear-gradient(135deg, oklch(0.18 0.018 265), oklch(0.075 0.012 265) 42%, oklch(0.018 0.006 265));
+  box-shadow:
+    inset 0 0 1.5rem oklch(1 0 0 / 10%),
+    0 0 1.2rem oklch(0.599 0.225 -64.449 / 22%);
+  color: oklch(1 0 0 / 90%);
+}
+
+.cv-sidebar-avatar-user-icon {
+  color: oklch(1 0 0 / 88%);
+  filter: drop-shadow(0 0 6px oklch(0.599 0.225 -64.449 / 42%));
+}
+
 .cv-profile-name {
   margin: 0;
   font-size: 1.45rem;
@@ -437,6 +453,99 @@ body {
   color: var(--muted-foreground);
 }
 
+/* ── Responsibility and guide cards ──────── */
+
+.cv-responsibility-list {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.cv-responsibility-item {
+  position: relative;
+  padding-left: 1.35rem;
+  color: var(--muted-foreground);
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
+
+.cv-responsibility-item::before {
+  content: "";
+  position: absolute;
+  top: 0.72rem;
+  left: 0;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, oklch(0.483 0.383 -81.967), oklch(0.637 0.476 -59.207));
+  box-shadow: 0 0 0.5rem oklch(0.483 0.383 -81.967 / 30%);
+}
+
+.cv-guide-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.cv-guide-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: start;
+  padding: 1rem;
+  border: 1px solid oklch(1 0 0 / 7%);
+  border-radius: 0.75rem;
+  background: oklch(1 0 0 / 3%);
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.cv-guide-link:hover {
+  transform: translateY(-2px);
+  border-color: oklch(0.483 0.383 -81.967 / 25%);
+  background: oklch(1 0 0 / 5%);
+}
+
+.cv-guide-link-icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.7rem;
+  background: linear-gradient(135deg, oklch(0.483 0.383 -81.967 / 24%), oklch(0.637 0.476 -59.207 / 14%));
+}
+
+.cv-guide-link-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: oklch(0.637 0.476 -59.207);
+}
+
+.cv-guide-link-body {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.cv-guide-link-title {
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.cv-guide-link-description {
+  color: var(--muted-foreground);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 860px) {
+  .cv-guide-links {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Professional skill bars ────────────── */
 
 .cv-skill-indicators {
@@ -553,10 +662,194 @@ body {
   }
 }
 
+/* ── Interview and HR subpages ───────────── */
+
+.cv-subpage-layout {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18rem minmax(0, 1fr);
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.cv-subpage-layout::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.12;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+.cv-subpage-sidebar {
+  position: relative;
+  z-index: 1;
+  padding: 2.25rem 2rem 3rem;
+  border-right: 1px solid oklch(1 0 0 / 6%);
+  background:
+    radial-gradient(circle at 20% 10%, oklch(0.483 0.383 -81.967 / 18%), transparent 18rem),
+    radial-gradient(circle at 80% 90%, oklch(0.411 0.690 -91.995 / 12%), transparent 22rem),
+    linear-gradient(180deg, oklch(0.14 0.02 265), oklch(0.105 0.015 262) 45%, oklch(0.085 0.012 258));
+  color: oklch(1 0 0 / 92%);
+}
+
+.cv-subpage-sidebar-inner {
+  position: sticky;
+  top: 2rem;
+  display: grid;
+  gap: 1.35rem;
+}
+
+.cv-subpage-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: fit-content;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid oklch(1 0 0 / 12%);
+  border-radius: 999px;
+  color: oklch(1 0 0 / 78%);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: oklch(1 0 0 / 5%);
+}
+
+.cv-subpage-back-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.cv-subpage-sidebar-header {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.cv-subpage-sidebar-icon {
+  width: 2rem;
+  height: 2rem;
+  color: oklch(0.637 0.476 -59.207);
+}
+
+.cv-subpage-title {
+  margin: 0;
+  font-size: 1.65rem;
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  background: linear-gradient(to right, oklch(0.599 0.225 -64.449), oklch(0.637 0.476 -59.207));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.cv-subpage-sidebar-desc {
+  margin: 0;
+  color: oklch(1 0 0 / 62%);
+  font-size: 0.9rem;
+  line-height: 1.75;
+}
+
+.cv-subpage-main {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-content: start;
+  gap: 1.25rem;
+  padding: 2.25rem 2.5rem 4rem;
+  overflow-y: auto;
+}
+
+.cv-qa-card {
+  padding: 1.35rem 1.5rem;
+  border: 1px solid oklch(1 0 0 / 6%);
+  border-radius: 0.75rem;
+  background: oklch(1 0 0 / 3%);
+  backdrop-filter: blur(8px);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.cv-qa-card:hover {
+  border-color: oklch(1 0 0 / 10%);
+  background: oklch(1 0 0 / 4%);
+}
+
+.cv-qa-question {
+  margin: 0 0 0.9rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid oklch(1 0 0 / 8%);
+  color: var(--foreground);
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cv-qa-answer {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.96rem;
+  line-height: 1.8;
+}
+
+.cv-qa-hr-list {
+  display: grid;
+  gap: 0.95rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.cv-qa-hr-item {
+  display: grid;
+  grid-template-columns: 2.2rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.cv-qa-hr-number {
+  color: oklch(0.599 0.225 -64.449);
+  font-weight: 900;
+}
+
+.cv-qa-hr-text {
+  color: var(--muted-foreground);
+  line-height: 1.75;
+}
+
+@media (max-width: 860px) {
+  .cv-subpage-layout {
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .cv-subpage-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid oklch(1 0 0 / 6%);
+  }
+
+  .cv-subpage-sidebar-inner {
+    position: static;
+  }
+
+  .cv-subpage-main {
+    padding: 1.5rem 1.25rem 3rem;
+    overflow-y: visible;
+  }
+}
+
 /* ── Print friendly ─────────────────────── */
 
 @media print {
   .cv-page-layout::before {
+    display: none;
+  }
+
+  .cv-subpage-layout::before {
     display: none;
   }
 
@@ -571,7 +864,18 @@ body {
     border-right: 1px solid oklch(0.88 0 0);
   }
 
+  .cv-subpage-sidebar {
+    backdrop-filter: none;
+    border-right: 1px solid oklch(0.88 0 0);
+  }
+
   .cv-main-section {
+    background: transparent;
+    border: 1px solid oklch(0.88 0 0);
+    backdrop-filter: none;
+  }
+
+  .cv-qa-card {
     background: transparent;
     border: 1px solid oklch(0.88 0 0);
     backdrop-filter: none;
