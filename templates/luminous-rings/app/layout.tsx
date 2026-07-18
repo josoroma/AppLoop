@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html className="dark" lang="en" suppressHydrationWarning>
-      <body className="template-webgl-particles-home">
+      <body className="template-luminous-rings">
         <InspectorProvider>
           <ThemeProvider>{children}</ThemeProvider>
         </InspectorProvider>

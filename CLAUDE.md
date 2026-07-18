@@ -25,7 +25,7 @@ The main user workflow is:
 
 - Builder UI changes usually touch `components/builder/`.
 - Project dashboard changes usually touch `app/projects/page.tsx` and `components/projects/`.
-- Generated template changes live in `templates/generated-nextjs-default/` or `templates/generated-nextjs-admin-luma/`.
+- Generated template changes live in `templates/default/` or `templates/admin-luma/`.
 - Visual inspector changes often require edits in both `components/builder/preview-frame.tsx` and `templates/*/components/inspector-provider.tsx`.
 - Runtime lifecycle changes live in `lib/runtime/`.
 - Hermes run metadata lives in `lib/hermes/` and `.hermes/`.

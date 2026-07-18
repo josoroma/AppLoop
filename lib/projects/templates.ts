@@ -1,46 +1,46 @@
-export const DEFAULT_PROJECT_TEMPLATE_ID = "generated-nextjs-default";
+export const DEFAULT_PROJECT_TEMPLATE_ID = "default";
 
 export const BUILT_IN_PROJECT_TEMPLATES = [
   {
     id: DEFAULT_PROJECT_TEMPLATE_ID,
     name: "Default Next.js",
     description: "Starter app with header navigation and light/dark mode.",
-    templatePath: "generated-nextjs-default",
+    templatePath: "default",
     defaultThemeId: "luma-blue-violet",
   },
   {
-    id: "generated-nextjs-admin-luma",
+    id: "admin-luma",
     name: "Luma Admin",
     description: "Dark-mode dashboard with admin navigation and reusable not-found state.",
-    templatePath: "generated-nextjs-admin-luma",
+    templatePath: "admin-luma",
     defaultThemeId: "luma-admin-amber",
   },
   {
-    id: "generated-nextjs-ai-engineer-cv",
+    id: "ai-engineer-cv",
     name: "AI Engineer CV",
     description: "Portfolio-style curriculum vitae for an AI engineer with experience, expertise, and proof points.",
-    templatePath: "generated-nextjs-ai-engineer-cv",
+    templatePath: "ai-engineer-cv",
     defaultThemeId: "luma-cv-indigo",
   },
   {
-    id: "generated-nextjs-deep-research-paper",
+    id: "deep-research-paper",
     name: "Deep Research Paper",
     description: "Long-form research paper layout with abstract, findings, methods, and citation protocol.",
-    templatePath: "generated-nextjs-deep-research-paper",
+    templatePath: "deep-research-paper",
     defaultThemeId: "luma-amber-slate",
   },
   {
-    id: "generated-nextjs-webgl-particles-home",
-    name: "WebGL Particles Home",
-    description: "Modern dark homepage with a native WebGL particle field and launch-style hero section.",
-    templatePath: "generated-nextjs-webgl-particles-home",
+    id: "luminous-rings",
+    name: "Luminous Rings",
+    description: "Dark homepage with luminous concentric WebGL laser rings and cinematic launch hero.",
+    templatePath: "luminous-rings",
     defaultThemeId: "luma-violet-cyan",
   },
   {
-    id: "generated-nextjs-solar-system",
+    id: "solar-system",
     name: "Solar System Explorer",
     description: "Cinematic interactive 3D Solar System with orbiting planets, gravitational grid, and NASA integration.",
-    templatePath: "generated-nextjs-solar-system",
+    templatePath: "solar-system",
     defaultThemeId: "luma-indigo-emerald",
   },
 ] as const;

@@ -6,8 +6,8 @@ Each generated project carries exactly one template classname on the root `<body
 
 | Template ID | Body classname |
 |---|---|
-| `generated-nextjs-default` | `template-default` |
-| `generated-nextjs-admin-luma` | `template-admin-luma` |
+| `default` | `template-default` |
+| `admin-luma` | `template-admin-luma` |
 
 Registered in `SEMANTIC_BOUNDARY_CLASS_NAMES` in `lib/visual-selector/types.ts`.
 Inspect mode ancestry includes the body classname, so Hermes can identify which template

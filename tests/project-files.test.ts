@@ -14,7 +14,7 @@ import {
 } from "@/lib/project-files/operations";
 import type { VisualSelection } from "@/lib/visual-selector/types";
 
-const GENERATED_TEMPLATE_PATH = path.join(process.cwd(), "templates", "generated-nextjs-default");
+const GENERATED_TEMPLATE_PATH = path.join(process.cwd(), "templates", "default");
 
 describe("E12 file generation and editing", () => {
   it("keeps the controlled generated app template ready for Hermes edits", async () => {

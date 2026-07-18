@@ -49,7 +49,7 @@ Do not use this skill to edit AppLoop builder source files.
 - Put reusable UI under colocated `components/` folders for the route or feature that owns them.
 - Put semantic class names on inspectable boundaries from the frontend design output.
 - Use stable semantic class names such as `dashboard-header`, `dashboard-content`, `left-column`, `center-column`, `right-column`, `dashboard-footer`, `analytics-card`, `summary-card`, `primary-actions`, and `secondary-actions` on user-meaningful boundaries.
-- The root `<body>` element must carry the template classname: `template-default` for `generated-nextjs-default`, `template-admin-luma` for `generated-nextjs-admin-luma`, `template-ai-engineer-cv` for `generated-nextjs-ai-engineer-cv`, `template-deep-research-paper` for `generated-nextjs-deep-research-paper`, `template-webgl-particles-home` for `generated-nextjs-webgl-particles-home`, or `template-solar-system` for `generated-nextjs-solar-system`. Never remove or rename this classname — it identifies the template source in inspect mode and disambiguates overlapping semantic classnames between templates.
+- The root `<body>` element must carry the template classname: `template-default` for `default`, `template-admin-luma` for `admin-luma`, `template-ai-engineer-cv` for `ai-engineer-cv`, `template-deep-research-paper` for `deep-research-paper`, `template-luminous-rings` for `luminous-rings`, or `template-solar-system` for `solar-system`. Never remove or rename this classname — it identifies the template source in inspect mode and disambiguates overlapping semantic classnames between templates.
 - Every user-visible template UI element should have classnames. Use shared/base classnames for styling and grouping, plus a unique, human-readable classname for inspect-mode targeting.
 - Repeated elements (e.g. cards rendered via `.map()`) must have both a shared base classname (for grouping, e.g. `metric-card summary-card`) AND a unique per-instance descriptive classname (for precise inspect-mode identification, e.g. `metric-revenue`, `metric-active-users`). Without the unique classname, all instances appear identical in inspect mode and the user cannot target a specific one.
   - **Write the unique classname LAST** in the className string: `metric-card summary-card metric-revenue`. The `createSelectionPayload` in `inspector-provider.tsx` picks the LAST classname as `preferredSelector`, which is the key used for multi-select toggling. If two elements share the same last classname, they collide and multi-select breaks.
@@ -155,17 +155,17 @@ The `overflow-y-auto` on the middle row handles vertical scrolling; add `overflo
 
 ## Template Propagation
 
-**See also**: [`references/chat-checkpoints.md`](references/chat-checkpoints.md) for the git-backed checkpoint and session history system.
+**See also**: [`references/chat-checkpoints.md`](references/chat-checkpoints.md) for the git-backed checkpoint and session history system, [`references/template-rename.md`](references/template-rename.md) for the complete template rename/restructure workflow, and [`references/template-theme-override.md`](references/template-theme-override.md) for overriding a template's visual design from a reference website.
 
 **Generated project → template source sync**: When the user customizes a generated project's design in the browser (AppLoop prompts, theme tweaks, manual CSS edits), those changes only exist in `.apploop/projects/<slug>/`. To make them permanent for new projects, copy the changed files back to the template source. Use `diff` first to identify which files changed, then `cp` them:
 
 ```bash
 # Identify changes
-diff templates/generated-nextjs-ai-engineer-cv/app/globals.css .apploop/projects/ai-engineer-cv/app/globals.css
+diff templates/ai-engineer-cv/app/globals.css .apploop/projects/ai-engineer-cv/app/globals.css
 
 # Sync all changed files back to template
-cp .apploop/projects/ai-engineer-cv/app/page.tsx templates/generated-nextjs-ai-engineer-cv/app/page.tsx
-cp .apploop/projects/ai-engineer-cv/app/globals.css templates/generated-nextjs-ai-engineer-cv/app/globals.css
+cp .apploop/projects/ai-engineer-cv/app/page.tsx templates/ai-engineer-cv/app/page.tsx
+cp .apploop/projects/ai-engineer-cv/app/globals.css templates/ai-engineer-cv/app/globals.css
 ```
 
 After syncing, run `npm --prefix templates/<id> run typecheck` to verify. If the visual palette changed, also update `defaultThemeId` in `lib/projects/templates.ts` and register a custom theme in `lib/themes/registry.ts` so the Create Project modal shows the correct palette.
@@ -174,11 +174,11 @@ After syncing, run `npm --prefix templates/<id> run typecheck` to verify. If the
 
 ```bash
 # Identify changes
-diff templates/generated-nextjs-ai-engineer-cv/app/globals.css .apploop/projects/ai-engineer-cv/app/globals.css
+diff templates/ai-engineer-cv/app/globals.css .apploop/projects/ai-engineer-cv/app/globals.css
 
 # Sync all changed files back to template
-cp .apploop/projects/ai-engineer-cv/app/page.tsx templates/generated-nextjs-ai-engineer-cv/app/page.tsx
-cp .apploop/projects/ai-engineer-cv/app/globals.css templates/generated-nextjs-ai-engineer-cv/app/globals.css
+cp .apploop/projects/ai-engineer-cv/app/page.tsx templates/ai-engineer-cv/app/page.tsx
+cp .apploop/projects/ai-engineer-cv/app/globals.css templates/ai-engineer-cv/app/globals.css
 ```
 
 After syncing, run `npm --prefix templates/<id> run typecheck` to verify. If the visual palette changed and the template has a custom look (dark gradients, unique accent colors), also:
@@ -193,8 +193,8 @@ After syncing, run `npm --prefix templates/<id> run typecheck` to verify. If the
 ```bash
 # Check the body classname in the generated project's layout
 grep "template-" .apploop/projects/<slug>/app/layout.tsx
-# Returns: template-default → use templates/generated-nextjs-default/
-# Returns: template-admin-luma → use templates/generated-nextjs-admin-luma/
+# Returns: template-default → use templates/default/
+# Returns: template-admin-luma → use templates/admin-luma/
 ```
 
 **When the server is stuck after a wrong template sync:**

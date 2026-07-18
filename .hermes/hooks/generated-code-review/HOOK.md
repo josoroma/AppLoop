@@ -37,7 +37,7 @@ trigger: post-edit
 - Generic boundary names such as `box`, `item`, or `wrapper` on important layout regions.
 - Duplicate `data-builder-id` values in the same rendered route.
 - Invalid `data-builder-id` values; use kebab-case identifiers such as `dashboard-revenue-card`.
-- Missing or wrong template classname on `<body>`: must match the selected project template (`template-default`, `template-admin-luma`, `template-ai-engineer-cv`, `template-deep-research-paper`, or `template-webgl-particles-home`).
+- Missing or wrong template classname on `<body>`: must match the selected project template (`template-default`, `template-admin-luma`, `template-ai-engineer-cv`, `template-deep-research-paper`, or `template-luminous-rings`).
 - Template classname removed, renamed, or moved from `<body>` to a descendant element.
 - Repeated elements (`.map()` rendered items) missing unique per-instance classnames. Shared classnames like `metric-card summary-card` are not sufficient — each instance needs a unique descriptive classname (e.g. `metric-revenue`, `metric-active-users`).
 - Repeated elements using generic suffixes like `-1`, `-2`, `-a`, `-b` instead of descriptive kebab-case names.

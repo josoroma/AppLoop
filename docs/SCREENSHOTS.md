@@ -131,8 +131,8 @@ Users can paste images (screenshots, mockups, reference images) into the prompt 
 | `components/builder/use-builder-ui-store.ts` | Add `attachedScreenshots`, `pendingClipboardImages`, `attachInspectorScreenshot`, `attachClipboardImage`, `removeScreenshot`, `clearScreenshots` |
 | `components/builder/builder-shell.tsx` | Add paste handler on textarea; render attachment previews; send `files` alongside `text` in `chat.sendMessage` |
 | `components/builder/preview-frame.tsx` | Handle `apploop:inspector-screenshot` postMessage; upload to API; store screenshotId |
-| `templates/generated-nextjs-default/components/inspector-provider.tsx` | Add `captureElementScreenshot()` using OffscreenCanvas; post screenshot on select |
-| `templates/generated-nextjs-admin-luma/components/inspector-provider.tsx` | Same as default template (mirror) |
+| `templates/default/components/inspector-provider.tsx` | Add `captureElementScreenshot()` using OffscreenCanvas; post screenshot on select |
+| `templates/admin-luma/components/inspector-provider.tsx` | Same as default template (mirror) |
 
 ### Backend
 
@@ -174,7 +174,7 @@ Users can paste images (screenshots, mockups, reference images) into the prompt 
 
 ### Phase 1: Screenshot Capture in Inspector Provider (iframe side)
 
-**Files:** `templates/generated-nextjs-*/components/inspector-provider.tsx`
+**Files:** `templates/*/components/inspector-provider.tsx`
 
 1. Add a `captureElementScreenshot(element: HTMLElement): Promise<string>` helper:
    - Use `element.getBoundingClientRect()` for bounds (already available)
@@ -576,8 +576,8 @@ MODIFIED FILES:
   components/builder/use-builder-ui-store.ts
   components/builder/builder-shell.tsx
   components/builder/preview-frame.tsx
-  templates/generated-nextjs-default/components/inspector-provider.tsx
-  templates/generated-nextjs-admin-luma/components/inspector-provider.tsx
+  templates/default/components/inspector-provider.tsx
+  templates/admin-luma/components/inspector-provider.tsx
   app/api/chat/route.ts
   lib/hermes/client.ts
   lib/visual-selector/types.ts

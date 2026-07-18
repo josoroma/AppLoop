@@ -1,0 +1,583 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  /* ── Blond dark palette ────────────────── */
+  --background: oklch(0.098 0.005 265);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.135 0.008 265);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.135 0.008 265);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: oklch(0.185 0.012 265);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.175 0.008 265);
+  --muted-foreground: oklch(0.62 0.01 265);
+  --accent: oklch(0.205 0.015 265);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.55 0.18 268);
+  --chart-1: oklch(0.64 0.18 268);
+  --chart-2: oklch(0.58 0.22 275);
+  --chart-3: oklch(0.52 0.20 280);
+  --chart-4: oklch(0.46 0.18 290);
+  --chart-5: oklch(0.40 0.16 300);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.115 0.01 265);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
+  --sidebar-accent: oklch(0.175 0.015 265);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 6%);
+  --sidebar-ring: oklch(0.55 0.18 268);
+  color-scheme: dark;
+  font-family: "Geist", "SF Pro Display", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark {
+  --background: oklch(0.098 0.005 265);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.135 0.008 265);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.135 0.008 265);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: oklch(0.185 0.012 265);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.175 0.008 265);
+  --muted-foreground: oklch(0.62 0.01 265);
+  --accent: oklch(0.205 0.015 265);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.55 0.18 268);
+  --chart-1: oklch(0.64 0.18 268);
+  --chart-2: oklch(0.58 0.22 275);
+  --chart-3: oklch(0.52 0.20 280);
+  --chart-4: oklch(0.46 0.18 290);
+  --chart-5: oklch(0.40 0.16 300);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.115 0.01 265);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
+  --sidebar-accent: oklch(0.175 0.015 265);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 6%);
+  --sidebar-ring: oklch(0.55 0.18 268);
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--border);
+  outline-color: var(--ring);
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  line-height: 1.65;
+}
+
+/* ── Grid pattern overlay ────────────────── */
+
+.cv-page-layout {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18rem minmax(0, 1fr);
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.cv-page-layout::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.12;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* ── Glow orbs ───────────────────────────── */
+
+.cv-glow-orb-tl {
+  position: absolute;
+  top: -8rem;
+  left: -8rem;
+  z-index: 0;
+  width: 24rem;
+  height: 24rem;
+  border-radius: 9999px;
+  background: oklch(0.384 0.526 -92.386 / 12%);
+  filter: blur(120px);
+  pointer-events: none;
+  animation: cv-orb-float 8s ease-in-out infinite;
+}
+
+.cv-glow-orb-br {
+  position: absolute;
+  bottom: -8rem;
+  right: -8rem;
+  z-index: 0;
+  width: 24rem;
+  height: 24rem;
+  border-radius: 9999px;
+  background: oklch(0.411 0.690 -91.995 / 10%);
+  filter: blur(120px);
+  pointer-events: none;
+  animation: cv-orb-float 10s ease-in-out infinite reverse;
+}
+
+.cv-glow-orb-cr {
+  position: absolute;
+  top: 33%;
+  right: 25%;
+  z-index: 0;
+  width: 16rem;
+  height: 16rem;
+  border-radius: 9999px;
+  background: oklch(0.483 0.383 -81.967 / 8%);
+  filter: blur(100px);
+  pointer-events: none;
+  animation: cv-orb-float 12s ease-in-out infinite;
+}
+
+@keyframes cv-orb-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(2rem, -1rem) scale(1.05); }
+  66% { transform: translate(-1rem, 2rem) scale(0.95); }
+}
+
+@media (max-width: 860px) {
+  .cv-page-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Sidebar ─────────────────────────────── */
+
+.cv-sidebar {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-auto-rows: auto;
+  align-content: start;
+  gap: 1.75rem;
+  padding: 2.25rem 2rem 3rem;
+  background:
+    radial-gradient(circle at 20% 10%, oklch(0.483 0.383 -81.967 / 18%), transparent 18rem),
+    radial-gradient(circle at 80% 90%, oklch(0.411 0.690 -91.995 / 12%), transparent 22rem),
+    linear-gradient(180deg, oklch(0.14 0.02 265), oklch(0.105 0.015 262) 45%, oklch(0.085 0.012 258));
+  border-right: 1px solid oklch(1 0 0 / 6%);
+  color: oklch(1 0 0 / 92%);
+  backdrop-filter: blur(8px);
+}
+
+.cv-profile-header {
+  display: grid;
+  gap: 1rem;
+}
+
+.cv-profile-avatar {
+  justify-self: center;
+  width: 5.5rem;
+  height: 5.5rem;
+  border: 2px solid oklch(0.483 0.383 -81.967 / 55%);
+  border-radius: 9999px;
+  background: oklch(0.25 0.08 268 / 25%);
+  box-shadow: 0 0 2rem oklch(0.483 0.383 -81.967 / 18%);
+}
+
+.cv-profile-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+.cv-profile-name {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  background: linear-gradient(
+    to right,
+    oklch(0.599 0.225 -64.449),
+    oklch(0.637 0.476 -59.207),
+    oklch(0.599 0.225 -64.449)
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-align: center;
+}
+
+.cv-profile-tagline {
+  margin: 0.35rem 0 0;
+  color: oklch(1 0 0 / 45%);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.cv-contact-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.cv-contact-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: oklch(1 0 0 / 68%);
+  font-size: 0.82rem;
+}
+
+.cv-contact-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: oklch(0.599 0.225 -64.449 / 72%);
+}
+
+.cv-sidebar-heading {
+  margin: 0 0 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: oklch(0.637 0.476 -59.207 / 65%);
+}
+
+.cv-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0;
+  list-style: none;
+}
+
+.cv-tag-item {
+  border: 1px solid oklch(0.483 0.383 -81.967 / 25%);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: oklch(1 0 0 / 82%);
+  background: oklch(0.25 0.08 268 / 18%);
+  backdrop-filter: blur(4px);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.cv-tag-item:hover {
+  border-color: oklch(0.483 0.383 -81.967 / 50%);
+  background: oklch(0.25 0.08 268 / 30%);
+}
+
+/* ── Main panel ──────────────────────────── */
+
+.cv-main-panel {
+  position: relative;
+  z-index: 1;
+  padding: 2.25rem 2.5rem 4rem;
+  background: transparent;
+}
+
+@media (max-width: 860px) {
+  .cv-main-panel {
+    padding: 1.5rem 1.25rem 3rem;
+  }
+}
+
+.cv-main-section {
+  margin-bottom: 2.5rem;
+  padding: 1.5rem 2rem;
+  background: oklch(1 0 0 / 3%);
+  border: 1px solid oklch(1 0 0 / 6%);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(8px);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.cv-main-section:hover {
+  border-color: oklch(1 0 0 / 10%);
+  background: oklch(1 0 0 / 4%);
+}
+
+.cv-main-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1.25rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid oklch(1 0 0 / 8%);
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--foreground);
+}
+
+.cv-section-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: oklch(0.637 0.476 -59.207);
+}
+
+.cv-main-text {
+  margin: 0;
+  max-width: 58rem;
+  font-size: 0.96rem;
+  line-height: 1.8;
+  color: var(--muted-foreground);
+}
+
+/* ── Vertical timeline ──────────────────── */
+
+.cv-timeline {
+  display: grid;
+  gap: 0;
+}
+
+.cv-timeline-entry {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  gap: 0.85rem;
+  padding: 1.05rem 0;
+}
+
+.cv-timeline-entry + .cv-timeline-entry {
+  border-top: 1px solid oklch(1 0 0 / 6%);
+}
+
+.cv-timeline-marker {
+  position: relative;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.55rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    oklch(0.483 0.383 -81.967),
+    oklch(0.637 0.476 -59.207)
+  );
+  box-shadow: 0 0 0.6rem oklch(0.483 0.383 -81.967 / 35%);
+  flex-shrink: 0;
+}
+
+.cv-timeline-period {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.cv-timeline-role {
+  margin: 0.2rem 0 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.cv-timeline-company {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+}
+
+/* ── Professional skill bars ────────────── */
+
+.cv-skill-indicators {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 2rem;
+  max-width: 56rem;
+}
+
+.cv-skill-row {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.cv-skill-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.cv-skill-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: oklch(0.637 0.476 -59.207);
+}
+
+.cv-skill-bar-track {
+  position: relative;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: oklch(1 0 0 / 8%);
+  overflow: hidden;
+}
+
+.cv-skill-bar-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    oklch(0.384 0.526 -92.386),
+    oklch(0.411 0.690 -91.995)
+  );
+  box-shadow: 0 0 0.5rem oklch(0.384 0.526 -92.386 / 35%);
+}
+
+/* ── Professional skills gradient card ──── */
+
+.cv-main-section.cv-professional-skills {
+  position: relative;
+  padding: 2rem;
+  background:
+    radial-gradient(circle at 10% 20%, oklch(0.483 0.383 -81.967 / 14%), transparent 14rem),
+    radial-gradient(circle at 85% 80%, oklch(0.411 0.690 -91.995 / 10%), transparent 14rem),
+    linear-gradient(135deg, oklch(0.155 0.03 268), oklch(0.125 0.025 265) 45%, oklch(0.105 0.02 262));
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.cv-main-section.cv-professional-skills::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.cv-main-section.cv-professional-skills .cv-main-heading {
+  position: relative;
+  z-index: 1;
+  color: oklch(0.85 0.06 270);
+  border-bottom-color: oklch(0.483 0.383 -81.967 / 20%);
+}
+
+.cv-main-section.cv-professional-skills .cv-section-icon {
+  color: oklch(0.637 0.476 -59.207);
+}
+
+.cv-main-section.cv-professional-skills .cv-skill-label-row {
+  position: relative;
+  z-index: 1;
+  color: oklch(0.9 0.03 268);
+}
+
+.cv-main-section.cv-professional-skills .cv-skill-icon {
+  color: oklch(0.637 0.476 -59.207);
+}
+
+.cv-main-section.cv-professional-skills .cv-skill-bar-track {
+  position: relative;
+  z-index: 1;
+  background: oklch(1 0 0 / 10%);
+}
+
+.cv-main-section.cv-professional-skills .cv-skill-bar-fill {
+  background: linear-gradient(
+    to right,
+    oklch(0.483 0.383 -81.967),
+    oklch(0.637 0.476 -59.207)
+  );
+  box-shadow: 0 0 0.6rem oklch(0.483 0.383 -81.967 / 30%);
+}
+
+@media (max-width: 860px) {
+  .cv-skill-indicators {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Print friendly ─────────────────────── */
+
+@media print {
+  .cv-page-layout::before {
+    display: none;
+  }
+
+  .cv-glow-orb-tl,
+  .cv-glow-orb-br,
+  .cv-glow-orb-cr {
+    display: none;
+  }
+
+  .cv-sidebar {
+    backdrop-filter: none;
+    border-right: 1px solid oklch(0.88 0 0);
+  }
+
+  .cv-main-section {
+    background: transparent;
+    border: 1px solid oklch(0.88 0 0);
+    backdrop-filter: none;
+  }
+
+  .cv-main-section.cv-professional-skills {
+    background: oklch(0.98 0 0);
+  }
+}

@@ -58,7 +58,7 @@ export const HERMES_AGENT_DEFINITIONS: Record<HermesAgentId, HermesAgentDefiniti
     id: "nextjs-implementer",
     title: "Next.js Implementer",
     path: ".hermes/agents/nextjs-implementer.md",
-    responsibilities: ["generated-nextjs-code", "route-modules", "component-standards"],
+    responsibilities: ["template-code", "route-modules", "component-standards"],
   },
   "validation-repair": {
     id: "validation-repair",

@@ -661,12 +661,12 @@ Templates are registered in `lib/projects/templates.ts`.
 
 || Template | Description | Default theme |
 ||---|---|---|
-|| `generated-nextjs-default` | Starter app with header navigation and light/dark mode. | `luma-blue-violet` |
-|| `generated-nextjs-admin-luma` | Dark admin dashboard with navigation and reusable not-found state. | `luma-admin-amber` |
-|| `generated-nextjs-ai-engineer-cv` | Portfolio-style AI engineer CV with expertise, experience, and proof points. | `luma-cv-indigo` |
-|| `generated-nextjs-deep-research-paper` | Long-form research paper with abstract, findings, methods, and citation protocol. | `luma-amber-slate` |
-|| `generated-nextjs-webgl-particles-home` | Modern dark homepage with a native WebGL particle field and cinematic launch hero. | `luma-violet-cyan` |
-|| `generated-nextjs-solar-system` | Interactive 3D Solar System explorer with orbiting planets, gravitational grid, and NASA integration. | `luma-indigo-emerald` |
+| `default` | Starter app with header navigation and light/dark mode. | `luma-blue-violet` |
+| `admin-luma` | Dark admin dashboard with navigation and reusable not-found state. | `luma-admin-amber` |
+| `ai-engineer-cv` | Portfolio-style AI engineer CV with expertise, experience, and proof points. | `luma-cv-indigo` |
+| `deep-research-paper` | Long-form research paper with abstract, findings, methods, and citation protocol. | `luma-amber-slate` |
+| `luminous-rings` | Dark homepage with luminous concentric WebGL laser rings and cinematic launch hero. | `luma-violet-cyan` |
+| `solar-system` | Interactive 3D Solar System explorer with orbiting planets, gravitational grid, and NASA integration. | `luma-indigo-emerald` |
 
 Template source lives in `templates/`. Generated copies live under `.apploop/projects/`.
 

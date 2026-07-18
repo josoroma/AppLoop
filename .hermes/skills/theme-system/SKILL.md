@@ -86,7 +86,7 @@ defineBuiltInTheme({
 
 // 2. In lib/projects/templates.ts, point the template at the new id:
 {
-  id: "generated-nextjs-ai-engineer-cv",
+  id: "ai-engineer-cv",
   defaultThemeId: "luma-cv-indigo",
 }
 ```

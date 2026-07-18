@@ -6,7 +6,7 @@ import { assertProjectTemplate, DEFAULT_PROJECT_TEMPLATE_ID, type ProjectTemplat
 import { applyThemeToWorkspace } from "@/lib/themes/apply";
 import type { ProjectTheme } from "@/lib/themes/registry";
 
-export const GENERATED_APP_TEMPLATE_PATH = path.join(process.cwd(), "templates", "generated-nextjs-default");
+export const GENERATED_APP_TEMPLATE_PATH = path.join(process.cwd(), "templates", "default");
 const PROJECT_TEMPLATES_ROOT = path.join(process.cwd(), "templates");
 
 const TRANSIENT_PROJECT_PATHS = new Set([".next", ".turbo", "node_modules", "out", "dist", "logs"]);

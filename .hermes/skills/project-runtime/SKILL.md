@@ -54,7 +54,7 @@ Generated projects are created by copying files from `templates/<id>/` into `.ap
 1. **Update the template** in `templates/` first.
 2. **Sync to the active generated project** by copying the updated file:
    ```bash
-   cp templates/generated-nextjs-default/components/inspector-provider.tsx \
+   cp templates/default/components/inspector-provider.tsx \
       .apploop/projects/<slug>/components/inspector-provider.tsx
    ```
 3. **Restart the generated runtime** so the dev server picks up the change.
@@ -71,15 +71,15 @@ When a user customizes a generated project inside AppLoop (edited CSS, tweaked l
 grep "template-" .apploop/projects/<slug>/app/layout.tsx
 
 # 2. Diff to see what changed
-diff .apploop/projects/<slug>/app/globals.css templates/generated-nextjs-<id>/app/globals.css
+diff .apploop/projects/<slug>/app/globals.css templates/<id>/app/globals.css
 
 # 3. Copy changed files back to the template
-cp .apploop/projects/<slug>/app/globals.css templates/generated-nextjs-<id>/app/globals.css
-cp .apploop/projects/<slug>/app/page.tsx     templates/generated-nextjs-<id>/app/page.tsx
-cp .apploop/projects/<slug>/app/layout.tsx   templates/generated-nextjs-<id>/app/layout.tsx
+cp .apploop/projects/<slug>/app/globals.css templates/<id>/app/globals.css
+cp .apploop/projects/<slug>/app/page.tsx     templates/<id>/app/page.tsx
+cp .apploop/projects/<slug>/app/layout.tsx   templates/<id>/app/layout.tsx
 
 # 4. Re-typecheck the template and run audits
-npm --prefix "templates/generated-nextjs-<id>" run typecheck
+npm --prefix "templates/<id>" run typecheck
 npm test -- tests/generated-code-standards.test.ts
 
 # 5. If the project added new dependencies (e.g. lucide-react), update template's package.json too
@@ -155,7 +155,7 @@ tail -20 .apploop/runtime-logs/<projectId>.log
 3. The AppLoop runtime will auto-restart on a new port (Next.js may pick a different port if the old one is briefly occupied).
 4. Verify with `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:<port>/`
 
-**Prevention**: Never copy template files to a generated project without confirming which template the project uses. Check `grep "template-" .apploop/projects/<slug>/app/layout.tsx` — the body classname maps to exactly one source template (`template-default`, `template-admin-luma`, `template-ai-engineer-cv`, `template-deep-research-paper`, or `template-webgl-particles-home`). Templates can have incompatible shell/components, so copy only from the matching source template.
+**Prevention**: Never copy template files to a generated project without confirming which template the project uses. Check `grep "template-" .apploop/projects/<slug>/app/layout.tsx` — the body classname maps to exactly one source template (`template-default`, `template-admin-luma`, `template-ai-engineer-cv`, `template-deep-research-paper`, or `template-luminous-rings`). Templates can have incompatible shell/components, so copy only from the matching source template.
 
 ## Tailwind v4 CSS Cache
 

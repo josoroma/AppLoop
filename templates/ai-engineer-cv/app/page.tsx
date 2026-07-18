@@ -33,6 +33,9 @@ const education = [
 export default function Home() {
   return (
     <main className="cv-page-layout" data-builder-component="AiEngineerCvPage" data-builder-id="ai-engineer-cv-page">
+      <div className="cv-glow-orb-tl" aria-hidden="true" />
+      <div className="cv-glow-orb-br" aria-hidden="true" />
+      <div className="cv-glow-orb-cr" aria-hidden="true" />
       <aside className="cv-sidebar cv-profile-sidebar" data-builder-id="cv-profile-sidebar">
         <div className="cv-profile-header cv-sidebar-profile-header" data-builder-id="cv-sidebar-profile-header">
           <Avatar className="cv-profile-avatar cv-sidebar-avatar" data-builder-id="cv-sidebar-avatar">

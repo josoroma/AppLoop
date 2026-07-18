@@ -67,7 +67,7 @@ describe("E2 project management", () => {
     const workspacePath = path.join(tempRoot, "admin-project");
 
     await createProjectWorkspace(tempRoot, workspacePath, {
-      template: assertProjectTemplate("generated-nextjs-admin-luma"),
+      template: assertProjectTemplate("admin-luma"),
     });
 
     await expect(fs.readFile(path.join(workspacePath, "app", "page.tsx"), "utf8")).resolves.toContain("AdminHomePage");
@@ -78,9 +78,9 @@ describe("E2 project management", () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "apploop-specialty-template-"));
 
     for (const [templateId, bodyClassName, pageMarker] of [
-      ["generated-nextjs-ai-engineer-cv", "template-ai-engineer-cv", "AiEngineerCvPage"],
-      ["generated-nextjs-deep-research-paper", "template-deep-research-paper", "DeepResearchPaperPage"],
-      ["generated-nextjs-webgl-particles-home", "template-webgl-particles-home", "ParticlesHomePage"],
+      ["ai-engineer-cv", "template-ai-engineer-cv", "AiEngineerCvPage"],
+      ["deep-research-paper", "template-deep-research-paper", "DeepResearchPaperPage"],
+      ["luminous-rings", "template-luminous-rings", "ParticlesHomePage"],
     ] as const) {
       const workspacePath = path.join(tempRoot, templateId);
 

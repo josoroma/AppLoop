@@ -15,7 +15,7 @@ Users can paste screenshots manually (Ctrl+V / Cmd+V) into the prompt textarea. 
 If a user reports screenshots still appearing after cleanup, check the generated project at `.apploop/projects/<slug>/components/inspector-provider.tsx`. The generated project may have an old copy with screenshot capture logic. Copy the clean template to sync:
 
 ```bash
-cp templates/generated-nextjs-default/components/inspector-provider.tsx \
+cp templates/default/components/inspector-provider.tsx \
    .apploop/projects/<slug>/components/inspector-provider.tsx
 ```
 

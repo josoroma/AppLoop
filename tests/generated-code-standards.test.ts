@@ -14,7 +14,7 @@ import { BUILT_IN_PROJECT_TEMPLATES } from "@/lib/projects/templates";
 
 describe("E11 generated app code standards", () => {
   it("defines generated-app formatter rules and template scripts", async () => {
-    const templateRoot = path.join(process.cwd(), "templates", "generated-nextjs-default");
+    const templateRoot = path.join(process.cwd(), "templates", "default");
     const prettierConfig = JSON.parse(await fs.readFile(path.join(templateRoot, ".prettierrc.json"), "utf8"));
     const packageJson = JSON.parse(await fs.readFile(path.join(templateRoot, "package.json"), "utf8"));
     const tsconfig = JSON.parse(await fs.readFile(path.join(templateRoot, "tsconfig.json"), "utf8"));
