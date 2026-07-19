@@ -61,6 +61,8 @@ help:
 	@printf "  $(C_GREEN)make hermes-mlx-vlm-config$(C_RESET)     Print Hermes env and YAML config snippets\n"
 	@printf "\n$(C_CYAN)Maintenance:$(C_RESET)\n"
 	@printf "  $(C_GREEN)make clean$(C_RESET)         Remove generated build output\n"
+	@printf "  $(C_GREEN)make apploop-reset$(C_RESET) Remove .apploop projects, logs, and databases\n"
+	@printf "  $(C_GREEN)make apploop-seed$(C_RESET)  Run database migrations (seed after reset)\n"
 	@printf "  $(C_GREEN)make reset$(C_RESET)         Remove dependencies and generated output\n"
 
 .PHONY: install
@@ -362,6 +364,19 @@ hermes-mlx-vlm-config:
 .PHONY: clean
 clean:
 	@rm -rf $(PROJECT_ROOT)/.next $(PROJECT_ROOT)/out $(PROJECT_ROOT)/dist $(PROJECT_ROOT)/build $(PROJECT_ROOT)/tsconfig.tsbuildinfo
+
+.PHONY: apploop-reset
+apploop-reset:
+	@printf "$(C_CYAN)->$(C_RESET) Removing .apploop state (projects, runtime-logs, databases)...\n"
+	@rm -rf $(PROJECT_ROOT)/.apploop/projects $(PROJECT_ROOT)/.apploop/runtime-logs
+	@rm -f $(PROJECT_ROOT)/.apploop/*.sqlite $(PROJECT_ROOT)/.apploop/*.db $(PROJECT_ROOT)/.apploop/*.sqlite.backup
+	@printf "$(C_GREEN)v$(C_RESET) .apploop is now clean. Run $(C_BOLD)make apploop-seed$(C_RESET) to recreate the database.\n"
+
+.PHONY: apploop-seed
+apploop-seed:
+	@printf "$(C_CYAN)->$(C_RESET) Running database migrations...\n"
+	@cd $(PROJECT_ROOT) && $(NPM) run db:migrate
+	@printf "$(C_GREEN)v$(C_RESET) Database seeded. Run $(C_BOLD)make dev$(C_RESET) to start the builder.\n"
 
 .PHONY: reset
 reset: clean

@@ -308,6 +308,47 @@ tests/                       Vitest and Playwright test coverage
 
 Local generated state is written to `.apploop/` and is ignored by Git.
 
+## .apploop State Management
+
+AppLoop writes all generated state into `.apploop/`, a git-ignored directory at the repository root. This section covers what lives there, how to reset it, and how to seed a fresh state.
+
+### What Lives In .apploop
+
+| Path | Purpose |
+|---|---|
+| `.apploop/projects/` | Generated Next.js app workspaces, one per project. Created when a user creates a project; the selected template is copied here. Also contains `.trash/` for soft-deleted projects. |
+| `.apploop/builder.sqlite` | Primary SQLite database. Stores projects, conversations, messages, runs, runtimes, settings, themes, and session links. Created automatically by Drizzle migrations on first startup or `make apploop-seed`. |
+| `.apploop/runtime-logs/` | Per-project runtime logs from generated Next.js dev servers. One log file per project session. |
+| `.apploop/*.db`, `.apploop/*.sqlite` | Additional SQLite databases such as chat checkpoints and Hermes session state. Created by their respective services on first use. |
+
+### Cache
+
+Generated project workspaces accumulate `.next/` (Turbopack build cache) and `node_modules/` for each project. These caches live inside `.apploop/projects/<slug>/` and are removed together with the project on reset.
+
+### Reset .apploop
+
+To remove all projects, logs, and databases in one step:
+
+```bash
+make apploop-reset
+```
+
+This removes `.apploop/projects/`, `.apploop/runtime-logs/`, and all `.apploop/*.sqlite` / `.apploop/*.db` files. The `.apploop/` directory itself is preserved (it stays empty).
+
+This is useful when you want to start fresh without reinstalling dependencies or losing repo configuration.
+
+### Seed A Fresh Database
+
+After a reset, the database needs to be recreated:
+
+```bash
+make apploop-seed
+```
+
+This runs `npm run db:migrate`, which applies Drizzle migrations to create `builder.sqlite` and all required tables. The builder is then ready for new projects.
+
+If you run `npm run dev` or `make dev` without seeding first, the builder starts but project creation, chat persistence, and runtime state will fail until the database exists. Seed before starting development after a reset.
+
 ## Project Guidance And Docs
 
 AppLoop keeps repo-level guidance files at the root so humans and coding agents share the same product boundaries, commands, and validation expectations.
@@ -790,6 +831,8 @@ Project settings also accept custom shadcn-compatible CSS token blocks for `:roo
 | `make mlx-vlm-curl-test` | Send a test chat completion request to the local MLX server. |
 | `make hermes-mlx-vlm-config` | Print Hermes `.env` and `.hermes/config.yaml` snippets for the local MLX-VLM provider. |
 | `make clean` | Remove builder build output. |
+| `make apploop-reset` | Remove `.apploop/` projects, runtime logs, and databases. |
+| `make apploop-seed` | Run database migrations to seed a fresh `.apploop/builder.sqlite`. |
 | `make reset` | Remove dependencies and generated build output. |
 
 ## Validation
