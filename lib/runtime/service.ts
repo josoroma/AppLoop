@@ -153,7 +153,7 @@ export class RuntimeService {
   }
 
   private async resolveRuntimePort(overview: ProjectOverview) {
-    const currentPort = overview.runtime?.port ?? overview.project.previewPort;
+    const currentPort = overview.project.previewPort;
     const otherOverviews = (await this.repository.listProjectOverviews()).filter((candidate) => candidate.project.id !== overview.project.id);
     const usedPorts = new Set<number>();
 

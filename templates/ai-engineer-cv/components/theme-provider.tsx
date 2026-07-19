@@ -16,9 +16,8 @@ export function ThemeProvider({ children }: Readonly<{ children: ReactNode }>) {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      const storedMode = window.localStorage.getItem("apploop-template-theme");
-      const preferredMode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      setMode(storedMode === "dark" || storedMode === "light" ? storedMode : preferredMode);
+      const storedMode = window.localStorage.getItem("apploop-ai-engineer-cv-theme");
+      setMode(storedMode === "dark" || storedMode === "light" ? storedMode : "dark");
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
@@ -26,7 +25,7 @@ export function ThemeProvider({ children }: Readonly<{ children: ReactNode }>) {
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", mode === "dark");
-    window.localStorage.setItem("apploop-template-theme", mode);
+    window.localStorage.setItem("apploop-ai-engineer-cv-theme", mode);
   }, [mode]);
 
   const value = useMemo(

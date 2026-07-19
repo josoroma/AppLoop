@@ -48,7 +48,7 @@ export function ParticleField() {
         float ring = smoothstep(width, 0.0, abs(dist - radius));
         float angle = atan(point.y, point.x);
         float sweep = abs(atan(sin(angle - startAngle), cos(angle - startAngle)));
-        float arc = smoothstep(arcLength, arcLength - 0.08, sweep);
+        float arc = smoothstep(arcLength, arcLength - 0.055, sweep);
         return ring * arc;
       }
 
@@ -56,48 +56,75 @@ export function ParticleField() {
         return smoothstep(width, 0.0, abs(length(point) - radius));
       }
 
+      float spokeLaser(vec2 point, float angle, float thickness) {
+        vec2 dir = vec2(cos(angle), sin(angle));
+        float radial = dot(point, dir);
+        float lateral = abs(point.x * dir.y - point.y * dir.x);
+        return smoothstep(thickness, 0.0, lateral) * smoothstep(-0.18, 0.1, radial) * smoothstep(0.96, 0.22, radial);
+      }
+
       void main() {
         vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / u_resolution.y;
-        vec2 center = uv - vec2(0.22, -0.02);
-        center.x *= 0.78;
-        center.y *= 1.18;
+        vec2 center = uv;
+        center.x *= 0.92;
+        center.y *= 1.06;
 
-        vec2 slow = rotate2d(u_time * 0.18) * center;
-        vec2 fast = rotate2d(-u_time * 0.34) * center;
-        vec2 counter = rotate2d(u_time * 0.52) * center;
+        vec2 slow = rotate2d(u_time * 0.32) * center;
+        vec2 fast = rotate2d(-u_time * 0.56) * center;
+        vec2 counter = rotate2d(u_time * 0.78) * center;
+        vec2 whiteSpin = rotate2d(-u_time * 1.05) * center;
 
         vec3 color = vec3(0.0);
         float glow = 0.0;
 
-        for (int i = 0; i < 18; i++) {
+        for (int i = 0; i < 26; i++) {
           float fi = float(i);
-          float radius = 0.42 + fi * 0.029;
-          float width = 0.0032 + 0.0012 * sin(fi * 1.7);
-          float phase = u_time * (0.44 + fi * 0.013) + fi * 0.54;
-          float arcLength = 2.22 + 0.42 * sin(u_time * 0.21 + fi);
+          float radius = 0.16 + fi * 0.027;
+          float width = 0.0024 + 0.0011 * sin(fi * 1.73);
+          float phase = u_time * (0.72 + fi * 0.018) + fi * 0.58;
+          float arcLength = 1.02 + 0.46 * sin(u_time * 0.28 + fi * 0.7);
 
+          float baseRing = fullRing(center, radius, width * 2.25);
           float blueArc = ringLaser(slow, radius, width, phase, arcLength);
-          float pinkArc = ringLaser(fast, radius + 0.014, width * 1.15, -phase * 0.9, arcLength * 0.78);
-          float whiteArc = ringLaser(counter, radius + 0.026, width * 0.72, phase * 1.25 + 1.7, arcLength * 0.42);
-          float halo = fullRing(center, radius + 0.006, width * 5.4) * 0.045;
+          float pinkArc = ringLaser(fast, radius + 0.009, width * 1.1, -phase * 0.95, arcLength * 0.86);
+          float purpleArc = ringLaser(counter, radius + 0.018, width * 1.28, phase * 1.17 + 1.9, arcLength * 0.72);
+          float whiteArc = ringLaser(whiteSpin, radius + 0.026, width * 0.82, -phase * 1.34 + 2.8, arcLength * 0.44);
+          float halo = fullRing(center, radius + 0.004, width * 8.0) * 0.035;
 
-          vec3 blue = vec3(0.14, 0.42, 1.0);
-          vec3 pink = vec3(1.0, 0.14, 0.58);
-          vec3 purple = vec3(0.58, 0.26, 1.0);
-          vec3 white = vec3(0.82, 0.92, 1.0);
+          vec3 blue = vec3(0.08, 0.46, 1.0);
+          vec3 pink = vec3(1.0, 0.08, 0.62);
+          vec3 purple = vec3(0.62, 0.18, 1.0);
+          vec3 white = vec3(0.92, 0.97, 1.0);
 
-          color += blue * blueArc * 1.6;
-          color += pink * pinkArc * 1.45;
-          color += white * whiteArc * 1.25;
+          vec3 ringColor = mix(blue, pink, smoothstep(0.0, 25.0, fi));
+          ringColor = mix(ringColor, purple, 0.45 + 0.35 * sin(fi * 1.2));
+
+          color += ringColor * baseRing * 0.28;
+          color += blue * blueArc * 2.2;
+          color += pink * pinkArc * 2.0;
+          color += purple * purpleArc * 1.85;
+          color += white * whiteArc * 1.8;
           color += purple * halo;
-          glow += blueArc + pinkArc + whiteArc + halo;
+          glow += blueArc + pinkArc + purpleArc + whiteArc + halo + baseRing * 0.18;
         }
 
-        float vignette = smoothstep(1.08, 0.16, length(uv));
-        vec3 background = mix(vec3(0.005, 0.008, 0.018), vec3(0.015, 0.025, 0.045), vignette);
+        for (int j = 0; j < 12; j++) {
+          float fj = float(j);
+          float angle = u_time * (0.72 + fj * 0.04) + fj * 0.5235987756;
+          float ray = spokeLaser(center, angle, 0.0028) * 0.16;
+          vec3 rayColor = mix(vec3(0.12, 0.5, 1.0), vec3(1.0, 0.12, 0.68), mod(fj, 2.0));
+          color += rayColor * ray;
+          glow += ray;
+        }
+
+        float core = smoothstep(0.32, 0.0, length(center));
+        color += vec3(0.45, 0.18, 1.0) * core * 0.32;
+
+        float vignette = smoothstep(1.12, 0.12, length(uv));
+        vec3 background = mix(vec3(0.002, 0.003, 0.012), vec3(0.015, 0.018, 0.038), vignette);
         vec3 finalColor = background + color;
 
-        gl_FragColor = vec4(finalColor, min(1.0, 0.22 + glow));
+        gl_FragColor = vec4(finalColor, min(1.0, 0.18 + glow * 0.85));
       }
     `,
     );

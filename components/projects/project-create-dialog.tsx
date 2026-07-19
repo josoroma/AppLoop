@@ -38,6 +38,8 @@ export function ProjectCreateDialog() {
             </DialogDescription>
           </DialogHeader>
           <form action={createProjectAction} className="grid min-h-0 grid-rows-[1fr_auto]">
+            <input name="templateId" type="hidden" value={selectedTemplateId} />
+            <input name="themeId" type="hidden" value={selectedThemeId} />
             <div className="project-create-scrollarea min-h-0 overflow-y-scroll px-6 py-5">
               <div className="mx-auto grid max-w-6xl gap-6">
                 <div className="grid gap-2">
@@ -63,7 +65,6 @@ export function ProjectCreateDialog() {
                         <input
                           checked={template.id === selectedTemplateId}
                           className="sr-only"
-                          name="templateId"
                           onChange={() => {
                             setSelectedTemplateId(template.id);
                             setSelectedThemeId(template.defaultThemeId);
@@ -86,7 +87,7 @@ export function ProjectCreateDialog() {
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {BUILT_IN_PROJECT_THEMES.map((theme) => (
                       <label key={theme.id} className="grid min-h-36 cursor-pointer gap-3 rounded-lg border bg-card p-5 text-sm has-[:checked]:border-primary has-[:checked]:ring-2 has-[:checked]:ring-ring">
-                        <input checked={theme.id === selectedThemeId} className="sr-only" name="themeId" onChange={() => setSelectedThemeId(theme.id)} type="radio" value={theme.id} />
+                        <input checked={theme.id === selectedThemeId} className="sr-only" onChange={() => setSelectedThemeId(theme.id)} type="radio" value={theme.id} />
                         <span className="flex items-center justify-between gap-2 text-lg font-medium">
                           {theme.name}
                           {theme.id === selectedTemplate.defaultThemeId ? <span className="text-xs text-primary">Template default</span> : null}

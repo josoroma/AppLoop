@@ -58,8 +58,8 @@ function createProjectOverview(projectId: string, previewPort: number, runtimePo
   };
 }
 
-function createRuntimeHarness(otherOverviews: ProjectOverview[] = []) {
-  let overview = createProjectOverview("project-1", 4100, 4100);
+function createRuntimeHarness(otherOverviews: ProjectOverview[] = [], initialOverview = createProjectOverview("project-1", 4100, 4100)) {
+  let overview = initialOverview;
   let runtime = overview.runtime;
   const repository = {
     findProjectOverviewById: async () => ({ ...overview, runtime }),
@@ -118,5 +118,13 @@ describe("E17 runtime lifecycle integration", () => {
 
     await expect(service.startProject("project-1")).resolves.toMatchObject({ status: "running", previewUrl: "http://127.0.0.1:4101" });
     expect(harness.starts[0]).toMatchObject({ port: 4101 });
+  });
+
+  it("prefers the project preview port over a stale runtime port for the current project", async () => {
+    const harness = createRuntimeHarness([], createProjectOverview("project-1", 4102, 4100));
+    const service = new RuntimeService(harness.repository, harness.provider, 5000, { start: 4100, end: 4102 });
+
+    await expect(service.startProject("project-1")).resolves.toMatchObject({ status: "running", previewUrl: "http://127.0.0.1:4102" });
+    expect(harness.starts[0]).toMatchObject({ port: 4102 });
   });
 });

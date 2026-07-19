@@ -219,3 +219,76 @@ body {
     margin-top: 0;
   }
 }
+
+
+/* ── Explicit luminous laser rings identity ── */
+
+.homepage-shell {
+  background:
+    radial-gradient(circle at 50% 42%, oklch(0.54 0.28 286 / 20%), transparent 33rem),
+    radial-gradient(circle at 18% 18%, oklch(0.54 0.22 252 / 20%), transparent 27rem),
+    radial-gradient(circle at 84% 18%, oklch(0.68 0.22 330 / 17%), transparent 25rem),
+    linear-gradient(135deg, #02030b, #050616 46%, #010106);
+}
+
+.particle-canvas {
+  opacity: 1;
+  filter: saturate(1.24) contrast(1.1);
+}
+
+.homepage-hero {
+  grid-template-columns: minmax(18rem, 0.72fr) minmax(18rem, 0.28fr);
+}
+
+.particles-hero-section::after {
+  content: "";
+  position: absolute;
+  inset: 7% 6% 5% 34%;
+  z-index: -1;
+  border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in oklch, white 8%, transparent), transparent 68%);
+  filter: blur(52px);
+  pointer-events: none;
+}
+
+.homepage-copy {
+  max-width: 42rem;
+  background:
+    radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 20%, transparent), transparent 18rem),
+    linear-gradient(135deg, oklch(0.105 0.065 268 / 78%), oklch(0.055 0.045 258 / 82%) 52%, oklch(0.035 0.035 250 / 78%));
+}
+
+.homepage-title::after {
+  content: "";
+  display: block;
+  width: min(22rem, 72%);
+  height: 0.16rem;
+  margin-top: 1.2rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #24a3ff, #ff2ca8, #8c42ff, white);
+  box-shadow: 0 0 28px #8c42ff;
+  animation: rings-title-pulse 2.8s ease-in-out infinite alternate;
+}
+
+.homepage-orb {
+  background:
+    repeating-radial-gradient(circle, transparent 0 13%, #2aa8ff 13.4% 14.2%, transparent 14.6% 24%, #ff2ca8 24.4% 25%, transparent 25.4% 36%, #8c42ff 36.4% 37.2%, transparent 37.6% 50%, white 50.4% 51%, transparent 51.4%),
+    radial-gradient(circle at 50% 50%, #8c42ff 0 6%, transparent 46%);
+  box-shadow:
+    0 0 80px color-mix(in oklch, var(--primary) 52%, transparent),
+    inset 0 0 46px color-mix(in oklch, white 18%, transparent);
+  animation: rings-preview-spin 8s linear infinite;
+}
+
+.homepage-primary-action {
+  background: linear-gradient(135deg, #287dff, #ff2ca8 54%, #8c42ff);
+}
+
+@keyframes rings-preview-spin {
+  to { rotate: 360deg; }
+}
+
+@keyframes rings-title-pulse {
+  from { opacity: 0.58; transform: scaleX(0.94); }
+  to { opacity: 1; transform: scaleX(1); }
+}

@@ -885,3 +885,195 @@ body {
     background: oklch(0.98 0 0);
   }
 }
+
+
+/* ── v0-inspired dark SaaS hero treatment ── */
+
+.template-ai-engineer-cv {
+  background: #050507;
+}
+
+.cv-page-layout {
+  grid-template-columns: minmax(20rem, 0.75fr) minmax(0, 1.25fr);
+  background:
+    radial-gradient(circle at 75% 18%, oklch(0.42 0.24 292 / 30%), transparent 28rem),
+    radial-gradient(circle at 18% 12%, oklch(0.36 0.24 264 / 18%), transparent 24rem),
+    linear-gradient(180deg, #08080d 0%, #050507 42%, #030304 100%);
+  isolation: isolate;
+}
+
+.cv-page-layout::before {
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 78%);
+}
+
+.cv-page-layout::after {
+  content: "";
+  position: fixed;
+  inset: 4rem 0 auto auto;
+  z-index: 0;
+  width: min(44rem, 48vw);
+  height: 32rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, oklch(0.48 0.28 292 / 24%), transparent 68%);
+  filter: blur(56px);
+  animation: cv-hero-aura 7s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.cv-sidebar {
+  margin: 1.5rem 0 1.5rem 1.5rem;
+  border: 1px solid oklch(1 0 0 / 9%);
+  border-radius: 1.6rem;
+  background:
+    linear-gradient(180deg, oklch(1 0 0 / 7%), oklch(1 0 0 / 2%)),
+    radial-gradient(circle at top left, oklch(0.58 0.28 286 / 28%), transparent 16rem),
+    #0b0b12;
+  box-shadow: 0 20px 80px oklch(0 0 0 / 46%);
+  backdrop-filter: blur(22px);
+  animation: cv-card-rise 700ms ease both;
+}
+
+.cv-sidebar::before {
+  content: "Available for senior AI product ownership";
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  margin-bottom: 0.25rem;
+  border: 1px solid oklch(1 0 0 / 13%);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  color: oklch(0.82 0.08 285);
+  background: oklch(1 0 0 / 4%);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.cv-profile-name {
+  font-size: clamp(1.6rem, 2.5vw, 2.55rem);
+  line-height: 0.98;
+  background: linear-gradient(135deg, #fff 20%, #bda6ff 58%, #7c3cff 92%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: cv-text-shimmer 6s linear infinite;
+}
+
+.cv-profile-tagline {
+  color: oklch(0.74 0.035 285);
+}
+
+.cv-sidebar-avatar-fallback {
+  background:
+    radial-gradient(circle at 35% 25%, oklch(1 0 0 / 22%), transparent 36%),
+    radial-gradient(circle at 68% 75%, oklch(0.62 0.30 286 / 40%), transparent 46%),
+    linear-gradient(135deg, #161625, #08080d 46%, #020203);
+  box-shadow:
+    inset 0 0 1.5rem oklch(1 0 0 / 12%),
+    0 0 2.1rem oklch(0.58 0.28 286 / 34%);
+}
+
+.cv-main-panel {
+  display: grid;
+  align-content: start;
+  gap: 1.1rem;
+  padding: clamp(2rem, 5vw, 4.5rem);
+}
+
+.cv-main-section {
+  margin-bottom: 0;
+  border: 1px solid oklch(1 0 0 / 8%);
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, oklch(1 0 0 / 6%), oklch(1 0 0 / 2.5%));
+  box-shadow: 0 20px 80px oklch(0 0 0 / 30%);
+  backdrop-filter: blur(18px);
+  animation: cv-card-rise 800ms ease both;
+}
+
+.cv-main-section:hover {
+  transform: translateY(-2px);
+  border-color: oklch(0.62 0.28 286 / 30%);
+  background: linear-gradient(180deg, oklch(1 0 0 / 8%), oklch(1 0 0 / 3.5%));
+}
+
+.cv-executive-profile {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(2rem, 4vw, 3rem);
+}
+
+.cv-executive-profile::after {
+  content: "prompt → action → observation → reflection";
+  position: absolute;
+  right: 1.25rem;
+  top: 1.25rem;
+  border: 1px solid oklch(1 0 0 / 10%);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  color: oklch(0.78 0.09 286);
+  background: #09090e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+}
+
+.cv-main-text,
+.cv-responsibility-item,
+.cv-timeline-period,
+.cv-timeline-company,
+.cv-guide-link-description {
+  color: oklch(0.72 0.03 285);
+}
+
+.cv-main-heading,
+.cv-guide-link-title,
+.cv-timeline-role {
+  color: oklch(0.98 0.006 285);
+}
+
+.cv-guide-link,
+.cv-tag-item {
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 8%);
+}
+
+.cv-glow-orb-tl,
+.cv-glow-orb-br,
+.cv-glow-orb-cr {
+  opacity: 0.85;
+  animation-duration: 10s;
+}
+
+@keyframes cv-card-rise {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes cv-hero-aura {
+  from { transform: translate3d(0, 0, 0) scale(1); opacity: 0.65; }
+  to { transform: translate3d(-2rem, 1rem, 0) scale(1.08); opacity: 0.95; }
+}
+
+@keyframes cv-text-shimmer {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.28); }
+  100% { filter: brightness(1); }
+}
+
+@media (max-width: 860px) {
+  .cv-sidebar {
+    margin: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-page-layout::after,
+  .cv-sidebar,
+  .cv-main-section,
+  .cv-glow-orb-tl,
+  .cv-glow-orb-br,
+  .cv-glow-orb-cr {
+    animation: none;
+  }
+}

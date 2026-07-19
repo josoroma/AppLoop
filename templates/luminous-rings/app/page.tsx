@@ -12,9 +12,9 @@ export default function Home() {
       <ParticleField />
       <section className="homepage-hero particles-hero-section" data-builder-component="ParticlesHero" data-builder-id="particles-hero-section">
         <div className="homepage-copy particles-hero-copy">
-          <p className="homepage-eyebrow particles-hero-eyebrow">Native WebGL · spinning laser rings</p>
-          <h1 className="homepage-title particles-hero-title">A dark homepage wrapped in luminous concentric motion.</h1>
-          <p className="homepage-summary particles-hero-summary">Blue, pink, purple, and white laser arcs rotate in layered circles against a deep cinematic background. The effect is rendered with a native WebGL shader, keeping the template lightweight and dependency-free.</p>
+          <p className="homepage-eyebrow particles-hero-eyebrow">Native WebGL · colored spinning lasers</p>
+          <h1 className="homepage-title particles-hero-title">Luminous concentric rings on a dark field.</h1>
+          <p className="homepage-summary particles-hero-summary">Colored lasers spin in circles, forming luminous concentric rings in blue, pink, purple, and white against a deep black background.</p>
           <div className="homepage-actions particles-hero-actions" data-builder-id="particles-hero-actions">
             <a className="homepage-primary-action particles-primary-action" href="/demo">Watch demo</a>
             <a className="homepage-secondary-action particles-secondary-action" href="/docs">Read system notes</a>

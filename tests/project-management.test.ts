@@ -9,7 +9,7 @@ import {
   projectSettingsInputSchema,
   reserveHermesSessionId,
 } from "@/lib/projects/service";
-import { assertProjectTemplate } from "@/lib/projects/templates";
+import { assertProjectTemplate, BUILT_IN_PROJECT_TEMPLATES } from "@/lib/projects/templates";
 import { DEFAULT_THEME_ID } from "@/lib/themes/registry";
 
 describe("E2 project management", () => {
@@ -72,6 +72,20 @@ describe("E2 project management", () => {
 
     await expect(fs.readFile(path.join(workspacePath, "app", "page.tsx"), "utf8")).resolves.toContain("AdminHomePage");
     await expect(fs.readFile(path.join(workspacePath, "app", "not-found.tsx"), "utf8")).resolves.toContain("NotFoundView");
+  });
+
+  it("wires every GitHub templates directory into the create-project registry", async () => {
+    const expectedTemplateIds = ["admin-luma", "ai-engineer-cv", "deep-research-paper", "default", "luminous-rings", "solar-system"];
+    const registeredTemplateIds = BUILT_IN_PROJECT_TEMPLATES.map((template) => template.id).toSorted();
+
+    expect(registeredTemplateIds).toEqual(expectedTemplateIds);
+
+    for (const template of BUILT_IN_PROJECT_TEMPLATES) {
+      const templateRoot = path.join(process.cwd(), "templates", template.templatePath);
+
+      await expect(fs.readFile(path.join(templateRoot, "package.json"), "utf8")).resolves.toContain("generated-apploop-app");
+      await expect(fs.readFile(path.join(templateRoot, "app", "layout.tsx"), "utf8")).resolves.toContain(`template-${template.id}`);
+    }
   });
 
   it("creates solar-system workspaces with package metadata and without transient template output", async () => {
