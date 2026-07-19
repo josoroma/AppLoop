@@ -29,6 +29,12 @@ export type HermesRunRequest = {
   signal?: AbortSignal;
 };
 
+export type HermesRunResult = {
+  text: string;
+  hermesRunId: string | null;
+  sessionId: string | null;
+};
+
 export class HermesClient {
   constructor(private readonly config: HermesClientConfig) {}
 
@@ -49,6 +55,32 @@ export class HermesClient {
     }
 
     return this.streamProjectRunWithRest(request);
+  }
+
+  async runProjectOnce(request: HermesRunRequest): Promise<HermesRunResult> {
+    let text = "";
+    let hermesRunId: string | null = null;
+    let sessionId: string | null = null;
+
+    for await (const event of this.streamProjectRun(request)) {
+      if (event.type === "text-delta") {
+        text += event.text;
+      }
+
+      if (event.type === "run") {
+        hermesRunId = event.runId;
+      }
+
+      if (event.type === "session") {
+        sessionId = event.sessionId;
+      }
+
+      if (event.type === "error") {
+        throw new HermesError("unavailable", `Hermes run failed: ${event.message}`);
+      }
+    }
+
+    return { text, hermesRunId, sessionId };
   }
 
   async cancelRun(runId: string, signal?: AbortSignal) {
@@ -265,8 +297,9 @@ async function readGatewayRunId(response: Response) {
 
 function createGatewayInstructions(request: HermesRunRequest) {
   const bundle = request.agentBundle;
+  const isTemplateRun = bundle.projectContext.mode === "template-authoring" || bundle.projectContext.mode === "template-edit";
 
-  return [
+  const lines = [
     "You are the AppLoop project builder for a local generated Next.js workspace.",
     `Project ID: ${request.projectId}`,
     `Workspace path: ${request.workspacePath}`,
@@ -279,9 +312,16 @@ function createGatewayInstructions(request: HermesRunRequest) {
     `- The only writable root for this run is exactly: ${request.workspacePath}`,
     "- Treat the workspace path as a containment boundary, not a suggestion.",
     "- Before reading, writing, deleting, moving, or running commands against a path, normalize and realpath-resolve it and confirm it is still under this exact workspace path.",
-    "- Do not modify AppLoop builder source files, the source templates/ directory, .hermes assets, repository docs, or package files outside the generated workspace.",
-    "- Do not modify sibling generated projects under .apploop/projects/*; a path under .apploop/projects is writable only when it is inside the exact workspace path above.",
-    "- If the user asks for a template or cross-project change from a project-edit chat, refuse that scope and explain that project-edit prompts can only affect the active generated workspace.",
+    ...(isTemplateRun ? [
+      `- This is a ${bundle.projectContext.mode} run. You may modify only the exact templates/<id> workspace path above.`,
+      "- Do not modify AppLoop builder source files, .hermes assets, repository docs, root package/config files, generated projects, or sibling templates.",
+      `- Preserve/register the template body classname as template-${bundle.projectContext.templateId ?? "custom-template"} in app/layout.tsx.`,
+      "- Keep the template standalone and ready to copy into future generated projects.",
+    ] : [
+      "- Do not modify AppLoop builder source files, the source templates/ directory, .hermes assets, repository docs, or package files outside the generated workspace.",
+      "- Do not modify sibling generated projects under .apploop/projects/*; a path under .apploop/projects is writable only when it is inside the exact workspace path above.",
+      "- If the user asks for a template or cross-project change from a project-edit chat, refuse that scope and explain that project-edit prompts can only affect the active generated workspace.",
+    ]),
     "",
     "Use this repo-local AppLoop Hermes project bundle for every generated-project change:",
     `- Orchestrator: ${bundle.orchestrator.id} (${bundle.orchestrator.path})`,
@@ -297,10 +337,16 @@ function createGatewayInstructions(request: HermesRunRequest) {
     "- Use shared/base classnames for styling and grouping, plus a unique, human-readable classname for inspect-mode targeting.",
     "- Put the unique classname LAST because inspect mode uses the last classname as preferredSelector.",
     "- Repeated elements and their child text elements need unique per-instance classnames; generic suffixes like -1/-2 are not acceptable.",
-    "- Preserve the template body classname: template-default or template-admin-luma.",
+    `- Preserve the template body classname: ${isTemplateRun ? `template-${bundle.projectContext.templateId ?? "custom-template"}` : "the existing template-* classname"}.`,
     "",
     "Use the AppLoop bundle metadata to plan, edit, validate, and report observable activity. Do not reveal private reasoning.",
-  ].join("\n");
+  ];
+
+  if (isTemplateRun) {
+    lines.splice(1, 0, `Mode: ${bundle.projectContext.mode}`, `Template ID: ${bundle.projectContext.templateId}`, `Template name: ${bundle.projectContext.templateName}`, `Base template ID: ${bundle.projectContext.baseTemplateId}`);
+  }
+
+  return lines.join("\n");
 }
 
 function mapHermesHttpError(status: number, fallbackMessage: string) {

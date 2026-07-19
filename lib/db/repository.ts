@@ -7,12 +7,14 @@ import type {
   NewProject,
   NewProjectSettings,
   NewProjectSnapshot,
+  NewProjectTemplateRow,
   NewProjectTheme,
   NewRun,
   NewRuntime,
   NewScreenshot,
   Project,
   ProjectSettings,
+  ProjectTemplateRow,
   ProjectTheme,
   Runtime,
   Run,
@@ -53,6 +55,11 @@ export interface ProjectRepository {
   listProjects(): Promise<Project[]>;
   listProjectOverviews(status?: Project["status"]): Promise<ProjectOverview[]>;
   listAllocatedPreviewPorts(): Promise<number[]>;
+  createProjectTemplate(template: NewProjectTemplateRow): Promise<ProjectTemplateRow>;
+  listProjectTemplates(status?: ProjectTemplateRow["status"]): Promise<ProjectTemplateRow[]>;
+  findProjectTemplateById(templateId: string): Promise<ProjectTemplateRow | null>;
+  updateProjectTemplate(templateId: string, template: Partial<Omit<NewProjectTemplateRow, "id">>): Promise<ProjectTemplateRow>;
+  deleteProjectTemplate(templateId: string): Promise<void>;
   createMessage(message: NewMessage): Promise<void>;
   createMessageOnce(message: NewMessage): Promise<void>;
   listConversationMessages(conversationId: string, options?: MessagePageOptions): Promise<Message[]>;

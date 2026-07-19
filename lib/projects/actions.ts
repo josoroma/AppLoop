@@ -9,8 +9,9 @@ import {
   moveProjectWorkspaceToTrash,
 } from "@/lib/projects/files";
 import { projectSettingsInputSchema } from "@/lib/projects/service";
-import { getProjectService } from "@/lib/projects/store";
-import { assertProjectTemplate, DEFAULT_PROJECT_TEMPLATE_ID } from "@/lib/projects/templates";
+import { getProjectRepository, getProjectService } from "@/lib/projects/store";
+import { cloneTemplate, createCustomTemplate, deleteCustomTemplate, getTemplateIdFromWorkspacePath, openTemplateForEditing } from "@/lib/projects/template-authoring";
+import { assertProjectTemplate, DEFAULT_PROJECT_TEMPLATE_ID, type ProjectTemplate } from "@/lib/projects/templates";
 import { getRuntimeService } from "@/lib/runtime/store";
 import { applyThemeToWorkspace } from "@/lib/themes/apply";
 import { assertProjectTheme, CUSTOM_THEME_ID, DEFAULT_THEME_ID, resolveProjectTheme } from "@/lib/themes/registry";
@@ -20,14 +21,78 @@ export async function createProjectAction(formData: FormData) {
   const templateId = String(formData.get("templateId") ?? DEFAULT_PROJECT_TEMPLATE_ID);
   const themeId = String(formData.get("themeId") ?? DEFAULT_THEME_ID);
   const projectService = getProjectService();
-  const template = assertProjectTemplate(templateId);
-  const theme = assertProjectTheme(themeId);
+  const template = await resolveSelectableProjectTemplate(templateId);
+  const theme = template.source === "custom" && themeId === template.defaultThemeId ? undefined : assertProjectTheme(themeId);
   const project = await projectService.createProject({ name, themeId }, getServerEnv().PROJECTS_ROOT);
 
   await createProjectWorkspace(getServerEnv().PROJECTS_ROOT, project.project.workspacePath, { template, theme });
   await projectService.rememberLastOpenedProject(project.project.id);
   revalidatePath("/projects");
   redirect(`/projects/${project.project.id}`);
+}
+
+async function resolveSelectableProjectTemplate(templateId: string): Promise<ProjectTemplate> {
+  try {
+    return assertProjectTemplate(templateId);
+  } catch (error) {
+    const customTemplate = await getProjectRepository().findProjectTemplateById(templateId);
+
+    if (!customTemplate || customTemplate.status !== "ready") {
+      throw error;
+    }
+
+    return {
+      id: customTemplate.id,
+      name: customTemplate.name,
+      description: customTemplate.description,
+      templatePath: customTemplate.templatePath,
+      defaultThemeId: customTemplate.defaultThemeId,
+      source: "custom",
+      status: customTemplate.status,
+    };
+  }
+}
+
+export async function createCustomTemplateAction(formData: FormData) {
+  const name = String(formData.get("name") ?? "");
+  const description = String(formData.get("description") ?? "");
+  const prompt = String(formData.get("prompt") ?? "");
+  const themeCss = String(formData.get("themeCss") ?? "");
+
+  await createCustomTemplate(getProjectRepository(), {
+    name,
+    description,
+    prompt,
+    themeCss,
+  });
+
+  revalidatePath("/projects");
+  revalidatePath("/templates");
+}
+
+export async function editTemplateAction(formData: FormData) {
+  const templateId = String(formData.get("templateId") ?? "");
+  const { projectId } = await openTemplateForEditing(getProjectRepository(), templateId);
+
+  revalidatePath("/templates");
+  revalidatePath("/projects");
+  redirect(`/projects/${projectId}`);
+}
+
+export async function cloneTemplateAction(formData: FormData) {
+  const templateId = String(formData.get("templateId") ?? "");
+
+  await cloneTemplate(getProjectRepository(), templateId);
+  revalidatePath("/templates");
+  revalidatePath("/projects");
+}
+
+export async function deleteTemplateAction(formData: FormData) {
+  const templateId = String(formData.get("templateId") ?? "");
+
+  await deleteCustomTemplate(getProjectRepository(), templateId);
+  revalidatePath("/templates");
+  revalidatePath("/projects");
 }
 
 export async function openProjectAction(formData: FormData) {
@@ -73,7 +138,10 @@ export async function deleteProjectAction(formData: FormData) {
     }
 
     await getRuntimeService().stopProject(projectId);
-    await moveProjectWorkspaceToTrash(getServerEnv().PROJECTS_ROOT, overview.project.workspacePath, projectId);
+
+    if (!getTemplateIdFromWorkspacePath(overview.project.workspacePath)) {
+      await moveProjectWorkspaceToTrash(getServerEnv().PROJECTS_ROOT, overview.project.workspacePath, projectId);
+    }
   }
 
   await getProjectService().deleteProject(projectId);

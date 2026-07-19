@@ -140,6 +140,18 @@ Each project workspace MUST have its own independent `.git` repo — it cannot o
 
 When the runtime is stopped (manually or via `stopRuntimeAction`), the builder automatically clears all inspect-mode selections via a `useEffect` watching `runtimeStatus`. This ensures stale selection overlays don't persist when the preview iframe is unloaded. No additional cleanup is needed when stopping the runtime during inspect mode.
 
+## Template-Edit Project Records
+
+AppLoop can create builder-compatible project/conversation/runtime rows whose workspace points at `templates/<template-id>/` instead of `.apploop/projects/<slug>`. These rows reuse the project builder UI for direct template editing.
+
+Required handling:
+
+- Detect template-edit records with a path-under-`templates/` check before file deletion/trash, runtime guardrails, or Hermes bundle composition.
+- Deleting a template-edit project record should stop runtime and delete the DB project row, but must **not** call `moveProjectWorkspaceToTrash(PROJECTS_ROOT, templatePath)`. Template paths are intentionally outside `PROJECTS_ROOT`, and `assertInsideRoot()` will throw `Target path must stay inside the configured projects root.`
+- Deleting the actual template is a separate templates-library action: remove the `project_templates` row and `templates/<template-id>/` directory only when the user deletes the template itself.
+- Runtime/preview port allocation for both project creation and template-edit records must reserve **both** `projects.preview_port` and existing `runtimes.port`; stale runtime rows can still hold the unique `runtimes_port_idx` even if no process is listening.
+- Multi-row creation (`projects`, `conversations`, `runtimes`, themes, settings) should use a transaction or cleanup pattern. If a later insert fails, delete the just-created project row so the UI does not retain an orphan project without a runtime.
+
 ## Missing `package.json` In Generated Workspace
 
 **Symptom**: Starting a generated project runtime fails with:

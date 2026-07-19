@@ -7,6 +7,7 @@ import {
   messages,
   projectSettings,
   projectSnapshots,
+  projectTemplates,
   projectThemes,
   projects,
   runs,
@@ -20,7 +21,7 @@ import type {
   ProjectRepository,
   RuntimePatch,
 } from "@/lib/db/repository";
-import type { NewConversation, NewGitCommit, NewMessage, NewProject, NewProjectSettings, NewProjectSnapshot, NewProjectTheme, NewRun, NewScreenshot, Project } from "@/lib/db/schema";
+import type { NewConversation, NewGitCommit, NewMessage, NewProject, NewProjectSettings, NewProjectSnapshot, NewProjectTemplateRow, NewProjectTheme, NewRun, NewScreenshot, Project } from "@/lib/db/schema";
 
 export class SqliteProjectRepository implements ProjectRepository {
   constructor(private readonly db: BuilderDatabase) {}
@@ -32,19 +33,24 @@ export class SqliteProjectRepository implements ProjectRepository {
   }
 
   async createProjectBundle(bundle: CreateProjectBundle) {
-    await this.db.insert(projects).values(bundle.project);
-    await this.db.insert(conversations).values(bundle.conversation);
-    await this.db.insert(runtimes).values(bundle.runtime);
-    await this.db.insert(projectThemes).values(bundle.theme);
-    await this.db.insert(projectSettings).values(bundle.settings);
+    try {
+      await this.db.insert(projects).values(bundle.project);
+      await this.db.insert(conversations).values(bundle.conversation);
+      await this.db.insert(runtimes).values(bundle.runtime);
+      await this.db.insert(projectThemes).values(bundle.theme);
+      await this.db.insert(projectSettings).values(bundle.settings);
 
-    const overview = await this.findProjectOverviewById(bundle.project.id);
+      const overview = await this.findProjectOverviewById(bundle.project.id);
 
-    if (!overview) {
-      throw new Error("Created project could not be loaded.");
+      if (!overview) {
+        throw new Error("Created project could not be loaded.");
+      }
+
+      return overview;
+    } catch (error) {
+      await this.db.delete(projects).where(eq(projects.id, bundle.project.id));
+      throw error;
     }
-
-    return overview;
   }
 
   async createConversation(conversation: NewConversation) {
@@ -95,6 +101,42 @@ export class SqliteProjectRepository implements ProjectRepository {
     const rows = await this.db.select({ previewPort: projects.previewPort }).from(projects);
 
     return rows.map((row) => row.previewPort);
+  }
+
+  async createProjectTemplate(template: NewProjectTemplateRow) {
+    const [createdTemplate] = await this.db.insert(projectTemplates).values(template).returning();
+
+    return createdTemplate;
+  }
+
+  async listProjectTemplates(status?: "generating" | "ready" | "failed") {
+    return status
+      ? this.db.select().from(projectTemplates).where(eq(projectTemplates.status, status)).orderBy(asc(projectTemplates.createdAt))
+      : this.db.select().from(projectTemplates).orderBy(asc(projectTemplates.createdAt));
+  }
+
+  async findProjectTemplateById(templateId: string) {
+    const [template] = await this.db.select().from(projectTemplates).where(eq(projectTemplates.id, templateId)).limit(1);
+
+    return template ?? null;
+  }
+
+  async updateProjectTemplate(templateId: string, template: Partial<Omit<NewProjectTemplateRow, "id">>) {
+    const [updatedTemplate] = await this.db
+      .update(projectTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(eq(projectTemplates.id, templateId))
+      .returning();
+
+    if (!updatedTemplate) {
+      throw new Error("Project template not found.");
+    }
+
+    return updatedTemplate;
+  }
+
+  async deleteProjectTemplate(templateId: string) {
+    await this.db.delete(projectTemplates).where(eq(projectTemplates.id, templateId));
   }
 
   async createMessage(message: NewMessage) {

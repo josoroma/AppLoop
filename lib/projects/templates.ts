@@ -46,10 +46,35 @@ export const BUILT_IN_PROJECT_TEMPLATES = [
 ] as const;
 
 export type ProjectTemplateId = (typeof BUILT_IN_PROJECT_TEMPLATES)[number]["id"];
-export type ProjectTemplate = (typeof BUILT_IN_PROJECT_TEMPLATES)[number];
+export type ProjectTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  templatePath: string;
+  defaultThemeId: string;
+  source?: "built-in" | "custom";
+  status?: "generating" | "ready" | "failed";
+};
+
+export type CustomProjectTemplateInput = {
+  id: string;
+  name: string;
+  description: string;
+  templatePath: string;
+  defaultThemeId: string;
+  source?: "custom";
+  status?: "generating" | "ready" | "failed";
+};
+
+export function listProjectTemplates(customTemplates: CustomProjectTemplateInput[] = []): ProjectTemplate[] {
+  return [
+    ...BUILT_IN_PROJECT_TEMPLATES.map((template) => ({ ...template, source: "built-in" as const, status: "ready" as const })),
+    ...customTemplates.map((template) => ({ ...template, source: "custom" as const })),
+  ];
+}
 
 export function getProjectTemplate(templateId: string) {
-  return BUILT_IN_PROJECT_TEMPLATES.find((template) => template.id === templateId) ?? null;
+  return listProjectTemplates().find((template) => template.id === templateId) ?? null;
 }
 
 export function assertProjectTemplate(templateId: string) {

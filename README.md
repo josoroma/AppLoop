@@ -748,12 +748,13 @@ make hermes-mlx-vlm-config
 ## Create And Preview A Project
 
 1. Open `http://localhost:3001/projects`.
-2. Click `New project`.
-3. Enter a project name.
-4. Choose a template.
-5. Choose a theme.
-6. Click `Create project`.
-7. In the project builder, click `Start` if the preview is not already running.
+2. Optional: click `New template` to create a reusable template from a prompt.
+3. Click `New project`.
+4. Enter a project name.
+5. Choose a built-in or custom template.
+6. Choose a theme.
+7. Click `Create project`.
+8. In the project builder, click `Start` if the preview is not already running.
 
 AppLoop copies the selected template into `.apploop/projects/<slug>`, assigns a preview port, stores project metadata in SQLite, and starts the generated app on `127.0.0.1:<previewPort>`.
 
@@ -771,7 +772,18 @@ The locked overlay follows iframe scroll and resize updates. While inspect mode 
 
 ## Templates
 
-Templates are registered in `lib/projects/templates.ts`.
+Built-in templates are registered in `lib/projects/templates.ts`. Custom templates are stored in the `project_templates` SQLite table and copied into `templates/<custom-template-id>/`.
+
+Open `http://localhost:3001/templates` from the `Templates` button on the projects page to browse available templates. The library shows built-in and custom templates, their source paths, default themes, and status.
+
+Template management rules:
+
+- Built-in templates can be edited or cloned but cannot be deleted from the UI.
+- Custom templates can be edited, cloned, or deleted. Delete removes both the database row and `templates/<custom-template-id>/` directory.
+- Editing a template creates or reuses a template-edit workspace record that points at the existing `templates/<template-id>/` path, then opens the same builder interface used for projects.
+- Cloning a template copies it to a new unique `templates/<clone-id>/` directory, stamps the clone body classname, writes a `project_templates` row, and leaves it ready to edit, clone again, or select when creating projects.
+- Template-edit prompts use different guardrails from project-edit prompts: Hermes may write only inside that exact `templates/<template-id>/` workspace. It must not alter other templates, generated projects under `.apploop/projects/`, AppLoop builder source, `.hermes` assets, repo docs, or package/config files.
+- The edited template remains a standalone generated Next.js app and must preserve `template-<template-id>` on `<body>` plus inspectable classnames on user-visible UI.
 
 || Template | Description | Default theme |
 ||---|---|---|
@@ -783,6 +795,26 @@ Templates are registered in `lib/projects/templates.ts`.
 | `solar-system` | Interactive 3D Solar System explorer with orbiting planets, gravitational grid, and NASA integration. | `luma-indigo-emerald` |
 
 Template source lives in `templates/`. Generated copies live under `.apploop/projects/`.
+
+### Create A Custom Template From A Prompt
+
+On `http://localhost:3001/projects`, click `New template` to create a reusable template before creating a project. The dialog asks for:
+
+- Template name and optional short description.
+- A natural-language prompt describing the reusable app template.
+- Editable shadcn-compatible theme CSS with default `:root` and `.dark` token blocks.
+
+AppLoop then:
+
+1. Creates a unique template id from the name.
+2. Copies the default template into `templates/<template-id>/`, excluding transient output such as `.next/`, `.turbo/`, `node_modules/`, `out/`, `dist/`, and `logs/`.
+3. Writes a `project_templates` database row with status `generating`.
+4. Validates and applies the provided theme CSS to `templates/<template-id>/app/globals.css`.
+5. Sends the prompt to Hermes with `mode: template-authoring`, the repo-local `.hermes/agents/`, `.hermes/bundles/ui-builder/BUNDLE.md`, `.hermes/skills/`, `.hermes/hooks/`, and `.hermes/commands/` attached through the AppLoop agent bundle.
+6. Restricts Hermes to the exact `templates/<template-id>/` workspace and requires the generated template to keep `template-<template-id>` on `<body>` plus inspectable classnames on user-visible UI.
+7. Marks the database row `ready` after required template files and the body classname are verified.
+
+Ready custom templates appear alongside built-ins in the `New project` template picker and can be selected for new generated projects.
 
 ## Themes
 

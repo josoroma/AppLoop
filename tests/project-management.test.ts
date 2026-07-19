@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import type { ProjectRepository } from "@/lib/db/repository";
 import { createProjectWorkspace, duplicateProjectWorkspace } from "@/lib/projects/files";
 import {
   allocatePreviewPort,
@@ -9,6 +10,7 @@ import {
   projectSettingsInputSchema,
   reserveHermesSessionId,
 } from "@/lib/projects/service";
+import { listSelectableProjectTemplates } from "@/lib/projects/template-authoring";
 import { assertProjectTemplate, BUILT_IN_PROJECT_TEMPLATES } from "@/lib/projects/templates";
 import { DEFAULT_THEME_ID } from "@/lib/themes/registry";
 
@@ -86,6 +88,43 @@ describe("E2 project management", () => {
       await expect(fs.readFile(path.join(templateRoot, "package.json"), "utf8")).resolves.toContain("generated-apploop-app");
       await expect(fs.readFile(path.join(templateRoot, "app", "layout.tsx"), "utf8")).resolves.toContain(`template-${template.id}`);
     }
+  });
+
+  it("adds ready custom templates from the database to the selectable registry", async () => {
+    const repository = {
+      listProjectTemplates: async (status?: "generating" | "ready" | "failed") => {
+        expect(status).toBe("ready");
+
+        return [
+          {
+            id: "investor-crm",
+            name: "Investor CRM",
+            description: "Custom investor relationship dashboard.",
+            templatePath: "investor-crm",
+            defaultThemeId: "luma-teal-blue",
+            source: "custom" as const,
+            status: "ready" as const,
+            baseTemplateId: "default",
+            sourcePrompt: "Build an investor CRM dashboard.",
+            hermesSessionId: null,
+            hermesRunId: null,
+            lastError: null,
+            createdAt: new Date(0),
+            updatedAt: new Date(0),
+          },
+        ];
+      },
+    } as Pick<ProjectRepository, "listProjectTemplates"> as ProjectRepository;
+
+    const templates = await listSelectableProjectTemplates(repository);
+
+    expect(templates.map((template) => template.id)).toContain("investor-crm");
+    expect(templates.find((template) => template.id === "investor-crm")).toMatchObject({
+      source: "custom",
+      status: "ready",
+      templatePath: "investor-crm",
+      defaultThemeId: "luma-teal-blue",
+    });
   });
 
   it("creates solar-system workspaces with package metadata and without transient template output", async () => {

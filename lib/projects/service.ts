@@ -71,7 +71,7 @@ export class ProjectService {
     const slug = createUniqueSlug(parsedInput.name, existingProjects.map((project) => project.slug));
     const projectId = randomUUID();
     const conversationId = randomUUID();
-    const previewPort = allocatePreviewPort(await this.repository.listAllocatedPreviewPorts(), this.previewPortRange);
+    const previewPort = allocatePreviewPort(await this.listAllocatedProjectAndRuntimePorts(), this.previewPortRange);
     const workspacePath = resolveProjectWorkspacePath(projectsRoot, slug);
     const hermesSessionId = reserveHermesSessionId(conversationId);
 
@@ -123,7 +123,7 @@ export class ProjectService {
     const slug = createUniqueSlug(name, existingProjects.map((project) => project.slug));
     const newProjectId = randomUUID();
     const conversationId = randomUUID();
-    const previewPort = allocatePreviewPort(await this.repository.listAllocatedPreviewPorts(), this.previewPortRange);
+    const previewPort = allocatePreviewPort(await this.listAllocatedProjectAndRuntimePorts(), this.previewPortRange);
     const workspacePath = path.join(path.dirname(source.project.workspacePath), slug);
     const hermesSessionId = reserveHermesSessionId(conversationId);
 
@@ -258,6 +258,14 @@ export class ProjectService {
       themeId: theme.id,
       tokenJson: theme.source === "custom" ? serializeThemeForStorage(theme) : null,
     });
+  }
+
+  private async listAllocatedProjectAndRuntimePorts() {
+    const overviews = await this.repository.listProjectOverviews();
+
+    return overviews
+      .flatMap((overview) => [overview.project.previewPort, overview.runtime?.port])
+      .filter((port): port is number => typeof port === "number");
   }
 }
 

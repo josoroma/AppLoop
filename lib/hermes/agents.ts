@@ -25,6 +25,11 @@ export type ProjectAgentContext = {
   packageInstallPolicy: ProjectSettings["packageInstallPolicy"];
   validationDepth: ProjectSettings["validationDepth"];
   defaultRoute: string;
+  mode?: "project-edit" | "template-authoring" | "template-edit";
+  templateId?: string;
+  templateName?: string;
+  templatePath?: string;
+  baseTemplateId?: string;
 };
 
 export type ProjectAgentBundle = {
@@ -99,7 +104,12 @@ export function createProjectAgentBundle(context: ProjectAgentContext): ProjectA
       "rollback-snapshot-created-before-existing-file-edits",
       "dependency-policy-respected-before-package-changes",
     ],
-    isolationRules: [
+    isolationRules: context.mode === "template-authoring" || context.mode === "template-edit" ? [
+      "workspacePath is the only writable root for template authoring/editing",
+      "template runs may modify only this exact templates/<id> workspace and must not modify AppLoop builder source files, .hermes assets, repo docs, package files, generated projects, or sibling templates",
+      "the template must remain a standalone generated Next.js app with package.json, app/layout.tsx, app/page.tsx, app/globals.css, components/inspector-provider.tsx, and components/theme-provider.tsx",
+      "the template body classname must be template-<templateId> and all user-visible UI must use inspectable classnames with unique human-readable last classnames",
+    ] : [
       "workspacePath is the only writable root",
       "project-edit runs must never modify AppLoop source files, templates/, or sibling .apploop/projects/* workspaces",
       "a path under .apploop/projects is writable only when it is inside this run's exact workspacePath",

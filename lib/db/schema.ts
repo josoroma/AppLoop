@@ -166,6 +166,26 @@ export const projectSettings = sqliteTable("project_settings", {
   ...timestamps,
 });
 
+export const projectTemplates = sqliteTable(
+  "project_templates",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    templatePath: text("template_path").notNull(),
+    defaultThemeId: text("default_theme_id").notNull().default(DEFAULT_THEME_ID),
+    source: text("source", { enum: ["custom"] }).notNull().default("custom"),
+    status: text("status", { enum: ["generating", "ready", "failed"] }).notNull().default("generating"),
+    baseTemplateId: text("base_template_id").notNull(),
+    sourcePrompt: text("source_prompt").notNull(),
+    hermesSessionId: text("hermes_session_id"),
+    hermesRunId: text("hermes_run_id"),
+    lastError: text("last_error"),
+    ...timestamps,
+  },
+  (table) => [index("project_templates_status_idx").on(table.status)],
+);
+
 export const builderPreferences = sqliteTable("builder_preferences", {
   id: text("id").primaryKey().default("local"),
   lastOpenedProjectId: text("last_opened_project_id").references(() => projects.id, { onDelete: "set null" }),
@@ -283,6 +303,7 @@ export const builderTables = {
   gitCommits,
   projectThemes,
   projectSettings,
+  projectTemplates,
   builderPreferences,
   screenshots,
   chatCheckpoints,
@@ -302,6 +323,8 @@ export type ProjectTheme = typeof projectThemes.$inferSelect;
 export type NewProjectTheme = typeof projectThemes.$inferInsert;
 export type ProjectSettings = typeof projectSettings.$inferSelect;
 export type NewProjectSettings = typeof projectSettings.$inferInsert;
+export type ProjectTemplateRow = typeof projectTemplates.$inferSelect;
+export type NewProjectTemplateRow = typeof projectTemplates.$inferInsert;
 export type Conversation = typeof conversations.$inferSelect;
 export type NewConversation = typeof conversations.$inferInsert;
 export type Message = typeof messages.$inferSelect;

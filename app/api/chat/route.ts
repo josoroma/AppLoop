@@ -12,6 +12,7 @@ import { getHermesClient } from "@/lib/hermes/store";
 import { resolveRunHermesSessionId } from "@/lib/hermes/session-sync";
 import { categorizeFailure, getDurationMs, recordStructuredEvent, startDurationTimer } from "@/lib/observability/events";
 import { getProjectRepository } from "@/lib/projects/store";
+import { getTemplateIdFromWorkspacePath } from "@/lib/projects/template-authoring";
 import { projectAccessErrorResponse, requireProjectAccess } from "@/lib/security/authorization";
 import { getProjectScreenshotsDir } from "@/lib/security/paths";
 
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
   const images = await extractImagesFromMessage(userMessage, projectId);
   const promptMetadata = extractPromptMetadata(prompt, extractScreenshotIds(userMessage));
   const hermesSessionId = resolveRunHermesSessionId(project, conversation);
+  const templateId = getTemplateIdFromWorkspacePath(project.workspacePath);
   const runId = randomUUID();
   const correlationId = runId;
   const runStartedTimer = startDurationTimer();
@@ -98,6 +100,11 @@ export async function POST(request: Request) {
             packageInstallPolicy: overview.settings?.packageInstallPolicy ?? "ask",
             validationDepth: overview.settings?.validationDepth ?? "standard",
             defaultRoute: overview.settings?.defaultRoute ?? "/",
+            mode: templateId ? "template-edit" : "project-edit",
+            templateId: templateId ?? undefined,
+            templateName: templateId ? project.name.replace(/^Template:\s*/, "") : undefined,
+            templatePath: templateId ?? undefined,
+            baseTemplateId: templateId ?? undefined,
           }),
           images: images.length > 0 ? images : undefined,
           signal: request.signal,

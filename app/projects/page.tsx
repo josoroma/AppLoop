@@ -1,6 +1,7 @@
-import { Activity, AlertTriangle, ArchiveRestore, Copy, ExternalLink, FolderGit2, LoaderCircle, Pencil, Square, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Activity, AlertTriangle, ArchiveRestore, Copy, ExternalLink, FolderGit2, LayoutTemplate, LoaderCircle, Pencil, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ProjectCreateDialog } from "@/components/projects/project-create-dialog";
+import { CustomTemplateCreateDialog, ProjectCreateDialog } from "@/components/projects/project-create-dialog";
 import {
   archiveProjectAction,
   deleteProjectAction,
@@ -10,7 +11,8 @@ import {
   restoreProjectAction,
 } from "@/lib/projects/actions";
 import { formatProjectWorkspacePath } from "@/lib/projects/service";
-import { getProjectService } from "@/lib/projects/store";
+import { getProjectRepository, getProjectService } from "@/lib/projects/store";
+import { listSelectableProjectTemplates } from "@/lib/projects/template-authoring";
 import { stopRuntimeAction } from "@/lib/runtime/actions";
 
 export const dynamic = "force-dynamic";
@@ -18,16 +20,28 @@ export const dynamic = "force-dynamic";
 type ProjectsPageProps = {
   searchParams?: Promise<{
     deleteError?: string;
+    page?: string;
+    pageSize?: string;
+    archivedPage?: string;
   }>;
 };
+
+const PAGE_SIZE_OPTIONS = [5, 10, 15, 50, 100] as const;
+const DEFAULT_PAGE_SIZE = 10;
 
 export default async function ProjectsPage({ searchParams }: ProjectsPageProps) {
   const params = await searchParams;
   const deleteErrorProjectId = params?.deleteError;
-  const [activeProjects, archivedProjects] = await Promise.all([
+  const pageSize = parsePageSize(params?.pageSize);
+  const activePage = parsePage(params?.page);
+  const archivedPage = parsePage(params?.archivedPage);
+  const [activeProjects, archivedProjects, templates] = await Promise.all([
     getProjectService().listActiveProjects(),
     getProjectService().listArchivedProjects(),
+    listSelectableProjectTemplates(getProjectRepository()),
   ]);
+  const activeProjectPage = paginateItems(activeProjects, activePage, pageSize);
+  const archivedProjectPage = paginateItems(archivedProjects, archivedPage, pageSize);
 
   return (
     <main className="min-h-screen px-6 py-8">
@@ -38,7 +52,16 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-normal">Projects</h1>
         </div>
-        <ProjectCreateDialog />
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button asChild variant="outline">
+            <Link href="/templates">
+              <LayoutTemplate className="size-4" />
+              Templates
+            </Link>
+          </Button>
+          <CustomTemplateCreateDialog />
+          <ProjectCreateDialog templates={templates} />
+        </div>
       </section>
 
       <section className="mx-auto mt-8 grid max-w-6xl gap-4 md:grid-cols-2">
@@ -47,7 +70,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
             No active projects yet. Create one to generate a workspace and reserve its Hermes session.
           </div>
         ) : (
-          activeProjects.map((overview) => (
+          activeProjectPage.items.map((overview) => (
             <article key={overview.project.id} className="rounded-lg border bg-card p-5 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -142,11 +165,21 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
         )}
       </section>
 
+      {activeProjects.length > 0 ? (
+        <PaginationControls
+          basePath="/projects"
+          currentPage={activeProjectPage.page}
+          pageParam="page"
+          pageSize={pageSize}
+          totalItems={activeProjects.length}
+        />
+      ) : null}
+
       {archivedProjects.length > 0 ? (
         <section className="mx-auto mt-10 max-w-6xl">
           <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Archived</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {archivedProjects.map((overview) => (
+            {archivedProjectPage.items.map((overview) => (
               <article key={overview.project.id} className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4 shadow-sm">
                 <div>
                   <h3 className="font-semibold">{overview.project.name}</h3>
@@ -162,10 +195,90 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
               </article>
             ))}
           </div>
+          <PaginationControls
+            basePath="/projects"
+            currentPage={archivedProjectPage.page}
+            pageParam="archivedPage"
+            pageSize={pageSize}
+            totalItems={archivedProjects.length}
+          />
         </section>
       ) : null}
     </main>
   );
+}
+
+function parsePage(value: string | undefined) {
+  const page = Number(value ?? "1");
+
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
+
+function parsePageSize(value: string | undefined) {
+  const pageSize = Number(value ?? DEFAULT_PAGE_SIZE);
+
+  return PAGE_SIZE_OPTIONS.includes(pageSize as (typeof PAGE_SIZE_OPTIONS)[number]) ? pageSize : DEFAULT_PAGE_SIZE;
+}
+
+function paginateItems<T>(items: T[], requestedPage: number, pageSize: number) {
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const page = Math.min(requestedPage, totalPages);
+  const startIndex = (page - 1) * pageSize;
+
+  return {
+    items: items.slice(startIndex, startIndex + pageSize),
+    page,
+    totalPages,
+  };
+}
+
+function PaginationControls({
+  basePath,
+  currentPage,
+  pageParam,
+  pageSize,
+  totalItems,
+}: {
+  basePath: string;
+  currentPage: number;
+  pageParam: string;
+  pageSize: number;
+  totalItems: number;
+}) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const previousPage = Math.max(1, currentPage - 1);
+  const nextPage = Math.min(totalPages, currentPage + 1);
+
+  return (
+    <nav className="mx-auto mt-6 flex max-w-6xl flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3 text-sm text-muted-foreground" aria-label={`${pageParam} pagination`}>
+      <span>
+        Page {currentPage} of {totalPages} · {totalItems} total
+      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs uppercase tracking-[0.12em]">Per page</span>
+        {PAGE_SIZE_OPTIONS.map((option) => (
+          <Button key={option} asChild size="sm" variant={option === pageSize ? "default" : "outline"}>
+            <Link href={buildPageHref(basePath, pageParam, 1, option)}>{option}</Link>
+          </Button>
+        ))}
+        <Button asChild size="sm" variant="outline" aria-disabled={currentPage <= 1}>
+          <Link href={buildPageHref(basePath, pageParam, previousPage, pageSize)}>Previous</Link>
+        </Button>
+        <Button asChild size="sm" variant="outline" aria-disabled={currentPage >= totalPages}>
+          <Link href={buildPageHref(basePath, pageParam, nextPage, pageSize)}>Next</Link>
+        </Button>
+      </div>
+    </nav>
+  );
+}
+
+function buildPageHref(basePath: string, pageParam: string, page: number, pageSize: number) {
+  const params = new URLSearchParams();
+
+  params.set(pageParam, String(page));
+  params.set("pageSize", String(pageSize));
+
+  return `${basePath}?${params.toString()}`;
 }
 
 function escapeHtmlPattern(value: string) {
