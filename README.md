@@ -327,27 +327,33 @@ Generated project workspaces accumulate `.next/` (Turbopack build cache) and `no
 
 ### Reset .apploop
 
-To remove all projects, logs, and databases in one step:
+To remove all projects, logs, databases, and template `node_modules` in one step:
 
 ```bash
 make apploop-reset
 ```
 
-This removes `.apploop/projects/`, `.apploop/runtime-logs/`, and all `.apploop/*.sqlite` / `.apploop/*.db` files. The `.apploop/` directory itself is preserved (it stays empty).
+This removes `.apploop/projects/`, `.apploop/runtime-logs/`, all `.apploop/*.sqlite` / `.apploop/*.db` files, and `node_modules/` / lock files from every template directory. The `.apploop/` directory itself is preserved (it stays empty).
 
-This is useful when you want to start fresh without reinstalling dependencies or losing repo configuration.
+Use this when you want a clean state before seeding templates and the database.
 
-### Seed A Fresh Database
+### Seed Templates And Database
 
-After a reset, the database needs to be recreated:
+After a reset, reinstall template dependencies and recreate the database:
 
 ```bash
 make apploop-seed
 ```
 
-This runs `npm run db:migrate`, which applies Drizzle migrations to create `builder.sqlite` and all required tables. The builder is then ready for new projects.
+This runs `make apploop-template-seed` (installs npm dependencies in every `templates/*/` directory) followed by `npm run db:migrate`. The builder is then ready for new projects from any template.
 
-If you run `npm run dev` or `make dev` without seeding first, the builder starts but project creation, chat persistence, and runtime state will fail until the database exists. Seed before starting development after a reset.
+To seed only templates without running migrations:
+
+```bash
+make apploop-template-seed
+```
+
+If you run `npm run dev` or `make dev` without seeding first, the builder starts but project creation, chat persistence, and runtime state will fail until the database and template dependencies exist. Seed before starting development after a reset.
 
 ## Project Guidance And Docs
 
@@ -831,9 +837,10 @@ Project settings also accept custom shadcn-compatible CSS token blocks for `:roo
 | `make mlx-vlm-curl-test` | Send a test chat completion request to the local MLX server. |
 | `make hermes-mlx-vlm-config` | Print Hermes `.env` and `.hermes/config.yaml` snippets for the local MLX-VLM provider. |
 | `make clean` | Remove builder build output. |
-| `make apploop-reset` | Remove `.apploop/` projects, runtime logs, and databases. |
-| `make apploop-seed` | Run database migrations to seed a fresh `.apploop/builder.sqlite`. |
-| `make reset` | Remove dependencies and generated build output. |
+| `make apploop-reset` | Remove `.apploop/` projects, runtime logs, databases, and template `node_modules`. |
+| `make apploop-seed` | Install template dependencies and run database migrations. |
+| `make apploop-template-seed` | Install npm dependencies in all template directories. |
+| `make reset` | Remove dependencies, generated build output, and `.apploop/` state. |
 
 ## Validation
 

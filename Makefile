@@ -60,10 +60,13 @@ help:
 	@printf "  $(C_GREEN)make mlx-vlm-curl-test$(C_RESET)         Test the local MLX-VLM server\n"
 	@printf "  $(C_GREEN)make hermes-mlx-vlm-config$(C_RESET)     Print Hermes env and YAML config snippets\n"
 	@printf "\n$(C_CYAN)Maintenance:$(C_RESET)\n"
-	@printf "  $(C_GREEN)make clean$(C_RESET)         Remove generated build output\n"
-	@printf "  $(C_GREEN)make apploop-reset$(C_RESET) Remove .apploop projects, logs, and databases\n"
-	@printf "  $(C_GREEN)make apploop-seed$(C_RESET)  Run database migrations (seed after reset)\n"
-	@printf "  $(C_GREEN)make reset$(C_RESET)         Remove dependencies and generated output\n"
+	@printf "  $(C_GREEN)make clean$(C_RESET)                Remove generated build output\n"
+	@printf "  $(C_GREEN)make apploop-reset$(C_RESET)        Remove .apploop projects, logs, databases, and template node_modules\n"
+	@printf "  $(C_GREEN)make apploop-template-seed$(C_RESET) Install npm dependencies in all templates\n"
+	@printf "  $(C_GREEN)make apploop-seed-projects$(C_RESET) Seed one demo project per template into the database\n"
+	@printf "  $(C_GREEN)make apploop-seed$(C_RESET)          Migrate database, install template deps, and seed demo projects\n"
+	@printf "  $(C_GREEN)make seed$(C_RESET)                  Full reset + apploop-seed (clean start with all demo projects)\n"
+	@printf "  $(C_GREEN)make reset$(C_RESET)                 Remove dependencies, generated output, and .apploop state\n"
 
 .PHONY: install
 install:
@@ -370,14 +373,39 @@ apploop-reset:
 	@printf "$(C_CYAN)->$(C_RESET) Removing .apploop state (projects, runtime-logs, databases)...\n"
 	@rm -rf $(PROJECT_ROOT)/.apploop/projects $(PROJECT_ROOT)/.apploop/runtime-logs
 	@rm -f $(PROJECT_ROOT)/.apploop/*.sqlite $(PROJECT_ROOT)/.apploop/*.db $(PROJECT_ROOT)/.apploop/*.sqlite.backup
-	@printf "$(C_GREEN)v$(C_RESET) .apploop is now clean. Run $(C_BOLD)make apploop-seed$(C_RESET) to recreate the database.\n"
+	@printf "$(C_CYAN)->$(C_RESET) Cleaning template node_modules...\n"
+	@for template_dir in $(PROJECT_ROOT)/templates/*/; do \
+		rm -rf "$$template_dir/node_modules" "$$template_dir/package-lock.json" "$$template_dir/pnpm-lock.yaml"; \
+	done
+	@printf "$(C_GREEN)v$(C_RESET) .apploop and templates are now clean. Run $(C_BOLD)make apploop-seed$(C_RESET) to recreate the database and seed templates.\n"
 
-.PHONY: apploop-seed
-apploop-seed:
+.PHONY: apploop-template-seed
+apploop-template-seed:
+	@printf "$(C_CYAN)->$(C_RESET) Installing template dependencies...\n"
+	@for template_dir in $(PROJECT_ROOT)/templates/*/; do \
+		if [ -f "$$template_dir/package.json" ]; then \
+			name=$$(basename "$$template_dir"); \
+			printf "  $(C_CYAN)->$(C_RESET) Seeding $$name...\n"; \
+			cd "$$template_dir" && $(NPM) install; \
+		fi; \
+	done
+	@printf "$(C_GREEN)v$(C_RESET) Template dependencies installed.\n"
+
+.PHONY: apploop-seed-projects
+apploop-seed-projects: apploop-template-seed
 	@printf "$(C_CYAN)->$(C_RESET) Running database migrations...\n"
 	@cd $(PROJECT_ROOT) && $(NPM) run db:migrate
-	@printf "$(C_GREEN)v$(C_RESET) Database seeded. Run $(C_BOLD)make dev$(C_RESET) to start the builder.\n"
+	@printf "$(C_CYAN)->$(C_RESET) Seeding demo projects from templates...\n"
+	@cd $(PROJECT_ROOT) && npx tsx scripts/seed-projects.mts
+
+.PHONY: apploop-seed
+apploop-seed: apploop-seed-projects
+	@printf "$(C_GREEN)v$(C_RESET) Database migrated and projects seeded. Run $(C_BOLD)make dev$(C_RESET) to start the builder.\n"
+
+.PHONY: seed
+seed: apploop-reset apploop-seed
+	@printf "$(C_GREEN)v$(C_RESET) Full reset + seed complete. Run $(C_BOLD)make dev$(C_RESET) to start the builder.\n"
 
 .PHONY: reset
-reset: clean
+reset: clean apploop-reset
 	@rm -rf $(PROJECT_ROOT)/node_modules $(PROJECT_ROOT)/package-lock.json

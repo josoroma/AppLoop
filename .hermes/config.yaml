@@ -1,12 +1,16 @@
 model:
-  default: deepseek/deepseek-v4-pro
+  default: openai/gpt-5.5
   provider: openrouter
   base_url: https://openrouter.ai/api/v1
+agent:
+  service_tier: normal
 dashboard:
   theme: mono
 command_allowlist:
-  - recursive delete
+  - execute_code
   - script execution via -e/-c flag
+  - recursive delete
+  - script execution via heredoc
 _config_version: 33
 platforms:
   api_server:

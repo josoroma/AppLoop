@@ -13,3 +13,5 @@ AppLoop model: default to deepseek/deepseek-v4-pro via OpenRouter for desktop, d
 WebGL particles template: native WebGL (no Three.js), dark-mode-first, luminous concentric laser rings in blue/pink/purple/white. Containers use dark gradients, nested text/controls use explicit high-contrast colors (not theme tokens).
 §
 Inspect multi-select scroll: template inspector-provider must track ALL selected elements in Map<string,HTMLElement>, iterate each on tracking updates so all overlays stay positioned after scroll.
+§
+AppLoop Makefile `dev` target: Makefile passes `--port $(PORT)` to `npm run dev`. If package.json's `dev` script also hardcodes `--port 3001`, the result is `next dev --port 3001 --port 3001`. Check both files when port-related CLI issues arise. Fix: remove port from package.json scripts, keep it in Makefile only.
