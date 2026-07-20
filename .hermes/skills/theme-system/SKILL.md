@@ -127,6 +127,7 @@ Create-template and custom-theme inputs are often pasted from chat, docs, or sha
 - Strip CSS block comments and `//` line comments.
 - Accept and ignore known legacy shadcn tokens AppLoop does not consume, especially `--destructive-foreground`; do not fail the whole theme for that token.
 - Continue rejecting arbitrary selectors, imports, URLs, remote assets, and unknown unsupported tokens. This keeps the UI forgiving for common shadcn snippets without allowing unbounded CSS.
+- When a token is defined in `:root` but missing in `.dark`, fall back to the `:root` value. This handles the common shadcn pattern of defining layout tokens such as `--radius` only in `:root`. Validation still requires every required token to be defined in `:root`.
 
 ## Semantic CSS Usage
 
