@@ -22,7 +22,7 @@ const experience = [
 
 const responsibilities = [
   { label: "Architecting and implementing agent-driven AI systems using Python, LangChain, and Node.js backends", className: "cv-responsibility-agentic-systems" },
-  { label: "Building Next.js AI SDK frontends that orchestrate and visualize prompt → action → observation → reflection loops", className: "cv-responsibility-ai-sdk-frontends" },
+  { label: "Building Next.js AI SDK frontends that orchestrate and visualize prompt → context → harness → loop loops", className: "cv-responsibility-ai-sdk-frontends" },
   { label: "Designing, documenting, and integrating JSON-based APIs for internal platforms and third-party services", className: "cv-responsibility-api-design" },
   { label: "Leading GitHub Actions CI/CD pipelines for linting, code quality, security analysis, tests, coverage, build, and deploy", className: "cv-responsibility-cicd-pipelines" },
   { label: "Improving deployment reliability, automation, observability, and developer experience", className: "cv-responsibility-devex-reliability" },

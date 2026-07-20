@@ -1,5 +1,5 @@
 model:
-  default: openai/gpt-5.5
+  default: deepseek/deepseek-v4-pro
   provider: openrouter
   base_url: https://openrouter.ai/api/v1
 agent:

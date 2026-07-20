@@ -1006,7 +1006,7 @@ body {
 }
 
 .cv-executive-profile::after {
-  content: "prompt → action → observation → reflection";
+  content: "prompt → context → harness → loop";
   position: absolute;
   right: 1.25rem;
   top: 1.25rem;
