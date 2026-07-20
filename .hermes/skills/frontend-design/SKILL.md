@@ -51,6 +51,7 @@ Do not use this skill for pure data-model, API, dependency, or runtime-only chan
 - Prefer shadcn-compatible primitives for dialogs, menus, tabs, forms, popovers, tooltips, tables, and command palettes.
 - Do not nest cards inside cards; reserve cards for repeated records, modal surfaces, or framed tools.
 - Use icon buttons for compact tool actions and text buttons for primary commands.
+- For card action bars with multiple actions, give every action/form/button a flexible bounded width (`min-w-0`, `w-full`, grid/flex tracks) and wrap button labels in truncating or wrapping spans. Long disabled helper labels such as “Built-in templates cannot be deleted” must stay inside their own button and never overlap neighboring actions; add a `title` tooltip if truncating.
 - Keep component responsibilities clear: shells arrange regions, feature components own data presentation, and primitives own interaction semantics.
 
 ## Fullscreen Modal And Scrollbar Patterns

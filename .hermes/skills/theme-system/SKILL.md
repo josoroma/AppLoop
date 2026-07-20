@@ -119,6 +119,15 @@ Critical rules:
 - Keep arbitrary color values out of generated components; add a semantic token instead.
 - Custom themes may only include `:root` and `.dark` blocks and must not include imports, URLs, remote assets, or arbitrary selectors.
 
+### Pasted Theme CSS Tolerance
+
+Create-template and custom-theme inputs are often pasted from chat, docs, or shadcn examples. Normalize before strict token validation:
+
+- Strip markdown fences such as ```` ```css ... ``` ````.
+- Strip CSS block comments and `//` line comments.
+- Accept and ignore known legacy shadcn tokens AppLoop does not consume, especially `--destructive-foreground`; do not fail the whole theme for that token.
+- Continue rejecting arbitrary selectors, imports, URLs, remote assets, and unknown unsupported tokens. This keeps the UI forgiving for common shadcn snippets without allowing unbounded CSS.
+
 ## Semantic CSS Usage
 
 - Use semantic variables such as `var(--background)`, `var(--foreground)`, `var(--card)`, `var(--card-foreground)`, `var(--border)`, `var(--primary)`, and `var(--ring)`.

@@ -96,9 +96,10 @@ Important distinction:
 The create-template UI should show an editable textarea prefilled with canonical shadcn/Luma `:root` and `.dark` token blocks. On submit:
 
 1. Read `themeCss` from the form.
-2. Parse with `createCustomTheme(themeCss)` to enforce required tokens and block imports/URLs/remote assets.
-3. Apply with `applyThemeToWorkspace(templateRoot, theme)` before sending Hermes the authoring prompt.
-4. For projects created from custom templates, avoid applying a built-in theme over the copied template CSS when the selected template's default theme id is the custom template id.
+2. Normalize before parsing: trim whitespace, strip optional Markdown fences such as ```css ... ```, strip block comments (`/* ... */`), and strip line comments (`// ...`). Users often paste theme CSS from chat/spec text; comments/fences should not trip the token-only parser.
+3. Parse with `createCustomTheme(themeCss)` to enforce required tokens and block imports/URLs/remote assets.
+4. Apply with `applyThemeToWorkspace(templateRoot, theme)` before sending Hermes the authoring prompt.
+5. For projects created from custom templates, avoid applying a built-in theme over the copied template CSS when the selected template's default theme id is the custom template id.
 
 ## Schema Pattern
 

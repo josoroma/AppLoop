@@ -38,6 +38,8 @@ export const REQUIRED_THEME_TOKENS = [
   "--sidebar-ring",
 ] as const;
 
+const IGNORED_CUSTOM_THEME_TOKENS = new Set(["--destructive-foreground"]);
+
 const projectThemeSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/),
   name: z.string().min(1),
@@ -370,23 +372,30 @@ function createVariantTheme(id: string, name: string, description: string, prima
 }
 
 function parseThemeCss(css: string) {
-  if (css.length > 16000) {
+  const normalizedCss = normalizeCustomThemeCss(css);
+
+  if (normalizedCss.length > 16000) {
     throw new Error("Custom themes must be 16KB or smaller.");
   }
 
-  if (/@import|url\(|https?:\/\//i.test(css)) {
+  if (/@import|url\(|https?:\/\//i.test(normalizedCss)) {
     throw new Error("Custom themes cannot include imports, URLs, or remote assets.");
   }
 
-  const selectors = Array.from(css.matchAll(/([^{}]+)\{/g)).map((match) => match[1].trim());
+  const selectors = Array.from(normalizedCss.matchAll(/([^{}]+)\{/g)).map((match) => match[1].trim());
   const invalidSelector = selectors.find((selector) => selector !== ":root" && selector !== ".dark");
 
   if (invalidSelector) {
     throw new Error(`Custom themes can only include :root and .dark selectors. Found ${invalidSelector}.`);
   }
 
-  const light = parseTokenBlock(css, ":root");
-  const dark = parseTokenBlock(css, ".dark");
+  const light = parseTokenBlock(normalizedCss, ":root");
+  const dark = parseTokenBlock(normalizedCss, ".dark");
+
+  for (const token of REQUIRED_THEME_TOKENS) {
+    dark[token] ??= light[token];
+  }
+
   const missingLight = REQUIRED_THEME_TOKENS.filter((token) => !light[token]);
   const missingDark = REQUIRED_THEME_TOKENS.filter((token) => !dark[token]);
 
@@ -395,6 +404,16 @@ function parseThemeCss(css: string) {
   }
 
   return { light, dark };
+}
+
+function normalizeCustomThemeCss(css: string) {
+  const trimmed = css.trim();
+  const withoutFence = trimmed.replace(/^```(?:css)?\s*/i, "").replace(/```$/i, "").trim();
+
+  return withoutFence
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
+    .trim();
 }
 
 function parseTokenBlock(css: string, selector: ":root" | ".dark") {
@@ -414,11 +433,15 @@ function parseTokenBlock(css: string, selector: ":root" | ".dark") {
       }
 
       if (!REQUIRED_THEME_TOKENS.includes(tokenMatch[1] as (typeof REQUIRED_THEME_TOKENS)[number])) {
+        if (IGNORED_CUSTOM_THEME_TOKENS.has(tokenMatch[1])) {
+          return null;
+        }
+
         throw new Error(`Custom themes cannot define unsupported token ${tokenMatch[1]}.`);
       }
 
       return [tokenMatch[1], tokenMatch[2].trim()];
-    }),
+    }).filter((entry): entry is [string, string] => entry !== null),
   );
 
   return tokens;

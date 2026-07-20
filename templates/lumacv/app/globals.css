@@ -1,0 +1,577 @@
+@import "tailwindcss";
+
+:root {
+  --background: oklch(0.965 0.004 80);
+  --foreground: oklch(0.19 0.006 255);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.19 0.006 255);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.19 0.006 255);
+  --primary: oklch(0.49 0.16 253);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(1 0 0);
+  --secondary-foreground: oklch(0.49 0.16 253);
+  --muted: oklch(0.956 0.003 255);
+  --muted-foreground: oklch(0.48 0.012 255);
+  --accent: oklch(0.93 0.035 250);
+  --accent-foreground: oklch(0.42 0.15 253);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.88 0.006 255);
+  --input: oklch(0.88 0.006 255);
+  --ring: oklch(0.49 0.16 253);
+  --chart-1: oklch(0.49 0.16 253);
+  --chart-2: oklch(0.63 0.12 235);
+  --chart-3: oklch(0.68 0.13 165);
+  --chart-4: oklch(0.72 0.14 80);
+  --chart-5: oklch(0.61 0.16 315);
+  --radius: 0.75rem;
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.19 0.006 255);
+  --sidebar-primary: oklch(0.49 0.16 253);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.93 0.035 250);
+  --sidebar-accent-foreground: oklch(0.42 0.15 253);
+  --sidebar-border: oklch(0.88 0.006 255);
+  --sidebar-ring: oklch(0.49 0.16 253);
+}
+
+.dark {
+  --background: oklch(0.15 0.008 255);
+  --foreground: oklch(0.96 0.003 255);
+  --card: oklch(0.205 0.01 255);
+  --card-foreground: oklch(0.96 0.003 255);
+  --popover: oklch(0.205 0.01 255);
+  --popover-foreground: oklch(0.96 0.003 255);
+  --primary: oklch(0.67 0.145 247);
+  --primary-foreground: oklch(0.15 0.008 255);
+  --secondary: oklch(0.265 0.012 255);
+  --secondary-foreground: oklch(0.96 0.003 255);
+  --muted: oklch(0.265 0.012 255);
+  --muted-foreground: oklch(0.71 0.012 255);
+  --accent: oklch(0.29 0.035 250);
+  --accent-foreground: oklch(0.86 0.07 245);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.67 0.145 247);
+  --chart-1: oklch(0.67 0.145 247);
+  --chart-2: oklch(0.7 0.12 215);
+  --chart-3: oklch(0.72 0.13 165);
+  --chart-4: oklch(0.76 0.14 80);
+  --chart-5: oklch(0.7 0.15 315);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.185 0.01 255);
+  --sidebar-foreground: oklch(0.96 0.003 255);
+  --sidebar-primary: oklch(0.67 0.145 247);
+  --sidebar-primary-foreground: oklch(0.15 0.008 255);
+  --sidebar-accent: oklch(0.29 0.035 250);
+  --sidebar-accent-foreground: oklch(0.86 0.07 245);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.67 0.145 247);
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Avenir Next", "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+/* ── Site Header ── */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklch, var(--background) 88%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.site-header-inner {
+  display: flex;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(72rem, calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+.site-logo {
+  color: var(--primary);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.site-nav-link {
+  border-radius: calc(var(--radius) - 0.25rem);
+  color: var(--muted-foreground);
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.site-nav-link:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.theme-toggle {
+  min-width: 5rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 0.25rem);
+  background: var(--card);
+  color: var(--card-foreground);
+  cursor: pointer;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.theme-toggle:hover {
+  background: var(--secondary);
+}
+
+/* ── App Shell ── */
+
+.app-shell {
+  min-height: calc(100vh - 3.25rem);
+  background:
+    radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 8%, transparent), transparent 34rem),
+    linear-gradient(135deg, var(--background), var(--muted));
+}
+
+/* ── Profile Header Card ── */
+
+.cv-profile-header {
+  width: min(72rem, calc(100% - 2rem));
+  margin: 1.5rem auto 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: 0 1px 3px color-mix(in oklch, var(--foreground) 6%, transparent),
+              0 2px 12px color-mix(in oklch, var(--foreground) 4%, transparent);
+  overflow: hidden;
+}
+
+.cv-profile-cover {
+  height: 7rem;
+  background: linear-gradient(135deg, oklch(0.35 0.14 253), oklch(0.45 0.16 253) 50%, oklch(0.55 0.12 245));
+}
+
+.cv-profile-header-inner {
+  display: flex;
+  gap: 1.25rem;
+  padding: 0 1.5rem 1.5rem;
+  position: relative;
+}
+
+.cv-profile-avatar-wrapper {
+  margin-top: -2.5rem;
+  flex-shrink: 0;
+}
+
+.cv-profile-avatar {
+  width: 6rem;
+  height: 6rem;
+  border-radius: 50%;
+  border: 3px solid var(--card);
+  background: linear-gradient(135deg, var(--primary), oklch(0.55 0.15 248));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px color-mix(in oklch, var(--foreground) 12%, transparent);
+}
+
+.cv-profile-avatar-fallback {
+  color: var(--primary-foreground);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.cv-profile-meta {
+  padding-top: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.cv-profile-name {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--foreground);
+}
+
+.cv-profile-headline {
+  margin: 0.25rem 0 0;
+  font-size: 0.9375rem;
+  color: var(--muted-foreground);
+  line-height: 1.4;
+}
+
+.cv-profile-location {
+  margin: 0.375rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  line-height: 1.4;
+}
+
+.cv-profile-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+  flex-wrap: wrap;
+}
+
+.cv-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: calc(var(--radius) - 0.25rem);
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: background 160ms ease, opacity 160ms ease;
+  text-decoration: none;
+  border: none;
+  line-height: 1.25;
+}
+
+.cv-profile-btn-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.cv-profile-btn-primary:hover {
+  opacity: 0.88;
+}
+
+.cv-profile-btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+}
+
+.cv-profile-btn-outline:hover {
+  background: color-mix(in oklch, var(--primary) 8%, transparent);
+}
+
+/* ── Content Grid ── */
+
+.cv-content-grid {
+  width: min(72rem, calc(100% - 2rem));
+  margin: 1.25rem auto 2rem;
+  display: grid;
+  grid-template-columns: 2.2fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.cv-main-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.cv-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Section Cards ── */
+
+.cv-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 4%, transparent);
+}
+
+.cv-section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--foreground);
+  letter-spacing: -0.01em;
+}
+
+/* ── About ── */
+
+.cv-about-text {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: var(--foreground);
+}
+
+/* ── Card Stack (Experience / Education) ── */
+
+.cv-cards-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cv-card {
+  display: flex;
+  gap: 0.875rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cv-card:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.cv-card:first-child {
+  padding-top: 0;
+}
+
+/* ── Card Logo Square ── */
+
+.cv-card-logo {
+  width: 3rem;
+  height: 3rem;
+  border-radius: calc(var(--radius) - 0.25rem);
+  background: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cv-card-logo-text {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* ── Card Body ── */
+
+.cv-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.cv-card-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1.3;
+}
+
+.cv-card-subtitle {
+  margin: 0.125rem 0 0;
+  font-size: 0.9375rem;
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.cv-card-meta {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+.cv-card-location {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+.cv-card-description {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: var(--foreground);
+  line-height: 1.55;
+}
+
+/* ── Sidebar Section ── */
+
+.cv-sidebar-section {
+  padding: 1rem 1.25rem;
+}
+
+.cv-sidebar-title {
+  font-size: 1rem;
+  margin: 0 0 0.625rem;
+}
+
+.cv-sidebar-text {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--foreground);
+}
+
+.cv-sidebar-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.cv-sidebar-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Skills Tags ── */
+
+.cv-skills-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.cv-skill-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* ── Contact ── */
+
+.cv-contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.cv-contact-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.cv-contact-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.cv-contact-label {
+  font-size: 0.875rem;
+  color: var(--foreground);
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 860px) {
+  .cv-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cv-profile-header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .cv-profile-avatar-wrapper {
+    margin-top: -2rem;
+  }
+
+  .cv-profile-avatar {
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+
+  .cv-profile-avatar-fallback {
+    font-size: 1.2rem;
+  }
+
+  .cv-profile-cover {
+    height: 4rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .site-header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.625rem 0;
+    gap: 0.5rem;
+  }
+
+  .site-nav {
+    flex-wrap: wrap;
+  }
+
+  .cv-profile-header {
+    margin: 1rem auto 0;
+  }
+
+  .cv-profile-header-inner {
+    padding: 0 1rem 1rem;
+  }
+
+  .cv-profile-name {
+    font-size: 1.25rem;
+  }
+
+  .cv-profile-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .cv-profile-btn {
+    width: 100%;
+  }
+
+  .cv-section {
+    padding: 1rem;
+  }
+
+  .cv-content-grid {
+    margin: 1rem auto 1.5rem;
+    gap: 1rem;
+  }
+}

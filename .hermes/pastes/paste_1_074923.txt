@@ -1,0 +1,85 @@
+Fix and update README-LOCAL.md, but first fix:    The failure is caused by this value:
+
+provider: mlx-vlm
+
+mlx-vlm is the server implementation, not a Hermes provider name. Hermes documents self-hosted OpenAI-compatible endpoints with provider: custom, plus the endpoint URL under model.base_url.
+Replace your active Hermes model configuration with:
+
+model:
+  default: local-qwen3.6-27b-optiq-4bit
+  provider: custom
+  base_url: http://127.0.0.1:8080/v1
+  api_key: not-needed
+  context_length: 98304
+  max_tokens: 16384
+
+Your model_routes entry should also use custom, not mlx-vlm:
+
+platforms:
+  api_server:
+    enabled: true
+    extra:
+      model_routes:
+        local-qwen3.6-27b-optiq-4bit:
+          model: /Users/josoroma/models/qwen/Qwen3.6-27B-OptiQ-4bit
+          provider: custom
+          base_url: http://127.0.0.1:8080/v1
+          api_key: not-needed
+          context_length: 98304
+          max_tokens: 16384
+
+Also remove or replace these .env values:
+
+HERMES_INFERENCE_PROVIDER=mlx-vlm
+HERMES_TUI_PROVIDER=mlx-vlm
+
+Use:
+
+HERMES_MODEL=local-qwen3.6-27b-optiq-4bit
+HERMES_INFERENCE_MODEL=local-qwen3.6-27b-optiq-4bit
+HERMES_INFERENCE_PROVIDER=custom
+HERMES_TUI_PROVIDER=custom
+
+However, current Hermes documentation says ~/.hermes/config.yaml is the primary source of truth and that legacy model configuration in .env should not be relied upon. Configuration precedence places config.yaml above .env.
+Run these checks afterward:
+
+curl http://127.0.0.1:8080/v1/models
+
+
+hermes config get model
+
+
+hermes config check
+
+
+hermes doctor
+
+Then restart Hermes completely:
+
+make hermes-gateway
+
+or:
+
+hermes
+
+The safest setup path is also:
+
+hermes model
+
+Choose:
+
+Custom endpoint (self-hosted / VLLM / etc.)
+
+Then enter:
+
+Base URL: http://127.0.0.1:8080/v1
+API key: not-needed
+Model: local-qwen3.6-27b-optiq-4bit
+
+Hermes explicitly documents this workflow for any server exposing /v1/chat/completions.
+One more correction: the local model path belongs to the MLX server startup command. Hermes itself normally needs the model identifier exposed by:
+
+curl http://127.0.0.1:8080/v1/models
+
+Therefore, use the exact id returned by that endpoint as model.default. Do not assume that local-qwen3.6-27b-optiq-4bit is the server’s exposed model ID.
+Summary: change every Hermes-facing provider value from mlx-vlm to custom, put the local OpenAI-compatible URL under the top-level model section, restart Hermes, and verify that /v1/models returns the same model identifier configured in Hermes.

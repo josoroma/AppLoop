@@ -1,0 +1,87 @@
+The screenshot confirms Hermes is still receiving:
+
+Model: local-qwen3.6-27b-optiq-4bit
+
+That value is coming from the loaded environment or the active project-level Hermes config, not from the corrected Makefile.
+
+Run this from ~/projects/AppLoop:
+
+grep -RIn \
+  "local-qwen3.6-27b-optiq-4bit\|HERMES_MODEL\|HERMES_INFERENCE_MODEL" \
+  .env .hermes 2>/dev/null
+
+Then replace every stale model alias with the real local path:
+
+/Users/josoroma/models/qwen/Qwen3.6-27B-OptiQ-4bit
+
+Your project .hermes/config.yaml must start with:
+
+model:
+  default: /Users/josoroma/models/qwen/Qwen3.6-27B-OptiQ-4bit
+  provider: custom
+  base_url: http://127.0.0.1:8080/v1
+  api_key: not-needed
+  context_length: 98304
+  max_tokens: 16384
+
+Your .env and .hermes/.env should either omit the model overrides entirely or use:
+
+HERMES_INFERENCE_MODEL=/Users/josoroma/models/qwen/Qwen3.6-27B-OptiQ-4bit
+HERMES_INFERENCE_PROVIDER=custom
+OPENAI_BASE_URL=http://127.0.0.1:8080/v1
+OPENAI_API_KEY=not-needed
+
+Remove this stale value wherever it appears:
+
+HERMES_MODEL=local-qwen3.6-27b-optiq-4bit
+
+and this one:
+
+HERMES_INFERENCE_MODEL=local-qwen3.6-27b-optiq-4bit
+
+HERMES_INFERENCE_MODEL explicitly overrides the configured model for Hermes chat-style runs, and Hermes’ example config states that environment variables in .env take precedence.
+
+Check the exact environment loaded by your Makefile:
+
+set -a
+[ -f .hermes/.env ] && source .hermes/.env
+[ -f .env ] && source .env
+set +a
+
+env | grep -E '^(HERMES_MODEL|HERMES_INFERENCE_MODEL|HERMES_INFERENCE_PROVIDER|OPENAI_BASE_URL)='
+
+Expected output:
+
+HERMES_INFERENCE_MODEL=/Users/josoroma/models/qwen/Qwen3.6-27B-OptiQ-4bit
+HERMES_INFERENCE_PROVIDER=custom
+OPENAI_BASE_URL=http://127.0.0.1:8080/v1
+
+Then test the MLX server directly:
+
+curl -s http://127.0.0.1:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "/Users/josoroma/models/qwen/Qwen3.6-27B-OptiQ-4bit",
+    "messages": [{"role":"user","content":"Reply with exactly: MLX OK"}],
+    "max_tokens": 16,
+    "temperature": 0
+  }' | python3 -m json.tool
+
+MLX-LM accepts a local path or Hugging Face repository as the model identifier; the alias local-qwen3.6-27b-optiq-4bit is neither, so it attempts a Hugging Face lookup and fails.
+
+Finally, kill every existing dashboard process and restart:
+
+pkill -f "hermes dashboard" || true
+pkill -f "hermes_cli.*dashboard" || true
+make hermes-dashboard
+
+The startup log must show:
+
+Provider: custom
+Model: /Users/josoroma/models/qwen/Qwen3.6-27B-OptiQ-4bit
+
+not:
+
+Model: local-qwen3.6-27b-optiq-4bit
+
+Summary: the Makefile is no longer the blocker. A stale model override remains in .env, .hermes/.env, or .hermes/config.yaml; replace the alias with the actual local filesystem path and restart the dashboard completely.
