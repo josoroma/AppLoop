@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
-import { AlertTriangle, Bot, ChevronLeft, ChevronRight, FolderGit2, House, LoaderCircle, MousePointerClick, Play, RotateCcw, SendHorizontal, Settings2, Square, X } from "lucide-react";
+import { AlertTriangle, Bot, ChevronLeft, ChevronRight, FolderGit2, House, LoaderCircle, MousePointerClick, Play, RotateCcw, SendHorizontal, Settings2, Square, X, Undo2 } from "lucide-react";
 import { Group, Panel, Separator, usePanelRef, type Layout } from "react-resizable-panels";
 import { BuilderThemeSelect } from "@/components/builder/builder-theme-select";
 import { Button } from "@/components/ui/button";
@@ -121,6 +121,60 @@ export function BuilderShell({
   const chatBusy = chat.status === "submitted" || chat.status === "streaming";
   const hasInitialSessionRef = useRef(false);
   const checkpointsLoadedRef = useRef(false);
+  const [confirmingMessage, setConfirmingMessage] = useState<{ message: BuilderChatMessage; action: "restore" | "edit" } | null>(null);
+
+  async function doConfirmAction() {
+    if (!confirmingMessage) return;
+
+    const message = confirmingMessage.message;
+    const action = confirmingMessage.action;
+    setConfirmingMessage(null);
+
+    const cp = findCheckpointBeforeMessage(checkpoints, chat.messages, message);
+
+    if (cp) {
+      if (cp.commitHash) {
+        await revertToFileSnapshot(projectId, cp.commitHash);
+      }
+
+      if (action === "restore") {
+        chat.setMessages(messagesBeforeMessage(chat.messages, message));
+        loadCheckpoint(cp.id);
+      } else {
+        chat.setMessages(messagesBeforeMessage(chat.messages, message));
+        loadCheckpoint(cp.id);
+
+        const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]');
+        const promptText = getMessageText(message).split("Target classnames")[0]?.trim() ?? "";
+
+        if (textarea) {
+          textarea.value = promptText;
+          textarea.focus();
+        }
+      }
+    } else {
+      if (action === "restore") {
+        chat.setMessages(messagesBeforeMessage(chat.messages, message));
+      } else {
+        chat.setMessages(messagesBeforeMessage(chat.messages, message));
+
+        const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]');
+        const promptText = getMessageText(message).split("Target classnames")[0]?.trim() ?? "";
+
+        if (textarea) {
+          textarea.value = promptText;
+          textarea.focus();
+        }
+      }
+    }
+
+    await deleteProjectConversationMessagesFrom(projectId, message.id);
+
+    const fd = new FormData();
+    fd.append("projectId", projectId);
+    await restartRuntimeAction(fd);
+    setPreviewReloadKey((k) => k + 1);
+  }
 
   const handleClipboardPasteStable = useCallback(
     async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -446,78 +500,25 @@ export function BuilderShell({
                       {message.role === "user" ? "You" : "Hermes"}
                       {message.role === "user" && (
                         <div className="ml-auto flex items-center gap-1">
-                          <button
-                            className="text-[10px] text-muted-foreground hover:text-foreground"
-                            onClick={async () => {
-                              const cp = findCheckpointBeforeMessage(checkpoints, chat.messages, message);
-
-                              if (cp) {
-                                if (cp.commitHash) {
-                                  await revertToFileSnapshot(projectId, cp.commitHash);
-                                }
-
-                                chat.setMessages(messagesBeforeMessage(chat.messages, message));
-                                loadCheckpoint(cp.id);
-                              } else {
-                                chat.setMessages(messagesBeforeMessage(chat.messages, message));
-                              }
-
-                              await deleteProjectConversationMessagesFrom(projectId, message.id);
-
-                              const fd = new FormData();
-                              fd.append("projectId", projectId);
-                              await restartRuntimeAction(fd);
-                              setPreviewReloadKey((k) => k + 1);
-                            }}
+                          <Button
+                            onClick={() => setConfirmingMessage({ message, action: "restore" })}
+                            size="sm"
                             title="Restore project state to before this prompt"
                             type="button"
+                            variant="outline"
                           >
+                            <Undo2 className="size-3" />
                             Restore
-                          </button>
-                          <button
-                            className="text-[10px] text-muted-foreground hover:text-foreground"
-                            onClick={async () => {
-                              const cp = findCheckpointBeforeMessage(checkpoints, chat.messages, message);
-
-                              if (cp) {
-                                if (cp.commitHash) {
-                                  await revertToFileSnapshot(projectId, cp.commitHash);
-                                }
-
-                                chat.setMessages(messagesBeforeMessage(chat.messages, message));
-                                loadCheckpoint(cp.id);
-
-                                const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]');
-                                const promptText = getMessageText(message).split("Target classnames")[0]?.trim() ?? "";
-
-                                if (textarea) {
-                                  textarea.value = promptText;
-                                  textarea.focus();
-                                }
-                              } else {
-                                chat.setMessages(messagesBeforeMessage(chat.messages, message));
-
-                                const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]');
-                                const promptText = getMessageText(message).split("Target classnames")[0]?.trim() ?? "";
-
-                                if (textarea) {
-                                  textarea.value = promptText;
-                                  textarea.focus();
-                                }
-                              }
-
-                              await deleteProjectConversationMessagesFrom(projectId, message.id);
-
-                              const fd = new FormData();
-                              fd.append("projectId", projectId);
-                              await restartRuntimeAction(fd);
-                              setPreviewReloadKey((k) => k + 1);
-                            }}
+                          </Button>
+                          <Button
+                            onClick={() => setConfirmingMessage({ message, action: "edit" })}
+                            size="sm"
                             title="Restore to before this prompt and edit"
                             type="button"
+                            variant="outline"
                           >
                             Edit
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -854,6 +855,29 @@ export function BuilderShell({
               src={previewScreenshot.dataUrl}
             />
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmingMessage !== null} onOpenChange={(open) => { if (!open) setConfirmingMessage(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {confirmingMessage?.action === "restore" ? "Restore project state" : "Restore and edit"}
+            </DialogTitle>
+            <DialogDescription className="text-destructive">
+              This will permanently delete all messages from this prompt onward and revert the project files to their pre-prompt state.
+              {confirmingMessage?.action === "edit" ? " The original prompt text will be placed back in the textarea for editing." : ""}
+              {" "}This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setConfirmingMessage(null)} size="sm" variant="outline">
+              Cancel
+            </Button>
+            <Button onClick={doConfirmAction} size="sm" variant="destructive">
+              {confirmingMessage?.action === "restore" ? "Restore" : "Restore and edit"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </main>
