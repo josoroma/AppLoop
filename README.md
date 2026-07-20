@@ -1,5 +1,7 @@
 # AppLoop
 
+<a href="https://www.producthunt.com/products/apploop-2?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-apploop-2" target="_blank" rel="noopener noreferrer"><img alt="AppLoop - Visually build apps with local AI Hermes Loop | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1200850&amp;theme=light&amp;t=1784553733258"></a>
+
 AppLoop is a local-first visual builder for generated Next.js apps. It gives each project its own workspace, preview port, runtime process, persisted Hermes chat, theme settings, and live iframe preview.
 
 The builder itself runs on `http://localhost:3001`. Generated apps run separately on `http://127.0.0.1:3100+`.
