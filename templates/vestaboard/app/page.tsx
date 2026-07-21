@@ -1,20 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 const BOARD_COLS = 22
 const BOARD_ROWS = 6
 const TOTAL_TILES = BOARD_COLS * BOARD_ROWS
-
-const TILE_COLORS = [
-  'vestaboard-tile-offwhite',
-  'vestaboard-tile-yellow',
-  'vestaboard-tile-orange',
-  'vestaboard-tile-red',
-  'vestaboard-tile-blue',
-  'vestaboard-tile-green',
-  'vestaboard-tile-purple',
-]
 
 const DEFAULT_MESSAGES = [
   'GOOD MORNING',
@@ -78,20 +68,14 @@ function Tile({
 
 export default function Home() {
   const [input, setInput] = useState('')
-  const [displayMessage, setDisplayMessage] = useState(() =>
-    normalizeMessage(DEFAULT_MESSAGES[0]),
-  )
-  const [hydrated, setHydrated] = useState(false)
+  const [displayMessage, setDisplayMessage] = useState(() => {
+    const initial =
+      DEFAULT_MESSAGES[Math.floor(Math.random() * DEFAULT_MESSAGES.length)]
+    return normalizeMessage(initial)
+  })
   const [flippingIndices, setFlippingIndices] = useState<Set<number>>(new Set())
   const [messages, setMessages] = useState<MessageEntry[]>([])
   const [messageVersion, setMessageVersion] = useState(0)
-
-  useEffect(() => {
-    setHydrated(true)
-    const randomMessage =
-      DEFAULT_MESSAGES[Math.floor(Math.random() * DEFAULT_MESSAGES.length)]
-    setDisplayMessage(normalizeMessage(randomMessage))
-  }, [])
 
   const displayChars = useMemo(() => {
     if (!displayMessage) return Array(TOTAL_TILES).fill(' ')
@@ -161,6 +145,7 @@ export default function Home() {
           <div
             className="vestaboard-grid vestaboard-tile-grid"
             data-builder-id="vestaboard-tile-grid"
+            suppressHydrationWarning
           >
             {displayChars.map((char, i) => (
               <Tile
