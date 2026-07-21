@@ -247,18 +247,14 @@ body {
 }
 
 .cv-sidebar-avatar-fallback {
-  background:
-    radial-gradient(circle at 30% 20%, oklch(1 0 0 / 16%), transparent 38%),
-    radial-gradient(circle at 70% 75%, oklch(0.599 0.225 -64.449 / 26%), transparent 42%),
-    linear-gradient(135deg, oklch(0.18 0.018 265), oklch(0.075 0.012 265) 42%, oklch(0.018 0.006 265));
+  background: white;
   box-shadow:
     inset 0 0 1.5rem oklch(1 0 0 / 10%),
     0 0 1.2rem oklch(0.599 0.225 -64.449 / 22%);
-  color: oklch(1 0 0 / 90%);
 }
 
 .cv-sidebar-avatar-user-icon {
-  color: oklch(1 0 0 / 88%);
+  color: oklch(0.34 0.045 275);
   filter: drop-shadow(0 0 6px oklch(0.599 0.225 -64.449 / 42%));
 }
 
@@ -967,10 +963,7 @@ body {
 }
 
 .cv-sidebar-avatar-fallback {
-  background:
-    radial-gradient(circle at 35% 25%, oklch(1 0 0 / 22%), transparent 36%),
-    radial-gradient(circle at 68% 75%, oklch(0.62 0.30 286 / 40%), transparent 46%),
-    linear-gradient(135deg, #161625, #08080d 46%, #020203);
+  background: white;
   box-shadow:
     inset 0 0 1.5rem oklch(1 0 0 / 12%),
     0 0 2.1rem oklch(0.58 0.28 286 / 34%);
