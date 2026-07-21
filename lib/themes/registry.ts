@@ -38,7 +38,7 @@ export const REQUIRED_THEME_TOKENS = [
   "--sidebar-ring",
 ] as const;
 
-const IGNORED_CUSTOM_THEME_TOKENS = new Set(["--destructive-foreground"]);
+const IGNORED_CUSTOM_THEME_TOKENS = new Set(["--destructive-foreground", "--board"]);
 
 const projectThemeSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/),
