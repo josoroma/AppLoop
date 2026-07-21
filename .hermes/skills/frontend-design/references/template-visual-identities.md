@@ -70,6 +70,21 @@ Good CSS patterns:
 }
 ```
 
+## Vestaboard: physical chaotic split-flap chassis
+
+For `templates/vestaboard`, the desired direction is a mechanical split-flap studio, not a polished form/chat mock.
+
+Key traits:
+
+- Dark metal chassis + ambient stage glow + 22×6 lit/unlit tiles.
+- Messages auto-center across rows; blank tiles stay dark/unlit.
+- Word transitions must look disordered: multi-wave random glyph scrambles, jittered flip delays, collateral neighbor flips, then settle. User saying “lacks more disorder” means bump scramble intensity, not polish CSS.
+- Keep `template-vestaboard` body classname and template-specific theme storage if present.
+- Nested chassis text uses hardcoded light oklch, never bare muted theme tokens.
+- Create-template CSS may include `--board`; keep it in `IGNORED_CUSTOM_THEME_TOKENS`, not required tokens.
+
+See `generated-app-standards/references/vestaboard-template.md` for implementation mechanics.
+
 ## Luminous Rings: colored spinning laser rings
 
 For `templates/luminous-rings`, the target is: colored lasers spinning in circles, forming luminous concentric rings in blue, pink, purple, and white against a dark background.

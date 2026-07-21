@@ -97,7 +97,8 @@ The create-template UI should show an editable textarea prefilled with canonical
 
 1. Read `themeCss` from the form.
 2. Normalize before parsing: trim whitespace, strip optional Markdown fences such as ```css ... ```, strip block comments (`/* ... */`), and strip line comments (`// ...`). Users often paste theme CSS from chat/spec text; comments/fences should not trip the token-only parser.
-3. Parse with `createCustomTheme(themeCss)`. The parser validates required tokens and rejects imports/URLs/arbitrary selectors, but tolerates: known legacy shadcn tokens AppLoop does not consume (especially `--destructive-foreground`), and tokens missing from `.dark` that are present in `:root` (dark values fall back to their light equivalents — this handles `--radius` and other layout-only tokens commonly defined only in `:root`).
+3. Parse with `createCustomTheme(themeCss)`. The parser validates required tokens and rejects imports/URLs/arbitrary selectors, but tolerates: known legacy/template-local tokens listed in `IGNORED_CUSTOM_THEME_TOKENS` (especially `--destructive-foreground`, `--board`), and tokens missing from `.dark` that are present in `:root` (dark values fall back to their light equivalents — this handles `--radius` and other layout-only tokens commonly defined only in `:root`).
+   - Failure mode: create-template aborts before Hermes runs with `Custom themes cannot define unsupported token --board`. That means the template CSS var is missing from `IGNORED_CUSTOM_THEME_TOKENS` in `lib/themes/registry.ts` — add it there; do not add specialty layout vars to `REQUIRED_THEME_TOKENS`.
 4. Apply with `applyThemeToWorkspace(templateRoot, theme)` before sending Hermes the authoring prompt.
 5. For projects created from custom templates, avoid applying a built-in theme over the copied template CSS when the selected template's default theme id is the custom template id.
 

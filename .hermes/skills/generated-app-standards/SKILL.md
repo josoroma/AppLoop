@@ -49,7 +49,7 @@ Do not use this skill to edit AppLoop builder source files.
 - Put reusable UI under colocated `components/` folders for the route or feature that owns them.
 - Put semantic class names on inspectable boundaries from the frontend design output.
 - Use stable semantic class names such as `dashboard-header`, `dashboard-content`, `left-column`, `center-column`, `right-column`, `dashboard-footer`, `analytics-card`, `summary-card`, `primary-actions`, and `secondary-actions` on user-meaningful boundaries.
-- The root `<body>` element must carry the template classname: `template-default` for `default`, `template-admin-luma` for `admin-luma`, `template-ai-engineer-cv` for `ai-engineer-cv`, `template-deep-research-paper` for `deep-research-paper`, `template-luminous-rings` for `luminous-rings`, or `template-solar-system` for `solar-system`. Never remove or rename this classname — it identifies the template source in inspect mode and disambiguates overlapping semantic classnames between templates.
+- The root `<body>` element must carry the template classname: `template-default` for `default`, `template-admin-luma` for `admin-luma`, `template-ai-engineer-cv` for `ai-engineer-cv`, `template-deep-research-paper` for `deep-research-paper`, `template-luminous-rings` for `luminous-rings`, `template-solar-system` for `solar-system`, or `template-vestaboard` for `vestaboard`. Never remove or rename this classname — it identifies the template source in inspect mode and disambiguates overlapping semantic classnames between templates.
 - Every user-visible template UI element should have classnames. Use shared/base classnames for styling and grouping, plus a unique, human-readable classname for inspect-mode targeting.
 - Repeated elements (e.g. cards rendered via `.map()`) must have both a shared base classname (for grouping, e.g. `metric-card summary-card`) AND a unique per-instance descriptive classname (for precise inspect-mode identification, e.g. `metric-revenue`, `metric-active-users`). Without the unique classname, all instances appear identical in inspect mode and the user cannot target a specific one.
   - **Write the unique classname LAST** in the className string: `metric-card summary-card metric-revenue`. The `createSelectionPayload` in `inspector-provider.tsx` picks the LAST classname as `preferredSelector`, which is the key used for multi-select toggling. If two elements share the same last classname, they collide and multi-select breaks.
@@ -116,6 +116,90 @@ onSubmit={async (event) => {
 
 This applies to any form handler that calls a server action, `fetch`, or any async operation where the form needs to be accessed afterward.
 
+## React Hooks Pitfalls
+
+The template ESLint config enforces `react-hooks/set-state-in-effect` and `react-hooks/refs`. These fire frequently on first-pass template page code. Fix them before running `npm run lint` — they are always avoidable with the patterns below.
+
+### Pitfall — setState inside useEffect for initialization
+
+Calling `setState` synchronously inside `useEffect` triggers a cascading re-render and fails lint. Use a lazy initializer on `useState` instead.
+
+```typescript
+// WRONG — fires react-hooks/set-state-in-effect
+const [value, setValue] = useState('')
+useEffect(() => {
+  setValue(computeDefault())
+}, [])
+
+// CORRECT — lazy initializer, runs once during mount
+const [value, setValue] = useState(() => computeDefault())
+```
+
+The lazy initializer function is only invoked during the initial render. It can safely compute derived state from constants, props, or synchronous pure functions. **However, it runs on BOTH the server and the client during SSR + hydration — see the next pitfall for non-deterministic values.**
+
+### Pitfall — Non-deterministic state causing hydration mismatches
+
+`Math.random()`, `Date.now()`, `new Date()`, and `toLocaleTimeString()` produce different values on the server vs the client. When used in `useState` lazy initializers or directly in JSX, they cause React hydration errors because the server-rendered HTML doesn't match what the client expects.
+
+```typescript
+// WRONG — hydration mismatch: server and client pick different messages
+const [message, setMessage] = useState(() => {
+  const msgs = ['Hello', 'Welcome', 'Good morning']
+  return msgs[Math.floor(Math.random() * msgs.length)]
+})
+
+// WRONG — hydration mismatch: server and client format time differently
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+```
+
+**Fix for non-deterministic content (preferred)**: Use `suppressHydrationWarning` on the container when the content is expected to differ between server and client:
+
+```tsx
+<div suppressHydrationWarning>
+  {randomMessage}
+</div>
+```
+
+This tells React that the subtree's text content may legitimately differ during hydration. Keep `Math.random()` in the `useState` lazy initializer.
+
+For multi-tile/board UIs (Vestaboard), put `suppressHydrationWarning` on the **tile grid container** and any live status that echoes the random message. Do not “fix” randomness with `useEffect` + `setState` after mount — that trips `react-hooks/set-state-in-effect` and still flashes content.
+
+**Fix for locale-dependent formatting**: Replace `toLocaleTimeString()` with explicit `getHours()` / `getMinutes()` / `getSeconds()` formatting to guarantee deterministic output:
+
+```typescript
+function formatTime(date: Date): string {
+  const h = date.getHours().toString().padStart(2, '0')
+  const m = date.getMinutes().toString().padStart(2, '0')
+  return `${h}:${m}`
+}
+```
+
+**Anti-pattern — useEffect for client-only initialization**: Using `useEffect` to set random state after mount works functionally, but triggers `react-hooks/set-state-in-effect` in most configs. Prefer `suppressHydrationWarning` unless the random value truly cannot render on the server (e.g., it accesses `window` or `document`).
+
+### Pitfall — useRef.current in JSX keys or render
+
+Accessing `ref.current` during render fails `react-hooks/refs` because refs are not reactive — mutating them does not trigger re-renders, so reading them in JSX produces stale values. Replace with a `useState` counter.
+
+```typescript
+// WRONG — fires react-hooks/refs
+const versionRef = useRef(0)
+return items.map((item, i) => (
+  <Item key={`${i}-${versionRef.current}`} />  // ref in JSX
+))
+// onClick: versionRef.current += 1             // mutation, no re-render
+
+// CORRECT — state counter triggers re-render
+const [version, setVersion] = useState(0)
+return items.map((item, i) => (
+  <Item key={`${i}-${version}`} />              // reactive state
+))
+// onClick: setVersion((v) => v + 1)             // triggers re-render + fresh keys
+```
+
+This pattern is common when you need cache-busting keys for list items after state changes (e.g., tile flip animations, forced remounts). Use `useState` for the counter and `setVersion((v) => v + 1)` to bump it.
+
 ## Portal Rendering with SSR Guard
 
 When rendering to `document.body` via `createPortal`, the call fails during server-side rendering because `document` is not defined.
@@ -155,7 +239,7 @@ The `overflow-y-auto` on the middle row handles vertical scrolling; add `overflo
 
 ## Template Propagation
 
-**See also**: [`references/chat-checkpoints.md`](references/chat-checkpoints.md) for the git-backed checkpoint and session history system, [`references/template-rename.md`](references/template-rename.md) for the complete template rename/restructure workflow, [`references/template-theme-override.md`](references/template-theme-override.md) for overriding a template's visual design from a reference website, [`references/cv-subpages.md`](references/cv-subpages.md) for adding about-me / interview-QA subpages to the ai-engineer-cv template, [`references/solar-system-scene-physics.md`](references/solar-system-scene-physics.md) for physically plausible solar-system orbit spacing, scale compression, Sun card behavior, and scene verification, [`references/template-selection-workspace-integrity.md`](references/template-selection-workspace-integrity.md) for diagnosing generated projects that were named like one template but copied from `template-default` due to missing template form data, [`references/custom-template-authoring.md`](references/custom-template-authoring.md) for the `/projects` New Template flow with editable theme CSS and DB-backed custom templates, and [`references/makefile-template-seeding.md`](references/makefile-template-seeding.md) for the Makefile targets to clean and seed template dependencies.
+**See also**: [`references/chat-checkpoints.md`](references/chat-checkpoints.md) for the git-backed checkpoint and session history system, [`references/template-rename.md`](references/template-rename.md) for the complete template rename/restructure workflow, [`references/template-theme-override.md`](references/template-theme-override.md) for overriding a template's visual design from a reference website, [`references/cv-subpages.md`](references/cv-subpages.md) for adding about-me / interview-QA subpages to the ai-engineer-cv template, [`references/solar-system-scene-physics.md`](references/solar-system-scene-physics.md) for physically plausible solar-system orbit spacing, scale compression, Sun card behavior, and scene verification, [`references/vestaboard-template.md`](references/vestaboard-template.md) for the Vestaboard split-flap specialty (22×6 centered layout, cascaded flips, chassis contrast, create-template `--board` token handling), [`references/template-selection-workspace-integrity.md`](references/template-selection-workspace-integrity.md) for diagnosing generated projects that were named like one template but copied from `template-default` due to missing template form data, [`references/custom-template-authoring.md`](references/custom-template-authoring.md) for the `/projects` New Template flow with editable theme CSS and DB-backed custom templates, and [`references/makefile-template-seeding.md`](references/makefile-template-seeding.md) for the Makefile targets to clean and seed template dependencies.
 
 **Generated project → template source sync**: When the user customizes a generated project's design in the browser (AppLoop prompts, theme tweaks, manual CSS edits), those changes only exist in `.apploop/projects/<slug>/`. To make them permanent for new projects, copy the changed files back to the template source. Use `diff` first to identify which files changed, then `cp` them:
 
