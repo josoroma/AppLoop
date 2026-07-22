@@ -176,8 +176,21 @@ Primary pack:
 
 Verified fix after user “content overlaps” report on `README-HERMES.html` hero KPIs. Condensed recipe also in [`references/docs-html-kpi-overflow.md`](references/docs-html-kpi-overflow.md).
 
+## Create-template prompt packs
+
+When the user wants a prompt *to run through* Create Template UI, deliver a paste pack (name / short description / long authoring prompt). Details: [`references/create-template-prompt-pack.md`](references/create-template-prompt-pack.md).
+
+## Product docs / SPECS / ship
+
+Root `SPECS.md` + README Product Hunt/YouTube + authority order + push-to-main notes: [`references/product-docs-and-main-ship.md`](references/product-docs-and-main-ship.md).
+
+## Immersive neon field specialty
+
+Square-framed horizontal neon fabric / R3F + bloom + spring pointer ref store: [`references/immersive-neon-field.md`](references/immersive-neon-field.md).
+
 ## Related detail
 
 - Template-authoring internals: generated-app-standards `references/custom-template-authoring.md` (may lag if protected)
+- Prefer also patching `generated-app-standards` / `theme-system` when unlocked — they currently reject autonomous curator writes
 - `.apploop` vs `.hermes` coupling + agentBundle: hermes-gateway skill + `docs/README-HERMES.html`
-- Prefer **this** skill for builder UI route/redirect/CTA/ops decisions
+- Prefer **this** skill for builder UI route/redirect/CTA/ops/docs decisions

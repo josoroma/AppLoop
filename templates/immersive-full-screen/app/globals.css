@@ -1,0 +1,166 @@
+@import "tailwindcss";
+
+:root {
+  --background: oklch(0.14 0.05 310);
+  --foreground: oklch(0.96 0.02 210);
+  --card: oklch(0.2 0.06 308);
+  --card-foreground: oklch(0.96 0.02 210);
+  --popover: oklch(0.2 0.06 308);
+  --popover-foreground: oklch(0.96 0.02 210);
+  --primary: oklch(0.8 0.16 205);
+  --primary-foreground: oklch(0.14 0.04 310);
+  --secondary: oklch(0.28 0.08 305);
+  --secondary-foreground: oklch(0.94 0.03 220);
+  --muted: oklch(0.24 0.05 310);
+  --muted-foreground: oklch(0.72 0.05 290);
+  --accent: oklch(0.7 0.22 335);
+  --accent-foreground: oklch(0.98 0.01 330);
+  --destructive: oklch(0.68 0.2 25);
+  --border: oklch(0.6 0.12 295 / 30%);
+  --input: oklch(0.34 0.08 305 / 70%);
+  --ring: oklch(0.8 0.16 205);
+  --chart-1: oklch(0.82 0.16 205);
+  --chart-2: oklch(0.7 0.23 335);
+  --chart-3: oklch(0.74 0.2 25);
+  --chart-4: oklch(0.84 0.16 88);
+  --chart-5: oklch(0.68 0.2 285);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.18 0.05 310);
+  --sidebar-foreground: oklch(0.96 0.02 210);
+  --sidebar-primary: oklch(0.8 0.16 205);
+  --sidebar-primary-foreground: oklch(0.14 0.04 310);
+  --sidebar-accent: oklch(0.28 0.08 320);
+  --sidebar-accent-foreground: oklch(0.96 0.02 210);
+  --sidebar-border: oklch(0.6 0.12 295 / 28%);
+  --sidebar-ring: oklch(0.7 0.22 335);
+}
+
+.dark {
+  --background: oklch(0.1 0.04 310);
+  --foreground: oklch(0.97 0.02 210);
+  --card: oklch(0.15 0.05 310);
+  --card-foreground: oklch(0.97 0.02 210);
+  --popover: oklch(0.16 0.055 310);
+  --popover-foreground: oklch(0.97 0.02 210);
+  --primary: oklch(0.84 0.17 205);
+  --primary-foreground: oklch(0.12 0.03 310);
+  --secondary: oklch(0.23 0.07 305);
+  --secondary-foreground: oklch(0.95 0.03 215);
+  --muted: oklch(0.2 0.05 310);
+  --muted-foreground: oklch(0.7 0.05 290);
+  --accent: oklch(0.73 0.23 335);
+  --accent-foreground: oklch(0.985 0.01 330);
+  --destructive: oklch(0.71 0.21 25);
+  --border: oklch(0.68 0.14 295 / 22%);
+  --input: oklch(0.76 0.1 285 / 12%);
+  --ring: oklch(0.84 0.17 205);
+  --chart-1: oklch(0.85 0.17 205);
+  --chart-2: oklch(0.74 0.23 335);
+  --chart-3: oklch(0.75 0.2 25);
+  --chart-4: oklch(0.85 0.16 88);
+  --chart-5: oklch(0.72 0.21 285);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.13 0.045 310);
+  --sidebar-foreground: oklch(0.97 0.02 210);
+  --sidebar-primary: oklch(0.84 0.17 205);
+  --sidebar-primary-foreground: oklch(0.12 0.03 310);
+  --sidebar-accent: oklch(0.24 0.08 320);
+  --sidebar-accent-foreground: oklch(0.97 0.02 210);
+  --sidebar-border: oklch(0.68 0.14 295 / 20%);
+  --sidebar-ring: oklch(0.73 0.23 335);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: #0b0414;
+  color: var(--foreground);
+  font-family: "Avenir Next", "Helvetica Neue", sans-serif;
+}
+
+.immersive-shell {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 48%, oklch(0.28 0.12 310 / 55%), transparent 42%),
+    radial-gradient(circle at 50% 100%, oklch(0.18 0.08 320 / 50%), transparent 55%),
+    #0b0414;
+}
+
+.neon-field-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.neon-field-void {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 48%, oklch(0.32 0.14 315 / 35%), transparent 70%),
+    radial-gradient(circle at 50% 50%, transparent 0%, oklch(0.08 0.03 300 / 85%) 78%);
+  pointer-events: none;
+}
+
+.neon-field-frame {
+  position: relative;
+  width: min(92vmin, 920px);
+  aspect-ratio: 1 / 1;
+  border-radius: 0.35rem;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px oklch(0.82 0.12 310 / 12%),
+    0 0 80px oklch(0.55 0.2 320 / 28%),
+    0 30px 90px oklch(0.05 0.02 300 / 65%);
+  background: #12061f;
+}
+
+.neon-field-canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.neon-field-canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.neon-field-haze {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 45%, transparent 48%, oklch(0.12 0.05 310 / 40%) 100%),
+    linear-gradient(180deg, oklch(0.7 0.1 320 / 6%), transparent 30%, transparent 70%, oklch(0.2 0.08 300 / 18%));
+  mix-blend-mode: screen;
+}
+
+@media (max-width: 640px) {
+  .neon-field-frame {
+    width: min(96vw, 96dvh);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neon-field-stage {
+    cursor: default;
+  }
+}
