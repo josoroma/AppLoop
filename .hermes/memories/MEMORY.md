@@ -2,9 +2,9 @@ AppLoop inspect: clipboard paste (Ctrl+V) only screenshot. Multi-select toggle. 
 §
 User preference: If a visual/UI feature produces incorrect output and the user rejects it 2+ times ("no", "nope", "not equal", "still not the same"), stop iterating and offer removal or a fundamentally different approach. Don't repeatedly swap libraries/approaches when the user is signaling they want a different direction. This applies especially to screenshot/image capture features.
 §
-AppLoop: useChat id = projectId. Sessions in chat_checkpoints DB, saved after Hermes response + switch. New session = chat.setMessages([]). Preview loading bg-black. CSS reload via restartRuntimeAction.
+AppLoop: useChat id=projectId. Checkpoints in chat_checkpoints. New session clears messages. Preview load bg-black. Post-Hermes CSS: cache-bust iframe ?_t= (not runtime restart). Create-project local-only; create-template Hermes first. Docs: docs/README-USER-FLOW-*.md.
 §
-AppLoop visual prompt: "Target classnames (ONLY modify elements matching these selectors or their descendants)". Use preferredSelector (last classname), not shared base.
+AppLoop visual prompt: preferredSelector=last classname; compose with Target selections JSON boundaries via createVisualSelectionPrompt.
 §
 AppLoop restore: removes clicked prompt + all later messages from UI and persisted DB (timestamp-based delete to catch orphan assistant rows).
 §

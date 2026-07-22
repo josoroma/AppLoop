@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Copy, FolderGit2, House, Pencil, Trash2 } from "lucide-react";
+import { Copy, FolderGit2, House, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cloneTemplateAction, deleteTemplateAction, editTemplateAction } from "@/lib/projects/actions";
 import { getProjectRepository } from "@/lib/projects/store";
@@ -25,7 +25,7 @@ export default async function TemplatesPage({ searchParams }: TemplatesPageProps
   const templatePage = paginateItems(templates, requestedPage, pageSize);
 
   return (
-    <main className="min-h-screen px-6 py-8">
+    <main className="luma-list-page min-h-screen px-6 py-8">
       <section className="mx-auto flex max-w-6xl items-center justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -33,15 +33,23 @@ export default async function TemplatesPage({ searchParams }: TemplatesPageProps
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-normal">Templates</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Browse reusable project templates. Editing clones a template into a new custom template workspace, then opens the builder chat with template-scoped guardrails.
+            Browse reusable project templates. Create new ones from a full page, or edit existing templates in place with template-scoped builder guardrails.
           </p>
         </div>
-        <Button asChild variant="secondary">
-          <Link href="/projects">
-            <House className="size-4" />
-            Projects
-          </Link>
-        </Button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button asChild variant="outline">
+            <Link href="/projects">
+              <House className="size-4" />
+              Projects
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/templates/new">
+              <Plus className="size-4" />
+              New template
+            </Link>
+          </Button>
+        </div>
       </section>
 
       <section className="mx-auto mt-8 grid max-w-6xl gap-4 md:grid-cols-2">

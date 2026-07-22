@@ -58,16 +58,20 @@ export async function createCustomTemplateAction(formData: FormData) {
   const description = String(formData.get("description") ?? "");
   const prompt = String(formData.get("prompt") ?? "");
   const themeCss = String(formData.get("themeCss") ?? "");
+  const repository = getProjectRepository();
 
-  await createCustomTemplate(getProjectRepository(), {
+  const template = await createCustomTemplate(repository, {
     name,
     description,
     prompt,
     themeCss,
   });
 
+  const { projectId } = await openTemplateForEditing(repository, template.id);
+
   revalidatePath("/projects");
   revalidatePath("/templates");
+  redirect(`/projects/${projectId}`);
 }
 
 export async function editTemplateAction(formData: FormData) {

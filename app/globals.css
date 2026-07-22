@@ -198,35 +198,85 @@ select {
   border-radius: var(--radius-sm);
 }
 
-.project-create-scrollarea {
+.luma-list-page,
+.luma-create-page {
   position: relative;
-  scrollbar-gutter: stable;
-  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 58%, transparent) color-mix(in oklch, var(--secondary) 70%, transparent);
-  scrollbar-width: thin;
-  background-image:
-    linear-gradient(color-mix(in oklch, var(--secondary) 72%, transparent), color-mix(in oklch, var(--secondary) 72%, transparent)),
-    linear-gradient(color-mix(in oklch, var(--muted-foreground) 62%, transparent), color-mix(in oklch, var(--muted-foreground) 62%, transparent));
-  background-position:
-    right 0.5rem top 1rem,
-    right 0.5rem top 1rem;
-  background-repeat: no-repeat;
-  background-size:
-    0.25rem calc(100% - 2rem),
-    0.25rem 8rem;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 14%, transparent), transparent 28rem),
+    radial-gradient(circle at top right, color-mix(in oklch, var(--chart-1) 10%, transparent), transparent 24rem),
+    linear-gradient(180deg, var(--background), color-mix(in oklch, var(--background) 92%, var(--secondary)));
 }
 
-.project-create-scrollarea::-webkit-scrollbar {
-  width: 0.625rem;
+.luma-create-page {
+  overflow: clip;
 }
 
-.project-create-scrollarea::-webkit-scrollbar-track {
-  background: color-mix(in oklch, var(--secondary) 70%, transparent);
-}
-
-.project-create-scrollarea::-webkit-scrollbar-thumb {
-  border: 2px solid color-mix(in oklch, var(--secondary) 70%, transparent);
+.luma-create-ambient {
+  position: absolute;
+  inset: 4rem auto auto 8%;
+  z-index: -1;
+  width: min(32rem, 55vw);
+  height: 18rem;
   border-radius: 999px;
-  background: color-mix(in oklch, var(--muted-foreground) 58%, transparent);
+  background: radial-gradient(circle, color-mix(in oklch, var(--primary) 22%, transparent), transparent 70%);
+  filter: blur(28px);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.luma-create-ambient-secondary {
+  inset: 10rem 8% auto auto;
+  width: min(28rem, 48vw);
+  background: radial-gradient(circle, color-mix(in oklch, var(--chart-1) 18%, transparent), transparent 72%);
+}
+
+.luma-create-shell {
+  position: relative;
+}
+
+.luma-create-header,
+.luma-create-panel,
+.luma-create-footer {
+  backdrop-filter: blur(14px);
+}
+
+.luma-create-panel,
+.luma-create-footer {
+  box-shadow:
+    0 1px 0 color-mix(in oklch, white 45%, transparent),
+    0 18px 40px color-mix(in oklch, var(--foreground) 5%, transparent);
+}
+
+.luma-create-input {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.luma-create-input:focus {
+  border-color: color-mix(in oklch, var(--primary) 55%, var(--border));
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 16%, transparent);
+}
+
+.luma-select-card {
+  box-shadow: inset 0 1px 0 color-mix(in oklch, white 35%, transparent);
+}
+
+.luma-select-card:hover {
+  background: color-mix(in oklch, var(--background) 88%, var(--primary) 6%);
+}
+
+.dark .luma-create-panel,
+.dark .luma-create-footer {
+  box-shadow:
+    0 1px 0 color-mix(in oklch, white 8%, transparent),
+    0 18px 40px color-mix(in oklch, black 28%, transparent);
+}
+
+.dark .luma-select-card {
+  box-shadow: inset 0 1px 0 color-mix(in oklch, white 6%, transparent);
 }
 
 .theme-preview-swatch {

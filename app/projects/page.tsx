@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { Activity, AlertTriangle, ArchiveRestore, Copy, ExternalLink, FolderGit2, LayoutTemplate, LoaderCircle, Pencil, Square, Trash2 } from "lucide-react";
+import { Activity, AlertTriangle, ArchiveRestore, Copy, ExternalLink, FolderGit2, LayoutTemplate, LoaderCircle, Pencil, Plus, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CustomTemplateCreateDialog, ProjectCreateDialog } from "@/components/projects/project-create-dialog";
 import {
   archiveProjectAction,
   deleteProjectAction,
@@ -11,8 +10,7 @@ import {
   restoreProjectAction,
 } from "@/lib/projects/actions";
 import { formatProjectWorkspacePath } from "@/lib/projects/service";
-import { getProjectRepository, getProjectService } from "@/lib/projects/store";
-import { listSelectableProjectTemplates } from "@/lib/projects/template-authoring";
+import { getProjectService } from "@/lib/projects/store";
 import { stopRuntimeAction } from "@/lib/runtime/actions";
 
 export const dynamic = "force-dynamic";
@@ -35,16 +33,15 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
   const pageSize = parsePageSize(params?.pageSize);
   const activePage = parsePage(params?.page);
   const archivedPage = parsePage(params?.archivedPage);
-  const [activeProjects, archivedProjects, templates] = await Promise.all([
+  const [activeProjects, archivedProjects] = await Promise.all([
     getProjectService().listActiveProjects(),
     getProjectService().listArchivedProjects(),
-    listSelectableProjectTemplates(getProjectRepository()),
   ]);
   const activeProjectPage = paginateItems(activeProjects, activePage, pageSize);
   const archivedProjectPage = paginateItems(archivedProjects, archivedPage, pageSize);
 
   return (
-    <main className="min-h-screen px-6 py-8">
+    <main className="luma-list-page min-h-screen px-6 py-8">
       <section className="mx-auto flex max-w-6xl items-center justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -59,8 +56,12 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
               Templates
             </Link>
           </Button>
-          <CustomTemplateCreateDialog />
-          <ProjectCreateDialog templates={templates} />
+          <Button asChild>
+            <Link href="/projects/new">
+              <Plus className="size-4" />
+              New project
+            </Link>
+          </Button>
         </div>
       </section>
 

@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AppLoop · .apploop & .hermes Architecture</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --background: oklch(0.145 0 0);
+        --foreground: oklch(0.985 0 0);
+        --card: oklch(0.205 0 0);
+        --primary: oklch(0.488 0.243 264.376);
+        --secondary: oklch(0.274 0.006 286.033);
+        --muted: oklch(0.269 0 0);
+        --muted-foreground: oklch(0.708 0 0);
+        --destructive: oklch(0.704 0.191 22.216);
+        --border: oklch(1 0 0 / 12%);
+        --chart-1: oklch(0.845 0.143 164.978);
+        --chart-2: oklch(0.696 0.17 162.48);
+        --radius: 0.75rem;
+        --code: oklch(0.17 0.01 285);
+        --glow: color-mix(in oklch, var(--primary) 28%, transparent);
+        --font: "Avenir Next", "SF Pro Display", "Segoe UI", "Helvetica Neue", sans-serif;
+        --mono: "SF Mono", "Menlo", "Consolas", ui-monospace, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        font-family: var(--font);
+        color: var(--foreground);
+        background:
+          radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 18%, transparent), transparent 30rem),
+          radial-gradient(circle at 90% 8%, color-mix(in oklch, var(--chart-1) 12%, transparent), transparent 24rem),
+          linear-gradient(180deg, oklch(0.12 0.01 285), var(--background) 28%, oklch(0.12 0.008 260));
+        line-height: 1.6;
+      }
+      a { color: color-mix(in oklch, var(--primary) 72%, white); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      code, pre { font-family: var(--mono); }
+      code {
+        padding: 0.1rem 0.35rem;
+        border-radius: 0.35rem;
+        background: color-mix(in oklch, var(--code) 88%, black);
+        border: 1px solid var(--border);
+        font-size: 0.9em;
+      }
+      pre {
+        overflow: auto;
+        margin: 0;
+        padding: 1rem 1.1rem;
+        border-radius: calc(var(--radius) - 0.15rem);
+        border: 1px solid var(--border);
+        background: color-mix(in oklch, var(--code) 92%, black);
+        color: color-mix(in oklch, white 88%, var(--chart-2));
+        font-size: 0.82rem;
+        line-height: 1.55;
+      }
+      .shell { width: min(1120px, calc(100% - 2rem)); margin: 0 auto; padding: 2.5rem 0 4rem; }
+      .hero, .card, .toc, .kpi, .callout, .table-wrap, .layer {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: color-mix(in oklch, var(--card) 88%, transparent);
+        box-shadow: 0 1px 0 color-mix(in oklch, white 6%, transparent), 0 18px 50px color-mix(in oklch, black 28%, transparent);
+        backdrop-filter: blur(14px);
+      }
+      .hero { position: relative; overflow: hidden; padding: 2rem; }
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: -18% auto auto -8%;
+        width: 16rem;
+        height: 16rem;
+        border-radius: 999px;
+        background: radial-gradient(circle, var(--glow), transparent 70%);
+        filter: blur(12px);
+        pointer-events: none;
+      }
+      .eyebrow {
+        margin: 0 0 0.6rem;
+        color: var(--muted-foreground);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      h1, h2, h3, p { margin-top: 0; }
+      h1 {
+        margin-bottom: 0.75rem;
+        font-size: clamp(1.9rem, 4vw, 2.6rem);
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+      h2 { margin: 0 0 0.85rem; font-size: 1.4rem; letter-spacing: -0.02em; }
+      h3 { margin: 0 0 0.55rem; font-size: 1.05rem; }
+      .lead { max-width: 72ch; color: var(--muted-foreground); font-size: 1.05rem; }
+      .muted { color: var(--muted-foreground); }
+      .meta-row { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 1.25rem; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        padding: 0.35rem 0.7rem; border-radius: 999px; border: 1px solid var(--border);
+        background: color-mix(in oklch, var(--secondary) 70%, transparent);
+        font-size: 0.78rem; font-weight: 650;
+      }
+      .pill strong { color: color-mix(in oklch, var(--chart-1) 70%, white); font-weight: 750; }
+      .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+      .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+      .kpi {
+        min-width: 0;
+        overflow: hidden;
+        padding: 1rem 1.1rem;
+      }
+      .kpi .label { color: var(--muted-foreground); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+      .kpi .value {
+        margin-top: 0.35rem;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+        font-weight: 750;
+        letter-spacing: -0.02em;
+        line-height: 1.25;
+      }
+      .kpi .value code {
+        display: inline;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .kpi .hint {
+        margin: 0.45rem 0 0;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        color: var(--muted-foreground);
+        font-size: 0.9rem;
+      }
+      .toc { padding: 1.1rem 1.25rem; }
+      .toc ol { margin: 0; padding-left: 1.2rem; columns: 2; gap: 2rem; }
+      .toc li { break-inside: avoid; margin: 0.35rem 0; }
+      section { margin-top: 1.5rem; }
+      .card { padding: 1.25rem 1.35rem; }
+      .stack { display: grid; gap: 1rem; }
+      .callout {
+        padding: 1rem 1.1rem;
+        border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+        background: linear-gradient(135deg, color-mix(in oklch, var(--primary) 14%, transparent), transparent 55%), color-mix(in oklch, var(--card) 90%, transparent);
+      }
+      .callout strong { color: color-mix(in oklch, white 90%, var(--primary)); }
+      .callout.warn {
+        border-color: color-mix(in oklch, oklch(0.8 0.15 85) 45%, var(--border));
+        background: linear-gradient(135deg, color-mix(in oklch, oklch(0.8 0.15 85) 14%, transparent), transparent 55%), color-mix(in oklch, var(--card) 90%, transparent);
+      }
+      .table-wrap { overflow: auto; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+      th, td { padding: 0.75rem 0.9rem; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+      th {
+        color: var(--muted-foreground); font-size: 0.75rem; font-weight: 750;
+        letter-spacing: 0.08em; text-transform: uppercase;
+        background: color-mix(in oklch, var(--secondary) 45%, transparent);
+      }
+      tr:last-child td { border-bottom: 0; }
+      .tag-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+      .tag {
+        padding: 0.22rem 0.55rem; border-radius: 999px; border: 1px solid var(--border);
+        background: color-mix(in oklch, var(--muted) 55%, transparent);
+        color: var(--muted-foreground); font-size: 0.75rem; font-weight: 650;
+      }
+      .diagram {
+        overflow: auto; padding: 1rem; border-radius: calc(var(--radius) - 0.1rem);
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, color-mix(in oklch, var(--secondary) 55%, transparent), transparent), color-mix(in oklch, black 35%, var(--card));
+      }
+      .diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+      .tree {
+        margin: 0; padding: 1rem 1.1rem 1rem 1.4rem;
+        border-radius: calc(var(--radius) - 0.15rem);
+        border: 1px solid var(--border);
+        background: color-mix(in oklch, var(--code) 92%, black);
+        color: color-mix(in oklch, white 86%, var(--chart-2));
+        font-family: var(--mono); font-size: 0.82rem; line-height: 1.55;
+        list-style: none;
+      }
+      .tree ul { list-style: none; margin: 0.15rem 0 0.15rem 1.1rem; padding: 0; border-left: 1px solid oklch(1 0 0 / 10%); }
+      .tree li { position: relative; padding-left: 0.85rem; margin: 0.15rem 0; }
+      .tree li::before {
+        content: "";
+        position: absolute; left: 0; top: 0.75em;
+        width: 0.55rem; border-top: 1px solid oklch(1 0 0 / 14%);
+      }
+      .tree .c { color: color-mix(in oklch, var(--chart-1) 65%, white); }
+      .tree .d { color: color-mix(in oklch, white 92%, var(--primary)); font-weight: 700; }
+      .tree .m { color: var(--muted-foreground); }
+      .footer { margin-top: 2rem; color: var(--muted-foreground); font-size: 0.88rem; }
+      .layers { display: grid; gap: 0.75rem; }
+      .layer {
+        display: grid; grid-template-columns: 9rem 1fr; gap: 1rem; padding: 0.95rem 1rem;
+      }
+      .layer-id span {
+        display: inline-block; padding: 0.2rem 0.5rem; border-radius: 999px;
+        background: color-mix(in oklch, var(--primary) 22%, transparent);
+        color: color-mix(in oklch, white 88%, var(--primary));
+        font-size: 0.72rem; font-weight: 750; letter-spacing: 0.08em; text-transform: uppercase;
+      }
+      .layer-id strong { display: block; margin-top: 0.35rem; font-size: 0.98rem; }
+      .layer p { margin: 0; color: var(--muted-foreground); }
+      @media (max-width: 900px) {
+        .grid-2, .grid-3, .layer { grid-template-columns: 1fr; }
+        .toc ol { columns: 1; }
+        .shell { width: min(100% - 1.25rem, 1120px); padding-top: 1.25rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <p class="eyebrow">AppLoop · Local runtime assets</p>
+        <h1><code>.apploop</code> structure & <code>.hermes</code> agent surface</h1>
+        <p class="lead">
+          AppLoop keeps two root-local trees with different jobs.
+          <code>.apploop/</code> is the product’s mutable runtime state (SQLite, generated workspaces, logs).
+          <code>.hermes/</code> is the repo-local Hermes home: agent markdown, the
+          <code>/ui-builder</code> bundle, skills, hooks, commands, plus gateway operational caches.
+          The builder UI never talks to Hermes by itself. It posts to AppLoop
+          (<code>/api/chat</code> or server actions); AppLoop composes an
+          <strong>agentBundle</strong> from those Hermes assets and forwards it through the local gateway.
+        </p>
+        <div class="meta-row">
+          <span class="pill"><strong>Owned by AppLeft</strong> .apploop state</span>
+          <span class="pill"><strong>Hermes home</strong> .hermes/</span>
+          <span class="pill"><strong>UI → API → gateway</strong> agentBundle</span>
+          <span class="pill"><strong>Do not commit</strong> .apploop + hermes caches</span>
+        </div>
+      </header>
+
+      <section class="grid-3" style="margin-top: 1rem">
+        <article class="kpi">
+          <div class="label">Product state</div>
+          <div class="value"><code>.apploop/</code></div>
+          <p class="hint">DB + project copies + runtime logs under builder ownership.</p>
+        </article>
+        <article class="kpi">
+          <div class="label">Agent assets</div>
+          <div class="value"><code>.hermes/</code> agents · bundles · skills · hooks · commands</div>
+          <p class="hint">Source-controlled markdown packaged into every project/template run.</p>
+        </article>
+        <article class="kpi">
+          <div class="label">Wire format</div>
+          <div class="value"><code>createProjectAgentBundle()</code></div>
+          <p class="hint">Built in <code>lib/hermes/agents.ts</code> and sent as <code>agentBundle</code>.</p>
+        </article>
+      </section>
+
+      <section class="toc">
+        <h2>Table of contents</h2>
+        <ol>
+          <li><a href="#boundaries">Two roots, two contracts</a></li>
+          <li><a href="#apploop">./.apploop structure</a></li>
+          <li><a href="#hermes-root">./.hermes overview</a></li>
+          <li><a href="#agents">.hermes/agents/</a></li>
+          <li><a href="#bundles">.hermes/bundles/</a></li>
+          <li><a href="#skills">.hermes/skills/</a></li>
+          <li><a href="#hooks">.hermes/hooks/</a></li>
+          <li><a href="#commands">.hermes/commands/</a></li>
+          <li><a href="#when">When AppLoop UI uses each surface via the gateway</a></li>
+          <li><a href="#sequence">End-to-end communication sequence</a></li>
+          <li><a href="#modes">Run modes (project-edit / template-edit / template-authoring)</a></li>
+          <li><a href="#do-not-commit">What not to commit</a></li>
+        </ol>
+      </section>
+
+      <section id="boundaries" class="card stack">
+        <div>
+          <p class="eyebrow">01 · Contracts</p>
+          <h2>Two roots, two contracts</h2>
+        </div>
+        <div class="layers">
+          <div class="layer">
+            <div class="layer-id"><span>Mutable</span><strong>.apploop/</strong></div>
+            <p>
+              Product-owned runtime. SQLite inventory, generated Next.js project workspaces, per-project git checkpoints,
+              and runtime process logs. Created/wiped by <code>make seed</code> / <code>make apploop-reset</code>.
+            </p>
+          </div>
+          <div class="layer">
+            <div class="layer-id"><span>Declarative</span><strong>.hermes/agents|bundles|skills|hooks|commands</strong></div>
+            <p>
+              Versioned agent operating system for AppLoop project runs. Loaded into the <code>agentBundle</code> AppLoop
+              ships on every Hermes run so the gateway does not improvise process from empty context.
+            </p>
+          </div>
+          <div class="layer">
+            <div class="layer-id"><span>Operational</span><strong>.hermes caches/state</strong></div>
+            <p>
+              Gateway side effects: sessions dumps, model caches, logs, auth files, desktop stamps. Local-only kit that
+              must not be treated as product schema.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="apploop" class="card stack">
+        <div>
+          <p class="eyebrow">02 · Product state</p>
+          <h2><code>./.apploop</code> structure</h2>
+          <p class="muted">
+            Default layout after seed/dev. Paths come from env defaults
+            (<code>PROJECTS_ROOT=.apploop/projects</code> and
+            <code>DATABASE_URL=file:.apploop/builder.sqlite</code>.
+          </p>
+        </div>
+
+        <ul class="tree">
+          <li><span class="d">.apploop/</span> <span class="m">— local AppLoop runtime root (gitignored)</span>
+            <ul>
+              <li><span class="c">builder.sqlite</span> <span class="m">— Drizzle SQLite: projects, conversations, messages, runs, runtimes, themes, settings, templates, checkpoints…</span></li>
+              <li><span class="d">projects/</span> <span class="m">— one generated Next.js app per project slug</span>
+                <ul>
+                  <li><span class="d"><slug>/</span> <span class="m">e.g. ai-engineer-cv, luma-admin, default-next-js</span>
+                    <ul>
+                      <li><span class="c">app/</span> <span class="m">route modules + globals.css (theme applied here)</span></li>
+                      <li><span class="c">components/</span> <span class="m">includes inspector-provider + theme-provider</span></li>
+                      <li><span class="c">package.json</span> / <span class="c">node_modules/</span></li>
+                      <li><span class="c">.next/</span> <span class="m">preview build cache</span></li>
+                      <li><span class="c">.git/</span> <span class="m">per-project git used by createFileSnapshot / restore</span></li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+              <li><span class="d">runtime-logs/</span>
+                <ul>
+                  <li><span class="c"><projectId>.log</span> <span class="m">stdout/stderr from preview next dev</span></li>
+                </ul>
+              </li>
+              <li><span class="m">optional: *.db backups, .trash/ for deleted workspaces</span></li>
+            </ul>
+          </li>
+        </ul>
+
+        <div class="grid-2">
+          <div class="stack">
+            <h3>Who writes where</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Path</th><th>Writer</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td><code>builder.sqlite</code></td>
+                    <td>AppLoop repository layer (<code>lib/projects/repository.ts</code>) via actions + <code>/api/chat</code></td>
+                  </tr>
+                  <tr>
+                    <td><code>projects/<slug>/*</code></td>
+                    <td>create/duplicate actions locally; Hermes tools <em>only</em> when run workspacePath points here</td>
+                  </tr>
+                  <tr>
+                    <td><code>projects/<slug>/.git</code></td>
+                    <td>AppLoop <code>createFileSnapshot</code> / <code>revertToFileSnapshot</code></td>
+                  </tr>
+                  <tr>
+                    <td><code>runtime-logs/</code></td>
+                    <td>AppLoop runtime supervisor capturing preview process output</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="stack">
+            <h3>Template-edit exception</h3>
+            <p class="muted">
+              Template authoring/editing binds a project row whose
+              <code>workspacePath</code> points at <code>templates/<id></code> (repo tree), <em>not</em>
+              <code>.apploop/projects/…</code>. SQLite still lives under <code>.apploop/</code>; the durable template
+              files live under <code>templates/</code>.
+            </p>
+            <pre>.apploop/builder.sqlite
+  projects.workspace_path = /…/AppLoop/templates/vestaboard
+  projects.name           = "Template: Vestaboard"
+
+# vs normal project
+  projects.workspace_path = /…/AppLoop/.apploop/projects/ai-engineer-cv</pre>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Mental model:</strong> <code>.apploop</code> is the running product database + customer workspaces.
+          Hermes is invited into a <em>single</em> workspace path under containment rules. Sibling projects and the
+          builder source tree are out of scope for project-edit runs.
+        </div>
+      </section>
+
+      <section id="hermes-root" class="card stack">
+        <div>
+          <p class="eyebrow">03 · Hermes home</p>
+          <h2><code>./.hermes</code> overview</h2>
+          <p class="muted">
+            Makefile sets <code>HERMES_HOME=$(PROJECT_ROOT)/.hermes</code> so gateway/desktop Chat share this tree.
+            AppLoop’s project agent surface is only a subset of everything that ends up under <code>.hermes/</code>.
+          </p>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <h3>AppLoop-owned agent surface (shipped in agentBundle)</h3>
+            <ul class="tree">
+              <li><span class="d">.hermes/</span>
+                <ul>
+                  <li><span class="d">agents/</span> <span class="m">5 markdown personas</span></li>
+                  <li><span class="d">bundles/ui-builder/</span> <span class="m">BUNDLE.md activation set</span></li>
+                  <li><span class="d">skills/</span> <span class="m">AppLoop UI skills + many general skills</span>
+                    <ul>
+                      <li><span class="c">frontend-design/</span></li>
+                      <li><span class="c">generated-app-standards/</span></li>
+                      <li><span class="c">hermes-gateway/</span></li>
+                      <li><span class="c">theme-system/</span></li>
+                      <li><span class="c">project-runtime/</span></li>
+                      <li><span class="c">visual-selector/</span></li>
+                      <li><span class="c">security-review/</span></li>
+                    </ul>
+                  </li>
+                  <li><span class="d">hooks/</span>
+                    <ul>
+                      <li><span class="c">project-scope-guard/</span></li>
+                      <li><span class="c">generated-code-review/</span></li>
+                      <li><span class="c">theme-integrity/</span></li>
+                      <li><span class="c">preview-readiness/</span></li>
+                    </ul>
+                  </li>
+                  <li><span class="d">commands/</span> <span class="m">7 slash recipes</span></li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3>Gateway operational noise (local)</h3>
+            <ul class="tree">
+              <li><span class="d">.hermes/</span>
+                <ul>
+                  <li><span class="c">config.yaml</span> / <span class="c">auth.json</span></li>
+                  <li><span class="c">gateway_state.json</span></li>
+                  <li><span class="d">sessions/</span> <span class="m">request dumps</span></li>
+                  <li><span class="d">logs/</span> <span class="m">curator/gateway logs</span></li>
+                  <li><span class="d">cache/</span> <span class="m">web/model/docs cache</span></li>
+                  <li><span class="c">*_models_cache.json</span></li>
+                  <li><span class="d">state/</span> · <span class="d">state-snapshots/</span></li>
+                  <li><span class="d">sandboxes/</span> · <span class="d">platforms/</span></li>
+                </ul>
+              </li>
+            </ul>
+            <p class="muted">Useful for debugging Hermes; not part of AppLoop’s agentBundle assembly.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="agents" class="card stack">
+        <div>
+          <p class="eyebrow">04 · Agents</p>
+          <h2><code>.hermes/agents/</code></h2>
+          <p class="muted">
+            Role markdown loaded by path reference in <code>HERMES_AGENT_DEFINITIONS</code>. Bundle always sets
+            <strong>project-builder</strong> as orchestrator and the other four as delegates.
+          </p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>File / id</th><th>Title</th><th>Responsibilities</th><th>When it fires</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>project-builder.md</code></td>
+                <td>Orchestrator</td>
+                <td>resolve context, delegate workflow, enforce completion criteria</td>
+                <td>Every UI-originated Hermes run — first brain</td>
+              </tr>
+              <tr>
+                <td><code>ui-architect.md</code></td>
+                <td>UI Architect</td>
+                <td>theme application, semantic layout, accessibility</td>
+                <td>Layout/design decisions, theme-aware composition</td>
+              </tr>
+              <tr>
+                <td><code>nextjs-implementer.md</code></td>
+                <td>Next.js Implementer</td>
+                <td>template code, routes, component standards</td>
+                <td>Actual TSX/CSS file edits inside workspace</td>
+              </tr>
+              <tr>
+                <td><code>validation-repair.md</code></td>
+                <td>Validation & Repair</td>
+                <td>typecheck, lint, runtime health, bounded repair</td>
+                <td>After edits or on explicit validate/fix paths</td>
+              </tr>
+              <tr>
+                <td><code>security-auditor.md</code></td>
+                <td>Security Auditor</td>
+                <td>path containment, secret safety, dangerous commands, iframe boundaries</td>
+                <td>Throughout (paired with security-review skill/hooks)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="bundles" class="card stack">
+        <div>
+          <p class="eyebrow">05 · Bundles</p>
+          <h2><code>.hermes/bundles/</code></h2>
+          <p class="muted">
+            Currently one product bundle: <code>ui-builder</code> at
+            <code>.hermes/bundles/ui-builder/BUNDLE.md</code>, exposed as slash command
+            <code>/ui-builder</code>.
+          </p>
+        </div>
+        <div class="grid-2">
+          <div>
+            <h3>Activation order (from BUNDLE.md)</h3>
+            <ol class="muted">
+              <li><code>/security-review</code> — isolation first</li>
+              <li><code>/hermes-gateway</code> — server-only stream contract</li>
+              <li><code>/visual-selector</code> — narrow inspect targets</li>
+              <li><code>/theme-system</code> — resolve Luma tokens</li>
+              <li><code>/frontend-design</code> — structure UI</li>
+              <li><code>/generated-app-standards</code> — code conventions</li>
+              <li><code>/project-runtime</code> — preview/runtime checks</li>
+            </ol>
+          </div>
+          <div>
+            <h3>Role in gateway payload</h3>
+            <pre>agentBundle.skillBundle = {
+  id: "ui-builder",
+  command: "/ui-builder",
+  path: ".hermes/bundles/ui-builder/BUNDLE.md",
+  skills: [ ...ordered skill defs ],
+  activationOrder: [...]
+}</pre>
+            <p class="muted">
+              The bundle is the glue metadata telling Hermes <em>which</em> skills load and in what order, not a separate runtime process.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="skills" class="card stack">
+        <div>
+          <p class="eyebrow">06 · Skills</p>
+          <h2><code>.hermes/skills/</code></h2>
+          <p class="muted">
+            The directory holds many general Hermes skills. AppLoop’s <strong>project UI builder pathway</strong> only
+            registers seven of them into <code>UI_BUILDER_SKILL_BUNDLE</code> (<code>lib/hermes/skills.ts</code>).
+          </p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Skill</th><th>Path</th><th>Capabilities surface</th><th>UI trigger signal</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>security-review</code></td>
+                <td><code>.hermes/skills/security-review/SKILL.md</code></td>
+                <td>path containment, secrets, command review, iframe</td>
+                <td>Always early in every builder run</td>
+              </tr>
+              <tr>
+                <td><code>hermes-gateway</code></td>
+                <td><code>.hermes/skills/hermes-gateway/SKILL.md</code></td>
+                <td>auth boundaries, session context, bundle forwarding, stream normalization</td>
+                <td>Always for protocol hygiene</td>
+              </tr>
+              <tr>
+                <td><code>visual-selector</code></td>
+                <td><code>.hermes/skills/visual-selector/SKILL.md</code></td>
+                <td>selection payload, boundary-limited edits, preferredSelector</td>
+                <td>When builder composed prompt includes Targets / selection JSON from Inspect</td>
+              </tr>
+              <tr>
+                <td><code>theme-system</code></td>
+                <td><code>.hermes/skills/theme-system/SKILL.md</code></td>
+                <td>registry tokens, light/dark, apply/rollback</td>
+                <td>Theme changes, palette-sensitive generates</td>
+              </tr>
+              <tr>
+                <td><code>frontend-design</code></td>
+                <td><code>.hermes/skills/frontend-design/SKILL.md</code></td>
+                <td>layout hierarchy, responsive, a11y, semantic classnames</td>
+                <td>Page/component structure work</td>
+              </tr>
+              <tr>
+                <td><code>generated-app-standards</code></td>
+                <td><code>.hermes/skills/generated-app-standards/SKILL.md</code></td>
+                <td>exports, routes, schemas, unique last classname rules</td>
+                <td>All code generation / edits</td>
+              </tr>
+              <tr>
+                <td><code>project-runtime</code></td>
+                <td><code>.hermes/skills/project-runtime/SKILL.md</code></td>
+                <td>start/stop, log inspection, readiness</td>
+                <td>When preview health matters to completion</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout warn">
+          <strong>Other skills in <code>.hermes/skills/*</code></strong> (research, creative, mlops, apple, …) exist for
+          Hermes desktop/chat profiles. They are <em>not</em> auto-forwarded by AppLoop’s
+          <code>createProjectAgentBundle</code>. The builder pathway is intentionally the ui-builder seven.
+        </div>
+      </section>
+
+      <section id="hooks" class="card stack">
+        <div>
+          <p class="eyebrow">07 · Hooks</p>
+          <h2><code>.hermes/hooks/</code></h2>
+          <p class="muted">
+            Enforcement points defined in <code>lib/hermes/hooks.ts</code> and detailed in each
+            <code>HOOK.md</code>. Attached wholesale as <code>agentBundle.hooks</code>.
+          </p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Hook</th><th>Trigger</th><th>Enforces</th><th>When it matters from UI</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>project-scope-guard</code></td>
+                <td><code>pre-tool-use</code></td>
+                <td>Normalize paths, block traversal outside workspacePath</td>
+                <td>Any chat/template run that would touch files</td>
+              </tr>
+              <tr>
+                <td><code>generated-code-review</code></td>
+                <td><code>post-edit</code></td>
+                <td>Export/format/naming/route/classname conventions</td>
+                <td>After Hermes edits TSX/TS files</td>
+              </tr>
+              <tr>
+                <td><code>theme-integrity</code></td>
+                <td><code>post-edit</code></td>
+                <td>Hard-coded colors vs theme tokens, dark pair checks</td>
+                <td>After CSS/theme-affecting edits</td>
+              </tr>
+              <tr>
+                <td><code>preview-readiness</code></td>
+                <td><code>before-completion</code></td>
+                <td>Process status, HTTP reachability, compile logs</td>
+                <td>Before run claims preview OK</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="commands" class="card stack">
+        <div>
+          <p class="eyebrow">08 · Commands</p>
+          <h2><code>.hermes/commands/</code></h2>
+          <p class="muted">
+            Slash recipes available to the agent loop. Not rendered as builder buttons today — they are included in the
+            bundle so Hermes can route work when the goal matches.
+          </p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Command</th><th>Loads</th><th>Typical UI origin</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>/project-build</code></td>
+                <td>ui-builder, project-scope-guard, preview-readiness</td>
+                <td>Open-ended “implement X” builder prompts</td>
+              </tr>
+              <tr>
+                <td><code>/project-element-edit</code></td>
+                <td>visual-selector, frontend-design, generated-app-standards</td>
+                <td><strong>Inspect target(s) + Send prompt</strong> (primary visual-edit path)</td>
+              </tr>
+              <tr>
+                <td><code>/project-theme</code></td>
+                <td>theme-system, theme-integrity</td>
+                <td>Theme swaps / palette prompt work</td>
+              </tr>
+              <tr>
+                <td><code>/project-validate</code></td>
+                <td>validation-repair + review hooks</td>
+                <td>Repair / check-only prompts</td>
+              </tr>
+              <tr>
+                <td><code>/project-fix</code></td>
+                <td>validation-repair, generated-code-review</td>
+                <td>Failures after typecheck/lint/runtime break</td>
+              </tr>
+              <tr>
+                <td><code>/project-preview</code></td>
+                <td>project-runtime, preview-readiness</td>
+                <td>When prompt requires readiness, restarts, log diagnosis</td>
+              </tr>
+              <tr>
+                <td><code>/project-snapshot</code></td>
+                <td>ui-builder</td>
+                <td>Snapshot-oriented tasks (complement AppLoop git checkpoints)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="when" class="card stack">
+        <div>
+          <p class="eyebrow">09 · Coupling</p>
+          <h2>When AppLoop UI uses each surface via the gateway</h2>
+        </div>
+
+        <div class="diagram" aria-label="UI to gateway mapping">
+          <svg viewBox="0 0 1040 430" role="img">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L8,3 L0,6 Z" fill="oklch(0.78 0.05 250)" />
+              </marker>
+            </defs>
+
+            <rect x="30" y="30" width="230" height="370" rx="16" fill="oklch(0.18 0.01 285)" stroke="oklch(1 0 0 / 12%)" />
+            <text x="50" y="62" fill="oklch(0.82 0.08 270)" font-size="13" font-family="Avenir Next, sans-serif" font-weight="700">BUILDER UI</text>
+            <text x="50" y="100" fill="oklch(0.95 0 0)" font-size="15" font-family="Avenir Next, sans-serif">Inspect + prompt</text>
+            <text x="50" y="145" fill="oklch(0.95 0 0)" font-size="15" font-family="Avenir Next, sans-serif">Freeform chat</text>
+            <text x="50" y="190" fill="oklch(0.95 0 0)" font-size="15" font-family="Avenir Next, sans-serif">Create template</text>
+            <text x="50" y="235" fill="oklch(0.95 0 0)" font-size="15" font-family="Avenir Next, sans-serif">Create project</text>
+            <text x="50" y="280" fill="oklch(0.95 0 0)" font-size="15" font-family="Avenir Next, sans-serif">Restore / Edit</text>
+            <text x="50" y="325" fill="oklch(0.95 0 0)" font-size="15" font-family="Avenir Next, sans-serif">Runtime start/stop</text>
+            <text x="50" y="370" fill="oklch(0.7 0.01 250)" font-size="13" font-family="Avenir Next, sans-serif">No direct Hermes calls</text>
+
+            <rect x="340" y="30" width="260" height="370" rx="16" fill="oklch(0.18 0.01 285)" stroke="oklch(0.488 0.243 264.376)" />
+            <text x="360" y="62" fill="oklch(0.82 0.08 270)" font-size="13" font-family="Avenir Next, sans-serif" font-weight="700">APPLOOP SERVER</text>
+            <text x="360" y="100" fill="oklch(0.95 0 0)" font-size="14" font-family="SF Mono, Menlo, monospace">POST /api/chat</text>
+            <text x="360" y="145" fill="oklch(0.95 0 0)" font-size="14" font-family="SF Mono, Menlo, monospace">POST /api/chat</text>
+            <text x="360" y="190" fill="oklch(0.95 0 0)" font-size="14" font-family="SF Mono, Menlo, monospace">createCustomTemplateAction</text>
+            <text x="360" y="235" fill="oklch(0.95 0 0)" font-size="14" font-family="SF Mono, Menlo, monospace">createProjectAction</text>
+            <text x="360" y="280" fill="oklch(0.95 0 0)" font-size="14" font-family="SF Mono, Menlo, monospace">git + message delete</text>
+            <text x="360" y="325" fill="oklch(0.95 0 0)" font-size="14" font-family="SF Mono, Menlo, monospace">runtime actions</text>
+            <text x="360" y="370" fill="oklch(0.75 0.02 160)" font-size="13" font-family="Avenir Next, sans-serif">+.apploop SQLite / FS</text>
+
+            <rect x="680" y="30" width="320" height="370" rx="16" fill="oklch(0.18 0.01 285)" stroke="oklch(0.845 0.143 164.978)" />
+            <text x="700" y="62" fill="oklch(0.82 0.08 160)" font-size="13" font-family="Avenir Next, sans-serif" font-weight="700">HERMES GATEWAY + .hermes assets</text>
+            <text x="700" y="100" fill="oklch(0.95 0 0)" font-size="14" font-family="Avenir Next, sans-serif">streamProjectRun + element-edit bias</text>
+            <text x="700" y="145" fill="oklch(0.95 0 0)" font-size="14" font-family="Avenir Next, sans-serif">streamProjectRun + build/fix path</text>
+            <text x="700" y="190" fill="oklch(0.95 0 0)" font-size="14" font-family="Avenir Next, sans-serif">runProjectOnce template-authoring</text>
+            <text x="700" y="235" fill="oklch(0.7 0.01 250)" font-size="14" font-family="Avenir Next, sans-serif">no gateway (local scaffold only)</text>
+            <text x="700" y="280" fill="oklch(0.7 0.01 250)" font-size="14" font-family="Avenir Next, sans-serif">no gateway</text>
+            <text x="700" y="325" fill="oklch(0.7 0.01 250)" font-size="14" font-family="Avenir Next, sans-serif">no gateway (local process)</text>
+            <text x="700" y="370" fill="oklch(0.82 0.05 160)" font-size="13" font-family="Avenir Next, sans-serif">agents · bundle · skills · hooks · commands</text>
+
+            <line x1="260" y1="95" x2="340" y2="95" stroke="oklch(0.78 0.05 250)" stroke-width="2" marker-end="url(#arrow)" />
+            <line x1="260" y1="140" x2="340" y2="140" stroke="oklch(0.78 0.05 250)" stroke-width="2" marker-end="url(#arrow)" />
+            <line x1="260" y1="185" x2="340" y2="185" stroke="oklch(0.78 0.05 250)" stroke-width="2" marker-end="url(#arrow)" />
+            <line x1="260" y1="230" x2="340" y2="230" stroke="oklch(0.78 0.05 250)" stroke-width="2" marker-end="url(#arrow)" />
+            <line x1="260" y1="275" x2="340" y2="275" stroke="oklch(0.78 0.05 250)" stroke-width="2" marker-end="url(#arrow)" />
+            <line x1="260" y1="320" x2="340" y2="320" stroke="oklch(0.78 0.05 250)" stroke-width="2" marker-end="url(#arrow)" />
+
+            <line x1="600" y1="95" x2="680" y2="95" stroke="oklch(0.845 0.143 164.978)" stroke-width="2" marker-end="url(#arrow)" />
+            <line x1="600" y1="140" x2="680" y2="140" stroke="oklch(0.845 0.143 164.978)" stroke-width="2" marker-end="url(#arrow)" />
+            <line x1="600" y1="185" x2="680" y2="185" stroke="oklch(0.845 0.143 164.978)" stroke-width="2" marker-end="url(#arrow)" />
+          </svg>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>UI action</th>
+                <th>AppLoop entry</th>
+                <th>Gateway?</th>
+                <th>agentBundle mode</th>
+                <th>.hermes pieces that matter most</th>
+                <th>.apploop touch</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Inspect + Send</td>
+                <td><code>POST /api/chat</code></td>
+                <td>Yes · stream</td>
+                <td><code>project-edit</code> or <code>template-edit</code></td>
+                <td>visual-selector, project-element-edit, generated-code-review, scope-guard</td>
+                <td>messages/runs insert; workspace files under path; git snapshot first</td>
+              </tr>
+              <tr>
+                <td>Freeform chat</td>
+                <td><code>POST /api/chat</code></td>
+                <td>Yes · stream</td>
+                <td>same</td>
+                <td>full ui-builder skill/command set</td>
+                <td>same as above</td>
+              </tr>
+              <tr>
+                <td>Create Template</td>
+                <td><code>createCustomTemplateAction</code></td>
+                <td>Yes · <code>runProjectOnce</code></td>
+                <td><code>template-authoring</code></td>
+                <td>whole bundle + isolation rules specialized for templates/</td>
+                <td>project_templates row; later project bundle; FS under <code>templates/</code></td>
+              </tr>
+              <tr>
+                <td>Create Project</td>
+                <td><code>createProjectAction</code></td>
+                <td><strong>No</strong></td>
+                <td>—</td>
+                <td>.hermes unused</td>
+                <td>full project bundle + <code>.apploop/projects/<slug></code> copy</td>
+              </tr>
+              <tr>
+                <td>Restore / Edit prompt</td>
+                <td>server actions + client chat prune</td>
+                <td><strong>No</strong></td>
+                <td>—</td>
+                <td>—</td>
+                <td>message delete; git reset workspace; runtime restart</td>
+              </tr>
+              <tr>
+                <td>Preview start/stop</td>
+                <td>runtime actions</td>
+                <td><strong>No</strong></td>
+                <td>—</td>
+                <td>project-runtime skill only when Hermes is already in a chat run</td>
+                <td>runtimes row + runtime-logs</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="sequence" class="card stack">
+        <div>
+          <p class="eyebrow">10 · Wire path</p>
+          <h2>End-to-end communication sequence</h2>
+        </div>
+        <pre>1. Browser (BuilderShell)
+     useChat({ id: projectId }) → POST /api/chat { id, messages }
+
+2. AppLoop app/api/chat/route.ts
+     requireProjectAccess → load overview from .apploop/builder.sqlite
+     detect mode via getTemplateIdFromWorkspacePath(workspacePath)
+     INSERT messages(user) + runs(running)
+     agentBundle = createProjectAgentBundle({
+       projectId, workspacePath, theme/settings,
+       mode: "project-edit" | "template-edit"
+     })
+       // bundle includes:
+       //   orchestrator + delegates paths under .hermes/agents/*
+       //   skillBundle → .hermes/bundles/ui-builder + 7 skills
+       //   hooks → 4 HOOK.md paths
+       //   commands → 7 command md paths
+       //   isolationRules + completionCriteria
+
+3. HermesClient.streamProjectRun / runProjectOnce
+     HTTP to local gateway (HERMES_HOME=.hermes)
+     payload carries agentBundle + workspacePath + composed message (+ images)
+
+4. Gateway (Hermes process)
+     Uses HERMES_HOME assets; follows /ui-builder activation order
+     Tools mutate ONLY workspacePath (.apploop/projects/<slug> or templates/<id>)
+     Emits session / run / activity / text-delta / done events
+
+5. AppLoop maps stream → AI SDK UI chunks
+     INSERT assistant message; UPDATE runs terminal status
+     Browser shows Hermes bubble + activity cards
+     Preview iframe reflects file changes via HMR/reload</pre>
+
+        <div class="diagram" aria-label="Bundle composition">
+          <svg viewBox="0 0 1040 280" role="img">
+            <rect x="30" y="40" width="180" height="200" rx="14" fill="oklch(0.205 0 0)" stroke="oklch(1 0 0 / 12%)" />
+            <text x="50" y="80" fill="oklch(0.85 0 0)" font-size="15" font-family="Avenir Next, sans-serif" font-weight="700">agents/</text>
+            <text x="50" y="115" fill="oklch(0.72 0.01 250)" font-size="13" font-family="SF Mono, Menlo, monospace">5 personas</text>
+
+            <rect x="230" y="40" width="180" height="200" rx="14" fill="oklch(0.205 0 0)" stroke="oklch(1 0 0 / 12%)" />
+            <text x="250" y="80" fill="oklch(0.85 0 0)" font-size="15" font-family="Avenir Next, sans-serif" font-weight="700">bundles/</text>
+            <text x="250" y="115" fill="oklch(0.72 0.01 250)" font-size="13" font-family="SF Mono, Menlo, monospace">/ui-builder</text>
+
+            <rect x="430" y="40" width="180" height="200" rx="14" fill="oklch(0.205 0 0)" stroke="oklch(1 0 0 / 12%)" />
+            <text x="450" y="80" fill="oklch(0.85 0 0)" font-size="15" font-family="Avenir Next, sans-serif" font-weight="700">skills/</text>
+            <text x="450" y="115" fill="oklch(0.72 0.01 250)" font-size="13" font-family="SF Mono, Menlo, monospace">7 UI builder</text>
+
+            <rect x="630" y="40" width="160" height="200" rx="14" fill="oklch(0.205 0 0)" stroke="oklch(1 0 0 / 12%)" />
+            <text x="650" y="80" fill="oklch(0.85 0 0)" font-size="15" font-family="Avenir Next, sans-serif" font-weight="700">hooks/</text>
+            <text x="650" y="115" fill="oklch(0.72 0.01 250)" font-size="13" font-family="SF Mono, Menlo, monospace">4 enforcers</text>
+
+            <rect x="810" y="40" width="190" height="200" rx="14" fill="oklch(0.205 0 0)" stroke="oklch(1 0 0 / 12%)" />
+            <text x="830" y="80" fill="oklch(0.85 0 0)" font-size="15" font-family="Avenir Next, sans-serif" font-weight="700">commands/</text>
+            <text x="830" y="115" fill="oklch(0.72 0.01 250)" font-size="13" font-family="SF Mono, Menlo, monospace">7 recipes</text>
+
+            <path d="M120 240 C120 265, 520 265, 520 240" fill="none" stroke="oklch(0.488 0.243 264.376)" stroke-width="2" />
+            <text x="390" y="275" fill="oklch(0.85 0.05 270)" font-size="14" font-family="Avenir Next, sans-serif" font-weight="700">createProjectAgentBundle() → gateway payload.agentBundle</text>
+          </svg>
+        </div>
+      </section>
+
+      <section id="modes" class="card stack">
+        <div>
+          <p class="eyebrow">11 · Modes</p>
+          <h2>Run modes</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>mode</th><th>How chosen</th><th>Writable root</th><th>Isolation highlight</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>project-edit</code></td>
+                <td><code>/api/chat</code> and workspace not under <code>templates/</code></td>
+                <td><code>.apploop/projects/<slug></code></td>
+                <td>Never touch AppLoop source, templates/, or sibling projects</td>
+              </tr>
+              <tr>
+                <td><code>template-edit</code></td>
+                <td>Chat on a project whose workspacePath is a templates/ id</td>
+                <td><code>templates/<id></code></td>
+                <td>Keep template- prefix + standalone package/app/layout providers</td>
+              </tr>
+              <tr>
+                <td><code>template-authoring</code></td>
+                <td>Create Template action’s <code>runProjectOnce</code></td>
+                <td>new <code>templates/<id></code></td>
+                <td>Same as template-edit; first generative pass before redirect</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">
+          Bundle contents (agents/skills/hooks/commands) are the same object shape; only
+          <code>projectContext.mode</code> + isolationRules + synthetic projectId differ.
+        </p>
+      </section>
+
+      <section id="do-not-commit" class="card stack">
+        <div>
+          <p class="eyebrow">12 · Hygiene</p>
+          <h2>What not to commit</h2>
+        </div>
+        <div class="grid-2">
+          <div>
+            <h3>Leave local</h3>
+            <ul class="muted">
+              <li>All of <code>.apploop/</code></li>
+              <li><code>.hermes/sessions/</code>, <code>logs/</code>, <code>cache/</code>, <code>state/</code></li>
+              <li>Model / provider caches, <code>auth.json</code>, gateway state stamps</li>
+              <li>Runtime <code>node_modules</code> / <code>.next</code> inside seeded projects</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Do commit (product contracts)</h3>
+            <ul class="muted">
+              <li><code>.hermes/agents/*.md</code></li>
+              <li><code>.hermes/bundles/ui-builder/BUNDLE.md</code></li>
+              <li>AppLoop skill set under <code>.hermes/skills/{frontend-design,generated-app-standards,…}</code></li>
+              <li><code>.hermes/hooks/*/HOOK.md</code></li>
+              <li><code>.hermes/commands/*.md</code></li>
+              <li><code>lib/hermes/{agents,skills,hooks,commands,client}.ts</code> that wire them</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>Debugging tip:</strong> if chat ignores inspect targets, verify the composed prompt contains
+          preferredSelector JSON <em>and</em> that gateway runs still include <code>skillBundle.path</code> =
+          <code>.hermes/bundles/ui-builder/BUNDLE.md</code> with visual-selector in activation order. If writes escape
+          the workspace, reconcile isolationRules in <code>createProjectAgentBundle</code> and the
+          project-scope-guard hook.
+        </div>
+      </section>
+
+      <p class="footer">
+        Engineer reference for AppLoop local state + Hermes asset coupling. Luma/shadcn dark tokens. Open directly in a browser.
+        Related: <code>docs/README-ARCHITECTURE-DOCUMENTATION.html</code>,
+        <code>docs/README-USER-FLOW-EDIT-PROJECT-OR-TEMPLATE.md</code>,
+        <code>docs/README-RESET.html</code>.
+      </p>
+    </div>
+  </body>
+</html>

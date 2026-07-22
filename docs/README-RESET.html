@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AppLoop · Run, Reset & Seed</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --background: oklch(0.145 0 0);
+        --foreground: oklch(0.985 0 0);
+        --card: oklch(0.205 0 0);
+        --card-foreground: oklch(0.985 0 0);
+        --primary: oklch(0.488 0.243 264.376);
+        --primary-foreground: oklch(0.97 0.014 254.604);
+        --secondary: oklch(0.274 0.006 286.033);
+        --secondary-foreground: oklch(0.985 0 0);
+        --muted: oklch(0.269 0 0);
+        --muted-foreground: oklch(0.708 0 0);
+        --destructive: oklch(0.704 0.191 22.216);
+        --border: oklch(1 0 0 / 12%);
+        --ring: oklch(0.556 0 0);
+        --chart-1: oklch(0.845 0.143 164.978);
+        --chart-2: oklch(0.696 0.17 162.48);
+        --radius: 0.75rem;
+        --code: oklch(0.17 0.01 285);
+        --glow: color-mix(in oklch, var(--primary) 28%, transparent);
+        --font: "Avenir Next", "SF Pro Display", "Segoe UI", "Helvetica Neue", sans-serif;
+        --mono: "SF Mono", "Menlo", "Consolas", ui-monospace, monospace;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        font-family: var(--font);
+        color: var(--foreground);
+        background:
+          radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 18%, transparent), transparent 30rem),
+          radial-gradient(circle at 88% 6%, color-mix(in oklch, var(--chart-1) 12%, transparent), transparent 24rem),
+          linear-gradient(180deg, oklch(0.12 0.01 285), var(--background) 28%, oklch(0.12 0.008 260));
+        line-height: 1.6;
+      }
+      a { color: color-mix(in oklch, var(--primary) 72%, white); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      code, pre { font-family: var(--mono); }
+      code {
+        padding: 0.1rem 0.35rem;
+        border-radius: 0.35rem;
+        background: color-mix(in oklch, var(--code) 88%, black);
+        border: 1px solid var(--border);
+        font-size: 0.9em;
+      }
+      pre {
+        overflow: auto;
+        margin: 0;
+        padding: 1rem 1.1rem;
+        border-radius: calc(var(--radius) - 0.15rem);
+        border: 1px solid var(--border);
+        background: color-mix(in oklch, var(--code) 92%, black);
+        color: color-mix(in oklch, white 88%, var(--chart-2));
+        font-size: 0.82rem;
+        line-height: 1.55;
+      }
+      .shell {
+        width: min(1100px, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 2.5rem 0 4rem;
+      }
+      .hero, .card, .toc, .kpi, .callout, .table-wrap, .cmd {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: color-mix(in oklch, var(--card) 88%, transparent);
+        box-shadow:
+          0 1px 0 color-mix(in oklch, white 6%, transparent),
+          0 18px 50px color-mix(in oklch, black 28%, transparent);
+        backdrop-filter: blur(14px);
+      }
+      .hero { position: relative; overflow: hidden; padding: 2rem; }
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: -18% auto auto -8%;
+        width: 16rem;
+        height: 16rem;
+        border-radius: 999px;
+        background: radial-gradient(circle, var(--glow), transparent 70%);
+        filter: blur(12px);
+        pointer-events: none;
+      }
+      .eyebrow {
+        margin: 0 0 0.6rem;
+        color: var(--muted-foreground);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      h1, h2, h3, p { margin-top: 0; }
+      h1 {
+        margin-bottom: 0.75rem;
+        font-size: clamp(1.9rem, 4vw, 2.6rem);
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+      h2 { margin: 0 0 0.85rem; font-size: 1.4rem; letter-spacing: -0.02em; }
+      h3 { margin: 0 0 0.55rem; font-size: 1.05rem; }
+      .lead { max-width: 72ch; color: var(--muted-foreground); font-size: 1.05rem; }
+      .muted { color: var(--muted-foreground); }
+      .meta-row { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 1.25rem; }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.7rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: color-mix(in oklch, var(--secondary) 70%, transparent);
+        color: var(--secondary-foreground);
+        font-size: 0.78rem;
+        font-weight: 650;
+      }
+      .pill strong { color: color-mix(in oklch, var(--chart-1) 70%, white); font-weight: 750; }
+      .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+      .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+      .kpi { padding: 1rem 1.1rem; }
+      .kpi .label {
+        color: var(--muted-foreground);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .kpi .value { margin-top: 0.35rem; font-size: 1.2rem; font-weight: 750; letter-spacing: -0.02em; }
+      .kpi .hint { margin: 0.45rem 0 0; color: var(--muted-foreground); font-size: 0.9rem; }
+      .toc { padding: 1.1rem 1.25rem; }
+      .toc ol { margin: 0; padding-left: 1.2rem; columns: 2; gap: 2rem; }
+      .toc li { break-inside: avoid; margin: 0.35rem 0; }
+      section { margin-top: 1.5rem; }
+      .card { padding: 1.25rem 1.35rem; }
+      .stack { display: grid; gap: 1rem; }
+      .callout {
+        padding: 1rem 1.1rem;
+        border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+        background:
+          linear-gradient(135deg, color-mix(in oklch, var(--primary) 14%, transparent), transparent 55%),
+          color-mix(in oklch, var(--card) 90%, transparent);
+      }
+      .callout.danger {
+        border-color: color-mix(in oklch, var(--destructive) 45%, var(--border));
+        background:
+          linear-gradient(135deg, color-mix(in oklch, var(--destructive) 14%, transparent), transparent 55%),
+          color-mix(in oklch, var(--card) 90%, transparent);
+      }
+      .callout strong { color: color-mix(in oklch, white 90%, var(--primary)); }
+      .callout.danger strong { color: color-mix(in oklch, white 88%, var(--destructive)); }
+      .cmd {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.85rem 1rem;
+        align-items: start;
+        padding: 0.95rem 1rem;
+      }
+      .cmd kbd {
+        display: inline-block;
+        padding: 0.35rem 0.6rem;
+        border-radius: 0.5rem;
+        border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border));
+        background: color-mix(in oklch, var(--primary) 16%, transparent);
+        color: color-mix(in oklch, white 90%, var(--primary));
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .cmd p { margin: 0; color: var(--muted-foreground); }
+      .cmd .title { margin: 0 0 0.25rem; color: var(--foreground); font-weight: 700; }
+      .table-wrap { overflow: auto; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+      th, td {
+        padding: 0.75rem 0.9rem;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted-foreground);
+        font-size: 0.75rem;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        background: color-mix(in oklch, var(--secondary) 45%, transparent);
+      }
+      tr:last-child td { border-bottom: 0; }
+      .tag-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+      .tag {
+        padding: 0.22rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: color-mix(in oklch, var(--muted) 55%, transparent);
+        color: var(--muted-foreground);
+        font-size: 0.75rem;
+        font-weight: 650;
+      }
+      .diagram {
+        overflow: auto;
+        padding: 1rem;
+        border-radius: calc(var(--radius) - 0.1rem);
+        border: 1px solid var(--border);
+        background:
+          linear-gradient(180deg, color-mix(in oklch, var(--secondary) 55%, transparent), transparent),
+          color-mix(in oklch, black 35%, var(--card));
+      }
+      .diagram svg { display: block; width: 100%; min-width: 720px; height: auto; }
+      .footer { margin-top: 2rem; color: var(--muted-foreground); font-size: 0.88rem; }
+      ol.steps { margin: 0; padding-left: 1.2rem; }
+      ol.steps li { margin: 0.45rem 0; }
+      @media (max-width: 900px) {
+        .grid-2, .grid-3, .cmd { grid-template-columns: 1fr; }
+        .toc ol { columns: 1; }
+        .shell { width: min(100% - 1.25rem, 1100px); padding-top: 1.25rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <p class="eyebrow">AppLoop · Ops runbook</p>
+        <h1>How to run, reset, and seed from scratch</h1>
+        <p class="lead">
+          This assumes dependencies and env are already set up (Hermes installed, root
+          <code>.env</code> / <code>.hermes/.env</code> present). It documents the
+          <strong>Makefile</strong> path to boot the builder, wipe local AppLoop state, reinstall
+          every template’s dependencies, migrate SQLite, and seed one demo project per built-in
+          template.
+        </p>
+        <div class="meta-row">
+          <span class="pill"><strong>Builder</strong> make dev → :3001</span>
+          <span class="pill"><strong>Gateway</strong> make hermes-gateway → :8642</span>
+          <span class="pill"><strong>Full clean start</strong> make seed</span>
+          <span class="pill"><strong>Source of truth</strong> Makefile</span>
+        </div>
+      </header>
+
+      <section class="grid-3" style="margin-top: 1rem">
+        <article class="kpi">
+          <div class="label">Daily run</div>
+          <div class="value">gateway + dev</div>
+          <p class="hint">Two terminals: Hermes API server, then AppLoop Next.js builder.</p>
+        </article>
+        <article class="kpi">
+          <div class="label">Soft reseed</div>
+          <div class="value">make seed</div>
+          <p class="hint">Wipe <code>.apploop</code> + template node_modules, migrate DB, install templates, seed demos. Keeps root <code>node_modules</code>.</p>
+        </article>
+        <article class="kpi">
+          <div class="label">Hard teardown</div>
+          <div class="value">make reset</div>
+          <p class="hint">Also deletes root <code>node_modules</code> and lockfile. Follow with <code>make install && make apploop-seed</code>.</p>
+        </article>
+      </section>
+
+      <section class="toc">
+        <h2>Table of contents</h2>
+        <ol>
+          <li><a href="#prereq">Prerequisites (already set up)</a></li>
+          <li><a href="#daily">Daily: run the stack</a></li>
+          <li><a href="#ladder">Target ladder (what each make target does)</a></li>
+          <li><a href="#seed-now">Seed what we have now</a></li>
+          <li><a href="#from-scratch">From-scratch recipes</a></li>
+          <li><a href="#destructive">What gets deleted vs preserved</a></li>
+          <li><a href="#verify">Verification checklist</a></li>
+          <li><a href="#pitfalls">Pitfalls & notes</a></li>
+          <li><a href="#reference">Quick command reference</a></li>
+        </ol>
+      </section>
+
+      <section id="prereq" class="card stack">
+        <div>
+          <p class="eyebrow">01 · Assumptions</p>
+          <h2>Prerequisites (already set up)</h2>
+          <p class="muted">This runbook starts after first-time setup. You should already have:</p>
+        </div>
+        <ul class="muted">
+          <li>Node.js + npm on PATH</li>
+          <li>AppLoop repo checked out; typically root deps installed via <code>make install</code> once</li>
+          <li><code>hermes</code> CLI available for gateway mode</li>
+          <li>Local secrets in <code>.env</code> and/or <code>.hermes/.env</code> (gateway key, model/provider as needed)</li>
+          <li>Working directory = repo root (where <code>Makefile</code> lives)</li>
+        </ul>
+        <div class="callout">
+          <strong>Do not</strong> casually source production secrets into untrusted shells. When validation prompts ask to source
+          <code>.env</code>, answer <code>N</code> unless the task needs local secrets. Makefile Hermes targets source
+          <code>.hermes/.env</code> then <code>.env</code> themselves.
+        </div>
+      </section>
+
+      <section id="daily" class="card stack">
+        <div>
+          <p class="eyebrow">02 · Run</p>
+          <h2>Daily: run the stack</h2>
+          <p class="muted">
+            Chat-driven edits need the Hermes gateway up. The builder alone is enough for browsing projects, but inspect →
+            send path will error without gateway connectivity.
+          </p>
+        </div>
+
+        <div class="stack">
+          <div class="cmd">
+            <kbd>make hermes-gateway</kbd>
+            <div>
+              <p class="title">Terminal A — AI gateway</p>
+              <p>
+                Starts Hermes with <code>HERMES_HOME=.hermes</code> at
+                <code>http://127.0.0.1:8642</code> (override via <code>HERMES_GATEWAY_PORT</code> /
+                <code>API_SERVER_PORT</code>). Reuses <code>API_SERVER_KEY</code> from env or default local key.
+                Stops an existing Hermes listener on that port when safe.
+              </p>
+            </div>
+          </div>
+          <div class="cmd">
+            <kbd>make hermes-gateway-curl-test</kbd>
+            <div>
+              <p class="title">Optional smoke test</p>
+              <p>Confirms the gateway is reachable and can accept a minimal <code>POST /v1/runs</code>.</p>
+            </div>
+          </div>
+          <div class="cmd">
+            <kbd>make dev</kbd>
+            <div>
+              <p class="title">Terminal B — AppLoop builder</p>
+              <p>
+                Starts Next.js at <code>http://localhost:3001</code> (<code>PORT</code> override supported). If something
+                Next/npm/node-owned already holds the port, Makefile stops it first.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <pre># Typical two-terminal session
+cd /path/to/AppLoop
+
+# Terminal A
+make hermes-gateway
+
+# Terminal B
+make dev
+# → open http://localhost:3001/projects</pre>
+
+        <div class="grid-2">
+          <div>
+            <h3>Also useful while developing</h3>
+            <div class="stack">
+              <div class="cmd">
+                <kbd>make check</kbd>
+                <div><p class="title">lint + typecheck</p><p>Fast gate before bigger UI/domain changes.</p></div>
+              </div>
+              <div class="cmd">
+                <kbd>make build</kbd>
+                <div><p class="title">production build</p><p>Builder production bundle only (not all templates).</p></div>
+              </div>
+              <div class="cmd">
+                <kbd>make hermes-dashboard</kbd>
+                <div><p class="title">Hermes dashboard :9120</p><p>Optional operator UI for Hermes itself.</p></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3>Port map</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Service</th><th>Default</th></tr></thead>
+                <tbody>
+                  <tr><td>AppLoop builder</td><td><code>3001</code></td></tr>
+                  <tr><td>Hermes gateway</td><td><code>8642</code></td></tr>
+                  <tr><td>Hermes dashboard</td><td><code>9120</code></td></tr>
+                  <tr><td>Generated previews</td><td><code>3100–3199</code></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="ladder" class="card stack">
+        <div>
+          <p class="eyebrow">03 · Makefile orthography</p>
+          <h2>Target ladder (what each make target does)</h2>
+          <p class="muted">Read this before picking a destructiveness level. Targets compose.</p>
+        </div>
+
+        <div class="diagram" aria-label="Makefile dependency ladder">
+          <svg viewBox="0 0 1000 340" role="img">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L8,3 L0,6 Z" fill="oklch(0.78 0.05 250)" />
+              </marker>
+            </defs>
+            <rect x="40" y="30" width="200" height="58" rx="12" fill="oklch(0.205 0 0)" stroke="oklch(1 0 0 / 14%)" />
+            <text x="70" y="65" fill="oklch(0.98 0 0)" font-size="16" font-family="Avenir Next, sans-serif" font-weight="700">make clean</text>
+
+            <rect x="280" y="30" width="240" height="58" rx="12" fill="oklch(0.205 0 0)" stroke="oklch(0.704 0.191 22.216)" />
+            <text x="310" y="65" fill="oklch(0.98 0 0)" font-size="16" font-family="Avenir Next, sans-serif" font-weight="700">make apploop-reset</text>
+
+            <rect x="580" y="30" width="180" height="58" rx="12" fill="oklch(0.205 0 0)" stroke="oklch(0.704 0.191 22.216)" />
+            <text x="620" y="65" fill="oklch(0.98 0 0)" font-size="16" font-family="Avenir Next, sans-serif" font-weight="700">make reset</text>
+
+            <rect x="280" y="140" width="280" height="58" rx="12" fill="oklch(0.205 0 0)" stroke="oklch(0.488 0.243 264.376)" />
+            <text x="305" y="175" fill="oklch(0.98 0 0)" font-size="16" font-family="Avenir Next, sans-serif" font-weight="700">apploop-template-seed</text>
+
+            <rect x="280" y="230" width="280" height="58" rx="12" fill="oklch(0.205 0 0)" stroke="oklch(0.488 0.243 264.376)" />
+            <text x="305" y="265" fill="oklch(0.98 0 0)" font-size="16" font-family="Avenir Next, sans-serif" font-weight="700">apploop-seed-projects</text>
+
+            <rect x="620" y="230" width="200" height="58" rx="12" fill="oklch(0.205 0 0)" stroke="oklch(0.845 0.143 164.978)" />
+            <text x="655" y="265" fill="oklch(0.98 0 0)" font-size="16" font-family="Avenir Next, sans-serif" font-weight="700">make apploop-seed</text>
+
+            <rect x="860" y="140" width="110" height="148" rx="12" fill="oklch(0.18 0.02 160)" stroke="oklch(0.845 0.143 164.978)" />
+            <text x="885" y="215" fill="oklch(0.98 0 0)" font-size="18" font-family="Avenir Next, sans-serif" font-weight="700">seed</text>
+
+            <line x1="240" y1="59" x2="280" y2="59" stroke="oklch(0.7 0.03 250)" stroke-width="1.5" marker-end="url(#arrow)" />
+            <line x1="520" y1="59" x2="580" y2="59" stroke="oklch(0.7 0.03 250)" stroke-width="1.5" marker-end="url(#arrow)" />
+            <line x1="400" y1="88" x2="400" y2="140" stroke="oklch(0.7 0.03 250)" stroke-width="1.5" marker-end="url(#arrow)" />
+            <line x1="420" y1="198" x2="420" y2="230" stroke="oklch(0.7 0.03 250)" stroke-width="1.5" marker-end="url(#arrow)" />
+            <line x1="560" y1="259" x2="620" y2="259" stroke="oklch(0.7 0.03 250)" stroke-width="1.5" marker-end="url(#arrow)" />
+            <line x1="520" y1="59" x2="900" y2="140" stroke="oklch(0.75 0.05 160)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrow)" />
+            <line x1="820" y1="259" x2="860" y2="230" stroke="oklch(0.75 0.05 160)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrow)" />
+
+            <text x="40" y="320" fill="oklch(0.72 0.01 250)" font-size="13" font-family="Avenir Next, sans-serif">
+              seed = apploop-reset → apploop-seed   ·   reset = clean → apploop-reset → rm root node_modules
+            </text>
+          </svg>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Target</th>
+                <th>Does</th>
+                <th>Does not</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>make clean</code></td>
+                <td>Removes builder <code>.next</code>, <code>out</code>, <code>dist</code>, <code>build</code>, <code>tsconfig.tsbuildinfo</code></td>
+                <td>Leave projects/DB/templates alone</td>
+              </tr>
+              <tr>
+                <td><code>make apploop-reset</code></td>
+                <td>
+                  Deletes <code>.apploop/projects</code>, <code>.apploop/runtime-logs</code>, SQLite files under
+                  <code>.apploop/</code>; strips every <code>templates/*/{node_modules,package-lock.json,pnpm-lock.yaml}</code>
+                </td>
+                <td>Remove root deps; delete template source code; wipe <code>.hermes/</code></td>
+              </tr>
+              <tr>
+                <td><code>make apploop-template-seed</code></td>
+                <td><code>npm install</code> in each <code>templates/*/</code> that has <code>package.json</code></td>
+                <td>Touch SQLite or create projects</td>
+              </tr>
+              <tr>
+                <td><code>make apploop-seed-projects</code></td>
+                <td>Depends on template-seed → <code>npm run db:migrate</code> → <code>npx tsx scripts/seed-projects.mts</code></td>
+                <td>Wipe existing demos with same names (skips duplicates)</td>
+              </tr>
+              <tr>
+                <td><code>make apploop-seed</code></td>
+                <td>Alias end of seed-projects with success banner</td>
+                <td>Reset first</td>
+              </tr>
+              <tr>
+                <td><code>make seed</code></td>
+                <td><strong>Recommended clean start:</strong> <code>apploop-reset</code> then <code>apploop-seed</code></td>
+                <td>Remove root <code>node_modules</code></td>
+              </tr>
+              <tr>
+                <td><code>make reset</code></td>
+                <td><code>clean</code> + <code>apploop-reset</code> + delete root <code>node_modules</code> + root lockfile</td>
+                <td>Reinstall anything (you must <code>make install</code> after)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="seed-now" class="card stack">
+        <div>
+          <p class="eyebrow">04 · Current catalog</p>
+          <h2>Seed what we have now</h2>
+          <p class="muted">
+            Two different “template sets” matter. Do not conflate them.
+          </p>
+        </div>
+
+        <div class="grid-2">
+          <div class="stack">
+            <h3>A. Disk templates (<code>templates/*</code>)</h3>
+            <p class="muted">
+              <code>make apploop-template-seed</code> installs deps for <strong>every</strong> directory under
+              <code>templates/</code> that contains a <code>package.json</code>. Currently that includes:
+            </p>
+            <div class="tag-row">
+              <span class="tag">default</span>
+              <span class="tag">admin-luma</span>
+              <span class="tag">ai-engineer-cv</span>
+              <span class="tag">deep-research-paper</span>
+              <span class="tag">luminous-rings</span>
+              <span class="tag">solar-system</span>
+              <span class="tag">lumacv</span>
+              <span class="tag">vestaboard</span>
+            </div>
+            <p class="muted" style="margin-top:0.75rem">
+              If you add another template folder with a <code>package.json</code>, the loop picks it up automatically.
+            </p>
+          </div>
+          <div class="stack">
+            <h3>B. Demo projects created by seed script</h3>
+            <p class="muted">
+              <code>scripts/seed-projects.mts</code> creates <strong>one project per entry in
+              <code>BUILT_IN_PROJECT_TEMPLATES</code></strong> (<code>lib/projects/templates.ts</code>), not every disk
+              folder. Registry today:
+            </p>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>id</th><th>Project name seeded</th><th>Theme</th></tr></thead>
+                <tbody>
+                  <tr><td><code>default</code></td><td>Default Next.js</td><td>luma-blue-violet</td></tr>
+                  <tr><td><code>admin-luma</code></td><td>Luma Admin</td><td>luma-admin-amber</td></tr>
+                  <tr><td><code>ai-engineer-cv</code></td><td>AI Engineer CV</td><td>luma-cv-indigo</td></tr>
+                  <tr><td><code>deep-research-paper</code></td><td>Deep Research Paper</td><td>luma-amber-slate</td></tr>
+                  <tr><td><code>luminous-rings</code></td><td>Luminous Rings</td><td>luma-violet-cyan</td></tr>
+                  <tr><td><code>solar-system</code></td><td>Solar System Explorer</td><td>luma-indigo-emerald</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Important catalog gap:</strong>
+          folders like <code>templates/vestaboard</code> and <code>templates/lumacv</code> get
+          <code>npm install</code> during template-seed, but they are <em>not</em> in
+          <code>BUILT_IN_PROJECT_TEMPLATES</code>, so <code>make seed</code> will <strong>not</strong> auto-create
+          demo projects for them. They still appear as create-project template options only after they are registered in
+          <code>lib/projects/templates.ts</code> (or as ready custom templates in SQLite). Until then, open them via
+          Templates tooling / create flows that know those paths, or add them to the built-in registry and re-run seed.
+        </div>
+
+        <h3>What each seeded demo project materializes</h3>
+        <pre>For each built-in template not already present by name:
+  ProjectService.createProject({ name: tpl.name, themeId: tpl.defaultThemeId })
+    → SQLite: projects, conversations, runtimes, project_themes, project_settings
+  createProjectWorkspace(PROJECTS_ROOT, workspacePath, { template, theme })
+    → FS copy templates/<path> → .apploop/projects/<slug>
+    → apply theme CSS
+    → git init in workspace
+
+Env defaults (overridable):
+  PROJECTS_ROOT=file path → .apploop/projects
+  DATABASE_URL=file:.apploop/builder.sqlite
+  PREVIEW_PORT_START=3100
+  PREVIEW_PORT_END=3199</pre>
+      </section>
+
+      <section id="from-scratch" class="card stack">
+        <div>
+          <p class="eyebrow">05 · Recipes</p>
+          <h2>From-scratch recipes</h2>
+        </div>
+
+        <div class="stack">
+          <h3>Recipe 1 — Recommended: clean AppLoop state, keep root deps</h3>
+          <p class="muted">Use this when projects/DB are dirty but the monorepo install is fine.</p>
+          <ol class="steps">
+            <li>Stop builder/gateway/preview processes if they hold ports (Ctrl-C; or let <code>make dev</code> reclaim 3001).</li>
+            <li>Run the full soft reseed:</li>
+          </ol>
+          <pre>make seed
+# expands to:
+#   make apploop-reset
+#     rm -rf .apploop/projects .apploop/runtime-logs
+#     rm -f  .apploop/*.sqlite .apploop/*.db .apploop/*.sqlite.backup
+#     rm -rf templates/*/node_modules templates/*/package-lock.json …
+#   make apploop-seed
+#     make apploop-template-seed   # npm install in every templates/*
+#     npm run db:migrate
+#     npx tsx scripts/seed-projects.mts</pre>
+          <ol class="steps" start="3">
+            <li>Start services:</li>
+          </ol>
+          <pre>make hermes-gateway   # terminal A
+make dev              # terminal B
+# open http://localhost:3001/projects</pre>
+
+          <h3>Recipe 2 — Nuclear: dependencies and all local AppLoop state</h3>
+          <div class="callout danger">
+            <strong>Destructive.</strong> Deletes root <code>node_modules</code> and the root lockfile. Expect a longer reinstall.
+          </div>
+          <pre>make reset
+# = clean + apploop-reset + rm -rf node_modules package-lock.json
+
+make install
+make apploop-seed
+make hermes-gateway
+make dev</pre>
+
+          <h3>Recipe 3 — Incremental: only missing demos</h3>
+          <p class="muted">If DB already has migrations and some demos exist, seed is idempotent by project name.</p>
+          <pre>make apploop-template-seed   # refresh template installs if needed
+make apploop-seed-projects   # skips templates whose demo name already exists
+make dev</pre>
+
+          <h3>Recipe 4 — Templates only (no project reseed)</h3>
+          <pre>make apploop-template-seed
+# useful after adding a new templates/<id>/package.json</pre>
+        </div>
+      </section>
+
+      <section id="destructive" class="card stack">
+        <div>
+          <p class="eyebrow">06 · Safety</p>
+          <h2>What gets deleted vs preserved</h2>
+        </div>
+        <div class="grid-2">
+          <div class="stack">
+            <h3>Deleted by <code>make seed</code> / <code>apploop-reset</code></h3>
+            <ul class="muted">
+              <li>All generated workspaces under <code>.apploop/projects/</code></li>
+              <li>Runtime logs under <code>.apploop/runtime-logs/</code></li>
+              <li>SQLite DBs at <code>.apploop/*.sqlite</code>, <code>*.db</code>, backups</li>
+              <li>Per-template <code>node_modules</code> and lockfiles</li>
+              <li>Any unsaved chat history that lived only in those DB files</li>
+            </ul>
+          </div>
+          <div class="stack">
+            <h3>Preserved</h3>
+            <ul class="muted">
+              <li>Repo source: <code>app/</code>, <code>lib/</code>, <code>components/</code>, <code>templates/*/</code> source</li>
+              <li>Custom template source trees under <code>templates/<custom-id>/</code> (code remains; their node_modules are wiped)</li>
+              <li><code>.hermes/</code> config, skills, agents (gateway home)</li>
+              <li>Root <code>node_modules</code> on <code>make seed</code> (removed only by <code>make reset</code>)</li>
+              <li>Root <code>.env</code> / secrets</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout danger">
+          <strong>Custom template DB rows</strong> live in SQLite under <code>.apploop/</code>. After
+          <code>apploop-reset</code>/<code>seed</code>, those rows are gone. Disk folders under <code>templates/</code> may
+          still exist as orphan trees until you delete them manually or recreate rows via Create Template / register again.
+        </div>
+      </section>
+
+      <section id="verify" class="card stack">
+        <div>
+          <p class="eyebrow">07 · Verify</p>
+          <h2>Verification checklist</h2>
+        </div>
+        <pre># 1) Template installs present
+for d in templates/*/; do
+  [ -d "${d}node_modules" ] && echo "OK  $d" || echo "MISS $d"
+done
+
+# 2) DB file exists after migrate/seed
+ls -la .apploop/*.sqlite 2>/dev/null || ls -la .apploop
+
+# 3) Demo workspaces exist
+ls .apploop/projects
+
+# 4) Builder responds
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001/projects
+
+# 5) Gateway responds (if running)
+make hermes-gateway-curl-test</pre>
+        <p class="muted">
+          In the UI after <code>make seed</code> + <code>make dev</code>, <code>/projects</code> should list the six seeded
+          demo projects named exactly like the built-in template display names (Default Next.js, Luma Admin, AI Engineer CV,
+          Deep Research Paper, Luminous Rings, Solar System Explorer).
+        </p>
+      </section>
+
+      <section id="pitfalls" class="card stack">
+        <div>
+          <p class="eyebrow">08 · Pitfalls</p>
+          <h2>Pitfalls & notes</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Pitfall</th><th>Detail</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Seed skipped “already exists”</td>
+                <td>
+                  <code>seed-projects.mts</code> skips when a project with the same <em>name</em> already exists. Use
+                  <code>make seed</code> (which resets DB/projects) for a true clean slate.
+                </td>
+              </tr>
+              <tr>
+                <td><code>make dev</code> double port flag</td>
+                <td>
+                  Makefile already passes <code>--port $(PORT)</code>. Keep the port out of <code>package.json</code>
+                  <code>dev</code> scripts to avoid <code>next dev --port 3001 --port 3001</code>.
+                </td>
+              </tr>
+              <tr>
+                <td>Gateway up but builder chats fail</td>
+                <td>
+                  Confirm AppLoop env points at the same base URL/key the gateway uses
+                  (<code>HERMES_BASE_URL</code> / API server key alignment).
+                </td>
+              </tr>
+              <tr>
+                <td>Template seed is slow</td>
+                <td>
+                  Installing deps for every template can take minutes. That is expected on first seed after reset.
+                </td>
+              </tr>
+              <tr>
+                <td>Orphan template folders</td>
+                <td>
+                  Custom/vestaboard/lumacv source remains on disk after DB wipe. Preview projects from seed only cover
+                  built-in registry entries.
+                </td>
+              </tr>
+              <tr>
+                <td><code>make reset</code> without reinstall</td>
+                <td>
+                  Builder will not start until <code>make install</code> (and usually <code>make apploop-seed</code>).
+                </td>
+              </tr>
+              <tr>
+                <td>Preview ports occupied</td>
+                <td>
+                  After a hard kill, old <code>next dev</code> processes on 3100–3199 may linger. Free them before seeding
+                  many projects if allocation fails.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="reference" class="card stack">
+        <div>
+          <p class="eyebrow">09 · Cheat sheet</p>
+          <h2>Quick command reference</h2>
+        </div>
+        <pre># Help
+make help
+
+# Run (normal day)
+make hermes-gateway
+make dev
+
+# Clean start keeping root node_modules  ← default remind
+make seed
+make hermes-gateway
+make dev
+
+# Nuclear teardown + rebuild
+make reset
+make install
+make apploop-seed
+make hermes-gateway
+make dev
+
+# Pieces
+make clean
+make apploop-reset
+make apploop-template-seed
+make apploop-seed-projects
+make apploop-seed
+make hermes-gateway-curl-test
+make check</pre>
+        <div class="callout">
+          <strong>Source map:</strong>
+          Makefile targets above; seeder <code>scripts/seed-projects.mts</code>; built-ins
+          <code>lib/projects/templates.ts</code>; longer historical notes in
+          <code>.hermes/skills/generated-app-standards/references/makefile-template-seeding.md</code>
+          (slightly older composition wording — trust the live Makefile when they differ).
+        </div>
+      </section>
+
+      <p class="footer">
+        Engineer runbook for AppLoop local operations. Luma/shadcn dark tokens. Open this file in a browser — no build step.
+      </p>
+    </div>
+  </body>
+</html>
