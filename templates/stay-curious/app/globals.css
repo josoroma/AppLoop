@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+:root {
+  --background: oklch(0 0 0);
+  --foreground: oklch(1 0 0);
+  --card: oklch(0.06 0 0 / 90%);
+  --card-foreground: oklch(1 0 0);
+  --popover: oklch(0.05 0 0 / 96%);
+  --popover-foreground: oklch(1 0 0);
+  --primary: oklch(1 0 0);
+  --primary-foreground: oklch(0 0 0);
+  --secondary: oklch(0.12 0 0);
+  --secondary-foreground: oklch(0.96 0 0);
+  --muted: oklch(0.1 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.2 0.02 255);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.63 0.22 25);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 8%);
+  --ring: oklch(0.92 0.02 250);
+  --chart-1: oklch(0.92 0.17 195);
+  --chart-2: oklch(0.86 0.19 250);
+  --chart-3: oklch(0.8 0.21 305);
+  --chart-4: oklch(0.84 0.2 25);
+  --chart-5: oklch(0.94 0.14 95);
+  --radius: 0.25rem;
+  --sidebar: oklch(0.04 0 0 / 95%);
+  --sidebar-foreground: oklch(1 0 0);
+  --sidebar-primary: oklch(1 0 0);
+  --sidebar-primary-foreground: oklch(0 0 0);
+  --sidebar-accent: oklch(0.12 0 0);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.92 0.02 250);
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+html,
+body {
+  min-height: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #000000;
+  color: var(--foreground);
+  font-family: "Inter Display", "Inter", "SF Pro Display", system-ui,
+    -apple-system, sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+/* ── app shell (full screen, no header) ─────────────── */
+
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+}
+
+/* ── curiosity hero ──────────────────────────────────── */
+
+.hero-section {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000000;
+}
+
+.curiosity-hero-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.curiosity-hero-canvas canvas {
+  display: block;
+}
+
+.curiosity-hero-static {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 55% 45% at 50% 50%,
+    rgba(255, 255, 255, 0.03) 0%,
+    transparent 70%
+  );
+}
+
+.curiosity-hero-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: clamp(2rem, 6vw, 5rem);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.curiosity-hero-headline {
+  max-width: 14ch;
+  margin: 0;
+  color: #ffffff;
+  font-family: "Inter Display", "Inter", "SF Pro Display", system-ui,
+    -apple-system, sans-serif;
+  font-size: clamp(3.5rem, 8vw, 7.5rem);
+  font-weight: 850;
+  letter-spacing: -0.035em;
+  line-height: 0.9;
+  text-shadow:
+    0 0 80px rgba(255, 255, 255, 0.2),
+    0 0 160px rgba(255, 255, 255, 0.08);
+  user-select: none;
+}
+
+@media (max-width: 640px) {
+  .curiosity-hero-headline {
+    font-size: clamp(2.5rem, 10vw, 4.5rem);
+  }
+}
