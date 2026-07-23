@@ -196,9 +196,11 @@ Hard lessons from specialty iteration (also in that pack):
 - Missing triangle `rsi` → stick-figure collapse
 - Sim speed via fixed-step accumulator; normal = 30Hz + `system.h ≈ 0.033` (below 16Hz / `h < 0.022` feels elastic-thrashy; uncapped rAF feels anxious)
 - No face overlays unless asked; put HUD in the left column
-- Custom mesh ⇒ scripted `system.a.set`, not mismatched MLP policy
-- **Low-noise mesh wins** — sparse ~40–50 verts / one muscle chain per leg joint; dense meshes read as "noise"
+- **Scripted `system.a.set` gaits do not walk** (≤0.007 u/s measured). Real forward motion ⇒ pretrained `MLPPolicy({ active: true })` on the official quadruped topology, or the same mesh with appendages after policy index caps. `active` defaults false (silent no-op).
+- **Low-noise mesh wins** for hand silhouettes / in-place FX; neural walker keeps the dense trained quadruped + small ears/tail
 - Keep `draggable: true` on the viewport — user expects drag-and-drop joints
+- **No engine grid + no brown chrome** on neon specialty stages — transparent algovivo canvas + CSS universe starfield; cold oklch hues only
+- Register + docs + inspectors + tests together when promoting a built-in; seeder skips by project **name**
 - After template edits, rsync into `.apploop/projects/<slug>/` then hard-reload preview
 
 ## Related detail

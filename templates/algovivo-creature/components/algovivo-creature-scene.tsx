@@ -23,6 +23,13 @@ const POLICY_URL = '/data/quadruped/policy.json'
 // Official demo runs ~30hz — normal speed.
 const SIM_HZ = 30
 const SIM_DT_MS = 1000 / SIM_HZ
+// Cap lag catch-up so a slow first frame (policy cold-load, tab settle) does
+// not dump several steps and thrash the gait on boot.
+const MAX_SIM_STEPS_PER_FRAME = 1
+// Drop excess wall-clock debt instead of escalating the step rate.
+const MAX_SIM_LAG_MS = SIM_DT_MS * 1.5
+// Brief rest-muscle settle before the policy starts writing activations.
+const SETTLE_STEPS = 8
 
 // Official quadruped body + ears/tail; wider frame keeps the stride visible.
 const VISIBLE_WORLD_WIDTH = 6.4
@@ -122,8 +129,14 @@ export const AlgovivoCreatureScene = ({ onRuntimeInfoChange }: AlgovivoCreatureS
       }
 
       try {
+        // If the tab stalled or the first paint was heavy, discard surplus lag
+        // so we never replay many backlogged physics steps at once.
+        if (now - lastSimAt > MAX_SIM_LAG_MS) {
+          lastSimAt = now - SIM_DT_MS
+        }
+
         let steps = 0
-        while (now - lastSimAt >= SIM_DT_MS && steps < 2) {
+        while (now - lastSimAt >= SIM_DT_MS && steps < MAX_SIM_STEPS_PER_FRAME) {
           lastSimAt += SIM_DT_MS
           simTimeSeconds += SIM_DT_MS / 1000
           steps += 1
@@ -192,13 +205,22 @@ export const AlgovivoCreatureScene = ({ onRuntimeInfoChange }: AlgovivoCreatureS
           setDriver('scripted')
         }
 
+        // Settle under rest activations before the policy starts contracting.
+        // Prevents the cold-start thrash where the first policy outputs hit a
+        // just-loaded mesh and the legs flail for a frame or two.
+        const restActivations = new Array(creatureMeta.num_muscles).fill(1)
+        for (let i = 0; i < SETTLE_STEPS; i += 1) {
+          system.a.set(restActivations)
+          system.step()
+        }
+
         const rect = host.getBoundingClientRect()
         viewport = new SystemViewport({
           system,
           width: Math.max(360, Math.floor(rect.width || 760)),
           height: Math.max(360, Math.floor(rect.height || 560)),
-          // Yellow cat with blue neon edges and red straps.
-          borderColor: '#1e6fff',
+          // Yellow cat with black edges and red straps.
+          borderColor: '#0a0a0a',
           fillColor: '#f5c400',
           // Transparent canvas: the universe starfield behind it (CSS on
           // .creature-viewport-frame) shows through. No grid — space look.
@@ -213,6 +235,14 @@ export const AlgovivoCreatureScene = ({ onRuntimeInfoChange }: AlgovivoCreatureS
 
         viewport.tracker.targetCenterY = 1.05
         viewport.tracker.visibleWorldWidth = VISIBLE_WORLD_WIDTH
+        // Floor line reuses borderColor; hide it for the universe stage while
+        // keeping black mesh edges.
+        if (viewport.floor?.mesh) {
+          viewport.floor.mesh.lines = []
+          if (viewport.floor.mesh.lineShader) {
+            viewport.floor.mesh.lineShader.renderLine = () => {}
+          }
+        }
         viewport.domElement.style.width = '100%'
         viewport.domElement.style.height = '100%'
         viewport.domElement.style.display = 'block'
@@ -222,6 +252,11 @@ export const AlgovivoCreatureScene = ({ onRuntimeInfoChange }: AlgovivoCreatureS
 
         window.addEventListener('resize', resize)
         resize()
+        // Anchor the fixed-step clock to the first animated frame so boot
+        // latency does not become "catch-up" steps.
+        startedAt = 0
+        lastSimAt = 0
+        simTimeSeconds = 0
         setStatus('walking')
         frameId = window.requestAnimationFrame(loop)
       } catch (error) {

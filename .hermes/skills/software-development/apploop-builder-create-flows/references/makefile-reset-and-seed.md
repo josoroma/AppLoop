@@ -43,8 +43,10 @@ make reset
 
 ## Two catalogs
 
-1. **Disk templates** — `apploop-template-seed` loops `templates/*/package.json` (includes vestaboard, lumacv, etc.).
-2. **Demo projects** — `scripts/seed-projects.mts` only seeds `BUILT_IN_PROJECT_TEMPLATES` in `lib/projects/templates.ts` (six built-ins today). Disk-only templates are **not** auto-demoed until registered there.
+1. **Disk templates** — `apploop-template-seed` loops `templates/*/package.json` (includes vestaboard, lumacv, immersive-full-screen, algovivo-creature, etc.).
+2. **Demo projects** — `scripts/seed-projects.mts` only seeds `BUILT_IN_PROJECT_TEMPLATES` in `lib/projects/templates.ts`. **Built-ins today (7):** `default`, `admin-luma`, `ai-engineer-cv`, `deep-research-paper`, `luminous-rings`, `solar-system`, `algovivo-creature` (shipped name **Algovivo Soft Creature**, theme `luma-orange-stone`). Disk-only templates are **not** auto-demoed until registered there.
+
+When adding a built-in, also update `docs/README-RESET.html` disk tags + built-in seed table (user-facing “reset and seed” docs). Detail: [`adding-built-in-template.md`](adding-built-in-template.md).
 
 Env defaults for seeder: `PROJECTS_ROOT=.apploop/projects`, `DATABASE_URL=file:.apploop/builder.sqlite`, ports `3100–3199`.
 
@@ -72,3 +74,6 @@ make apploop-seed-projects
 - Older docs stop at “template-seed + migrate”; live Makefile also runs `seed-projects.mts`.
 - Do not hardcode `--port` in package.json `dev` if Makefile already passes it.
 - Preview ports can linger after crash — free 3100–3199 if allocation fails after dense seeds.
+- Seeder is skip-by-**name**: rename registry `name` without `make seed` (or deleting the old project) and the new title never appears as a demo card.
+- README-RESET / root README catalog tables lag easily — treat them as part of the registration change, not a docs-only follow-up.
+- After template source edits, already-seeded workspaces stay stale until rsync `templates/<id>/` → `.apploop/projects/<slug>/` (exclude `node_modules`/`.next`/`.git`) + hard-reload.

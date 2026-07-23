@@ -58,19 +58,19 @@ tri(28, 23, ear_b_tip)
 tri(27, 8, ear_f_tip)
 
 # ---------------------------------------------------------------- tail
-# Short, gently raised tail off the rear-top edge (0,1). Longer/higher tails
-# measurably slow the trained walk (inertia), so keep this compact.
-t0 = add(-1.22, 1.62, -0.55)
-t1 = add(-1.34, 1.76, -0.55)
-t2 = add(-1.28, 1.92, -0.55)
+# Short raised tail off the rear rump edge (3,4) — sits on the ass/backside
+# rather than mid-spine. Keep compact: longer/higher tails slow the walk.
+t0 = add(-1.86, 1.22, -0.55)
+t1 = add(-1.98, 1.36, -0.55)
+t2 = add(-1.92, 1.52, -0.55)
 
-tri(1, 0, t0)
-tri(0, t0, t1)
+tri(3, 4, t0)
+tri(4, t0, t1)
 tri(t0, t1, t2)
 
 tail_muscles = [
-    muscle(0, t0, "tail-anchor-a", "tail"),
-    muscle(1, t0, "tail-anchor-b", "tail"),
+    muscle(3, t0, "tail-anchor-a", "tail"),
+    muscle(4, t0, "tail-anchor-b", "tail"),
     muscle(t0, t2, "tail-sway", "tail"),
 ]
 

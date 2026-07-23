@@ -40,6 +40,14 @@ export type AlgovivoViewport = {
     domToWorldSpace?: (p: [number, number]) => [number, number]
     worldToDomSpace?: (p: [number, number]) => [number, number]
   }
+  floor?: {
+    mesh?: {
+      lines?: number[][]
+      lineShader?: {
+        renderLine?: (...args: unknown[]) => void
+      }
+    }
+  }
   needsMeshUpdate?: boolean
   setSortedVertexIdsFromVertexDepths?: (depths: number[]) => void
   dispose?: () => void

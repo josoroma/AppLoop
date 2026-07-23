@@ -7,7 +7,7 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Algovivo Yellow Cat',
   description:
-    '2D yellow soft-body cat with blue neon edges, red strap actuators, and natural locomotion powered by algovivo.',
+    '2D yellow soft-body cat with black edges, red strap actuators, and natural locomotion powered by algovivo.',
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

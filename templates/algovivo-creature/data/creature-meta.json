@@ -23,14 +23,14 @@
   "muscles": [
     {
       "name": "tail-anchor-a",
-      "a": 0,
+      "a": 3,
       "b": 64,
       "group": "tail",
       "index": 38
     },
     {
       "name": "tail-anchor-b",
-      "a": 1,
+      "a": 4,
       "b": 64,
       "group": "tail",
       "index": 39

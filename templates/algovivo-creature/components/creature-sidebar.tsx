@@ -42,11 +42,11 @@ export const CreatureSidebar = () => {
         <h1 className="algovivo-title creature-hero-title">Yellow cat that walks forward on a trained policy.</h1>
         <p className="algovivo-summary creature-hero-summary">
           A soft-body cat with pointy ears and a swaying tail, driven by algovivo&apos;s pretrained MLP
-          walking policy. Blue neon edges outline the body; red straps glow across muscles as it strides
+          walking policy. Black edges outline the body; red straps glow across muscles as it strides
           forward. Drag it around — it gets back up and keeps walking.
         </p>
         <ul className="algovivo-bullets creature-feature-list" data-builder-id="algovivo-creature-features">
-          <li className="algovivo-bullet creature-feature-mesh">yellow body + blue neon edges</li>
+          <li className="algovivo-bullet creature-feature-mesh">yellow body + black edges</li>
           <li className="algovivo-bullet creature-feature-muscles">neural walking policy + scripted tail sway</li>
           <li className="algovivo-bullet creature-feature-gait">real forward locomotion, drag-and-drop enabled</li>
         </ul>
@@ -83,7 +83,7 @@ export const CreatureSidebar = () => {
             </p>
           ) : null}
           <p className="algovivo-legend creature-legend-row" data-builder-id="algovivo-creature-legend">
-            <span className="legend-swatch legend-joint">blue neon edges</span>
+            <span className="legend-swatch legend-joint">black edges</span>
             <span className="legend-swatch legend-edge">yellow body</span>
             <span className="legend-swatch legend-muscle">red strap muscles</span>
           </p>

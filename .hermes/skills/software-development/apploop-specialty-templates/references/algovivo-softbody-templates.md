@@ -42,7 +42,9 @@ Pass `vertexDepths` / sorted depths into `SystemViewport` when available.
 
 **`MLPPolicy` defaults `active: false`** — it silently writes a=1 unless constructed with `active: true`. A policy-driven sim that stands still is almost always this.
 
-**Augmentation tax:** appended appendage inertia slows the trained walk (official quadruped 1.71 u/s → tall raised tail 0.26 → compact low 3-vert tail ≈0.96). Keep add-ons small/low and measure headlessly (Node: `file://` import of `algovivo.min.js`, `WebAssembly.instantiate(fs.readFileSync(wasm))`, track COM x at 30Hz).
+**Augmentation tax:** appended appendage inertia slows the trained walk (official quadruped 1.71 u/s → tall raised tail 0.26 → compact low 3-vert tail ~0.3–0.96 by mount). Keep add-ons small/low and measure headlessly (Node: `file://` import of `algovivo.min.js`, `WebAssembly.instantiate(fs.readFileSync(wasm))`, track COM x at 30Hz).
+
+**Tail on cat identity:** mount on rear rump edge verts **`(3,4)`** (ass/backside), not mid-spine rear-top `(0,1)`. User corrected *“more in the ass or back”*.
 
 Meaning of `a`:
 
@@ -58,15 +60,39 @@ Meaning of `a`:
 | "too slow" | keep 30Hz, raise gait speed, not Hz |
 | "too elastic / wobbly" | raise activations toward 1, shrink body-sine amplitudes to ~0.004–0.01 — don't lower `h` |
 
-Always use a fixed-step accumulator (max 2 steps/frame, render only if stepped). Never step once per RAF (~60 Hz) with default `h≈0.033` — that is the "anxious" bug. Don't go below 16Hz or `h < 0.022` — motion turns elastic/thrashy.
+Always use a fixed-step accumulator (render only if stepped). Never step once per RAF (~60 Hz) with default `h≈0.033` — that is the "anxious" bug. Don't go below 16Hz or `h < 0.022` — motion turns elastic/thrashy.
+
+**Startup thrash ("sometimes starts erratically fast") ≠ rAF-60Hz.** Boot/tab lag accrues wall-clock debt; catching up 2+ policy steps on first paint thrash/teleports the gait. Hardened loop:
+
+```ts
+const SIM_HZ = 30
+const SIM_DT_MS = 1000 / SIM_HZ
+const MAX_SIM_STEPS_PER_FRAME = 1          // was 2 — one step max after stalls
+const MAX_SIM_LAG_MS = SIM_DT_MS * 1.5
+const SETTLE_STEPS = 8                      // rest a=1 before first policy.step()
+
+// after system.set + policy load, BEFORE enter RAF:
+const rest = new Array(numMuscles).fill(1)
+for (let i = 0; i < SETTLE_STEPS; i++) { system.a.set(rest); system.step() }
+startedAt = 0; lastSimAt = 0; simTimeSeconds = 0  // boot latency ≠ catch-up
+
+// inside RAF:
+if (now - lastSimAt > MAX_SIM_LAG_MS) lastSimAt = now - SIM_DT_MS
+while (now - lastSimAt >= SIM_DT_MS && steps < MAX_SIM_STEPS_PER_FRAME) {
+  lastSimAt += SIM_DT_MS
+  policy?.step(); /* optional tail sway */ system.step(); steps++
+}
+```
+
+Also: floor reuses `borderColor` — mute after boot if no horizon. Black legend dots on dark HUD need a white ring (fill alone is invisible).
 
 ## SystemViewport neon paint
 
 Constructor options (not CSS) drive mesh colors:
 
-- `borderColor` — structure + joints
+- `borderColor` — structure + joints (**also** tints the canonical floor mesh `Ee` — same color as edges)
 - `fillColor` — triangle fill (the body color)
-- `gridColor`, `backgroundCenterColor`, `backgroundOuterColor`
+- `gridColor`, `backgroundCenterColor`, `backgroundOuterColor` — or single `backgroundColor`
 - `activeMuscleColor` / `inactiveMuscleColor` — `#rrggbb` or RGB array
 
 Recipes (all user-accepted at some point):
@@ -74,12 +100,28 @@ Recipes (all user-accepted at some point):
 - Cool creature: joints `#67e8f9`, active muscle `#ff4fd8`, idle `#7c3aed`, dark blue stage
 - Citrus orange: joints `#ffb347`, active `#b8ff4a`, idle `#62c41a`, warm dark stage
 - Spot robot dog: fill `#f5c400`, edges `#111111`, active `#ff5a1f`, dark gray stage
-- **Black cat (latest accepted):** fill `#0d0d0f`, edges `#0a0a0a`, active `#ff2a3a`, idle `#8a1520`, red-tinted dark stage (`#120c0e`/`#0a0708`, grid `#3a1518`)
+- **Neural-walker yellow cat (current):** fill `#f5c400`, edges `#0a0a0a`, active `#ff2a3a`, idle `#8a1520` — **no grid + no floor line**; transparent stage over CSS universe starfield; page chrome cold neon (no brown)
+
+### Transparent stage + mute floor + host starfield
+
+When the brief wants universe / starfield instead of the engine grid:
+
+```ts
+gridColor: 'rgba(0, 0, 0, 0)',
+backgroundColor: 'rgba(0, 0, 0, 0)', // overrides center/outer pair; clearRect keeps alpha
+// after new SystemViewport(...): floor shares borderColor — black edges ⇒ black horizon unless muted
+if (viewport.floor?.mesh) {
+  viewport.floor.mesh.lines = []
+  if (viewport.floor.mesh.lineShader) viewport.floor.mesh.lineShader.renderLine = () => {}
+}
+```
+
+Do **not** “fix” the horizon by changing mesh edge color if the user wants black edges. Paint space on the host (`.algovivo-viewport`): deep `#0b1026→#030510` radials, nebula ellipses (oklch 220/300/330), two star `::before`/`::after` layers (≥1.4px, high alpha, dense `background-size`), canvas `z-index: 1`. Full CSS recipe: create-flows → `algovivo-creature-template.md` § Universe starfield stage.
 
 Framing:
 
 ```ts
-viewport.tracker.visibleWorldWidth = 5.6 // larger => smaller subject (default ~3.8)
+viewport.tracker.visibleWorldWidth = 6.4 // neural walker cat (larger => smaller subject; default ~3.8)
 viewport.tracker.targetCenterY = 1.05
 ```
 
@@ -89,6 +131,8 @@ viewport.tracker.targetCenterY = 1.05
 - Right: stage only
 - Skip face overlays unless requested
 - Split components: `*-scene.tsx` (WASM/loop, audit-ignore) + `*-sidebar.tsx` (copy + HUD via runtime callback)
+- **State status text** (`walking`/`booting`) must be smaller than numeric stats (user: *“walking state text must be smaller”*): `.creature-stat-status-value { font-size: 0.72rem; }`
+
 
 ## Mesh generation loop
 
@@ -108,7 +152,8 @@ viewport.tracker.targetCenterY = 1.05
 - Elephant columns/trunk → rejected as noise (121 verts)
 - Soft orange + stem/leaves → jiggle/sway controller, citrus neon palette
 - Spot robot dog v1 (73v) → "too much noise"; simplified 39v/39t accepted
-- **Natural cat (48v/55t/39m):** arched flexible spine, ears, tapered tail, slim legs; black body + red neon actuators; 30Hz normal speed — latest accepted direction
+- Hand-built sparse cat ≤0.007 u/s forward under scripted sine gaits (display only)
+- **Neural-walker cat (current, ~67v/100t/41m):** official quadruped 62v/38m + ears + compact tail on **rump `(3,4)`** via `scripts/generate-cat-mesh.py`; `MLPPolicy({ active: true, numVertices: 62, numMuscles: 38 })` + scripted tail sway; yellow `#f5c400` / black edges `#0a0a0a` / red straps; universe stage (no grid, **floor muted**); cold-start settle + lag clamp; measured ~0.3–0.98 u/s after attachment moves
 
 ## Verification
 
@@ -118,4 +163,4 @@ npm --prefix templates/algovivo-creature run lint
 npm test -- tests/project-management.test.ts tests/generated-code-standards.test.ts
 ```
 
-Visual acceptance: filled silhouette, coherent joints, calm natural motion, uncluttered stage, drag-and-drop enabled.
+Visual acceptance: filled silhouette, **real forward locomotion**, left-column HUD, no face, cold neon/universe stage (no grid/brown/**no black horizon floor**), black mesh edges when requested, drag-and-drop enabled.

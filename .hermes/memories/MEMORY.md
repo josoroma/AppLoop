@@ -10,7 +10,7 @@ AppLoop restore: removes clicked prompt + all later messages from UI and persist
 §
 AppLoop model default: deepseek/deepseek-v4-pro via OpenRouter.
 §
-Specialty: luminous-rings=WebGL neon rings (dark-first). algovivo-creature=neural-walker cat: official quadruped mesh + appended ears/compact tail (scripts/generate-cat-mesh.py), pretrained MLPPolicy with active:true + numVertices/numMuscles caps, 30Hz fixed-step, yellow/blue/red palette, visibleWorldWidth~6.4, no face. See apploop-builder-create-flows/references/algovivo-creature-template.md.
+algovivo-creature=neural-walker cat: quadruped+ears+rump tail verts(3,4); MLPPolicy active+caps; 30Hz max-1+lag clamp+rest settle; yellow#f5c400/black#0a0a0a/red; universe no floor/grid; status 0.72rem; legend black+white ring; vww~6.4; no face. generate-cat-mesh.py.
 §
 Inspect multi-select scroll: template inspector-provider must track ALL selected elements in Map<string,HTMLElement>, iterate each on tracking updates so all overlays stay positioned after scroll.
 §

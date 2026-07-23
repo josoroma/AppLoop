@@ -47,7 +47,7 @@ export const BUILT_IN_PROJECT_TEMPLATES = [
     id: "algovivo-creature",
     name: "Algovivo Soft Creature",
     description:
-      "2D neural-walker soft-body cat on algovivo (pretrained MLP gait + cat ears/tail) with neon yellow/blue/red stage and universe backdrop.",
+      "2D neural-walker soft-body cat on algovivo (pretrained MLP gait + cat ears/tail) with neon yellow/black/red stage and universe backdrop.",
     templatePath: "algovivo-creature",
     defaultThemeId: "luma-orange-stone",
   },
