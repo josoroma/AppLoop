@@ -183,7 +183,12 @@ export class HermesClient {
               sessionId: request.sessionId,
               gatewayIntegration: this.config.gatewayIntegration,
               model: this.config.inferenceModel,
+              provider: this.config.inferenceProvider,
               agentBundle: request.agentBundle,
+              metadata: {
+                inferenceModel: this.config.inferenceModel,
+                inferenceProvider: this.config.inferenceProvider,
+              },
             }),
           );
         });
@@ -238,6 +243,7 @@ export class HermesClient {
   }
 
   private streamRunPayload(request: HermesRunRequest) {
+    const model = this.config.inferenceModel;
     const payload: Record<string, unknown> = {
       projectId: request.projectId,
       conversationId: request.conversationId,
@@ -247,8 +253,19 @@ export class HermesClient {
       sessionId: request.sessionId,
       session_id: request.sessionId,
       gatewayIntegration: this.config.gatewayIntegration,
-      model: this.config.inferenceModel,
+      // Hermes resolves this against platforms.api_server.extra.model_routes.
+      model,
+      provider: this.config.inferenceProvider,
       agentBundle: request.agentBundle,
+      metadata: {
+        projectId: request.projectId,
+        conversationId: request.conversationId,
+        workspacePath: request.workspacePath,
+        gatewayIntegration: this.config.gatewayIntegration,
+        inferenceModel: model,
+        inferenceProvider: this.config.inferenceProvider,
+        agentBundle: request.agentBundle,
+      },
     };
 
     if (request.images && request.images.length > 0) {
@@ -259,10 +276,13 @@ export class HermesClient {
   }
 
   private gatewayRunPayload(request: HermesRunRequest) {
+    const model = this.config.inferenceModel;
     const payload: Record<string, unknown> = {
       input: request.message,
       instructions: createGatewayInstructions(request),
-      model: this.config.inferenceModel,
+      // Top-level model is the route alias Hermes looks up in model_routes.
+      model,
+      provider: this.config.inferenceProvider,
       session_id: request.sessionId ?? undefined,
       agentBundle: request.agentBundle,
       metadata: {
@@ -270,7 +290,7 @@ export class HermesClient {
         conversationId: request.conversationId,
         workspacePath: request.workspacePath,
         gatewayIntegration: this.config.gatewayIntegration,
-        inferenceModel: this.config.inferenceModel,
+        inferenceModel: model,
         inferenceProvider: this.config.inferenceProvider,
         agentBundle: request.agentBundle,
       },

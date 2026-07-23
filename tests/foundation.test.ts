@@ -40,8 +40,12 @@ describe("E1 foundation", () => {
       "gitCommits",
       "projectThemes",
       "projectSettings",
+      "projectTemplates",
       "builderPreferences",
       "screenshots",
+      "chatCheckpoints",
+      "sessionEvents",
+      "hermesSessionLinks",
     ]);
   });
 

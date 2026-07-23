@@ -251,6 +251,22 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
       }
     };
 
+    const resolveTrackedElement = (preferredSelector: string, current: HTMLElement | null | undefined) => {
+      // React can replace DOM nodes (parent re-render, soft navigation, etc.).
+      // Prefer a live node, otherwise re-query by preferredSelector so multi-select
+      // overlays keep receiving scroll/resize rect updates instead of going stale.
+      if (current && document.contains(current)) {
+        return current;
+      }
+
+      try {
+        const found = document.querySelector(preferredSelector);
+        return found instanceof HTMLElement ? found : null;
+      } catch {
+        return null;
+      }
+    };
+
     const publishTrackedSelections = () => {
       if (animationFrameId !== null) {
         return;
@@ -259,22 +275,29 @@ export function InspectorProvider({ children }: Readonly<{ children: ReactNode }
       animationFrameId = window.requestAnimationFrame(() => {
         animationFrameId = null;
 
-        for (const [preferredSelector, element] of selectedElements) {
-          if (!document.contains(element)) {
+        for (const preferredSelector of [...selectedElements.keys()]) {
+          const liveElement = resolveTrackedElement(preferredSelector, selectedElements.get(preferredSelector));
+
+          if (!liveElement) {
             selectedElements.delete(preferredSelector);
             continue;
           }
 
-          const selection = createSelectionPayload(element, projectId, previewNonce);
+          selectedElements.set(preferredSelector, liveElement);
+          const selection = createSelectionPayload(liveElement, projectId, previewNonce);
 
           if (selection) {
             window.parent.postMessage({ type: "apploop:inspector-select", projectId, previewNonce, selection, update: true }, parentOrigin);
           }
         }
 
-        if (hoveredElement && document.contains(hoveredElement)) {
-          const selection = createSelectionPayload(hoveredElement, projectId, previewNonce);
-          window.parent.postMessage({ type: "apploop:inspector-hover", projectId, previewNonce, selection }, parentOrigin);
+        if (hoveredElement) {
+          if (!document.contains(hoveredElement)) {
+            hoveredElement = null;
+          } else {
+            const selection = createSelectionPayload(hoveredElement, projectId, previewNonce);
+            window.parent.postMessage({ type: "apploop:inspector-hover", projectId, previewNonce, selection }, parentOrigin);
+          }
         }
       });
     };

@@ -64,6 +64,13 @@
       "when": 1784427600000,
       "tag": "0008_custom_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784514000000,
+      "tag": "0009_builder_default_hermes_model",
+      "breakpoints": true
     }
   ]
 }

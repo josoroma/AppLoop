@@ -87,7 +87,8 @@ export async function POST(request: Request) {
       writer.write({ type: "text-start", id: textPartId });
 
       try {
-        for await (const event of getHermesClient().streamProjectRun({
+        const hermesClient = await getHermesClient();
+        for await (const event of hermesClient.streamProjectRun({
           projectId,
           conversationId: conversation.id,
           message: prompt,

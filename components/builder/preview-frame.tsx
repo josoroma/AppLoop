@@ -454,22 +454,16 @@ export function PreviewFrame({ defaultRoute, onToggleRuntimeLogs, previewUrl, pr
 }
 
 function SelectionOverlay({ locked, selection }: { locked: boolean; selection: VisualSelection }) {
-  const overlayRef = useRef<HTMLDivElement>(null);
   const selector = getPreferredSelector(selection);
   const classNameLabel = getClassNameLabel(selection);
-
-  useEffect(() => {
-    const overlay = overlayRef.current;
-
-    if (!overlay) {
-      return;
-    }
-
-    overlay.style.setProperty("--selection-x", `${selection.boundingRect.x}px`);
-    overlay.style.setProperty("--selection-y", `${selection.boundingRect.y}px`);
-    overlay.style.setProperty("--selection-width", `${selection.boundingRect.width}px`);
-    overlay.style.setProperty("--selection-height", `${selection.boundingRect.height}px`);
-  }, [selection]);
+  // Apply rects during render so scroll/resize tracking updates immediately.
+  // An effect-only write can lag one frame (or stick) under high-frequency posts.
+  const overlayStyle = {
+    ["--selection-x" as string]: `${selection.boundingRect.x}px`,
+    ["--selection-y" as string]: `${selection.boundingRect.y}px`,
+    ["--selection-width" as string]: `${selection.boundingRect.width}px`,
+    ["--selection-height" as string]: `${selection.boundingRect.height}px`,
+  };
 
   async function copySelector() {
     try {
@@ -481,7 +475,7 @@ function SelectionOverlay({ locked, selection }: { locked: boolean; selection: V
   }
 
   return (
-    <div aria-hidden="true" className={locked ? "preview-selection-overlay is-locked" : "preview-selection-overlay"} ref={overlayRef}>
+    <div aria-hidden="true" className={locked ? "preview-selection-overlay is-locked" : "preview-selection-overlay"} style={overlayStyle}>
       <button className="preview-selection-label" onClick={copySelector} tabIndex={-1} type="button">
         <span className="preview-selection-label-class">{classNameLabel}</span>
         <span className="preview-selection-label-selector">

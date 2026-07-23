@@ -101,7 +101,9 @@ describe("E11 generated app code standards", () => {
       const providerSource = await fs.readFile(path.join(process.cwd(), "templates", templateName, "components", "inspector-provider.tsx"), "utf8");
 
       expect(providerSource).toContain("const selectedElements = new Map<string, HTMLElement>()");
-      expect(providerSource).toContain("for (const [preferredSelector, element] of selectedElements)");
+      expect(providerSource).toContain("for (const preferredSelector of [...selectedElements.keys()])");
+      expect(providerSource).toContain("resolveTrackedElement");
+      expect(providerSource).toContain("document.querySelector(preferredSelector)");
       expect(providerSource).not.toContain("let selectedElement: HTMLElement | null");
     }
   });
@@ -119,6 +121,7 @@ async function collectTemplateUiFiles(templateRoot: string) {
     "canvas-scene.tsx",
     "algovivo-creature-scene.tsx",
     "creature-sidebar.tsx",
+    "curiosity-hero.tsx",
   ]);
 
   async function walk(dir: string) {

@@ -22,7 +22,8 @@ export async function POST(request: Request) {
 
   if (activeRun) {
     if (activeRun.hermesRunId) {
-      await getHermesClient().cancelRun(activeRun.hermesRunId, request.signal);
+      const hermesClient = await getHermesClient();
+      await hermesClient.cancelRun(activeRun.hermesRunId, request.signal);
     }
 
     await getProjectRepository().updateRun(activeRun.runId, { status: "cancelled", finishedAt: new Date() });

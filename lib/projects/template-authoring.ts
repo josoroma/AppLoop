@@ -85,7 +85,8 @@ export async function createCustomTemplate(repository: ProjectRepository, input:
 
   try {
     const conversationId = randomUUID();
-    const result = await getHermesClient().runProjectOnce({
+    const hermesClient = await getHermesClient();
+    const result = await hermesClient.runProjectOnce({
       projectId: `template:${templateId}`,
       conversationId,
       message: createTemplateAuthoringPrompt({ templateId, name, description, prompt, baseTemplateId, themeCss: theme.css }),

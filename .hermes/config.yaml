@@ -1,7 +1,8 @@
 model:
-  default: x-ai/grok-4.5
+  default: deepseek/deepseek-v4-pro
   provider: openrouter
-  base_url: https://openrouter.ai/api/v1
+  base_url: http://127.0.0.1:8080/v1
+  api_key: not-needed
 agent:
   service_tier: normal
 dashboard:
@@ -18,5 +19,27 @@ platforms:
     extra:
       model_routes:
         deepseek/deepseek-v4-pro:
+          model: deepseek/deepseek-v4-pro
+          provider: openrouter
+        x-ai/grok-4.5:
+          model: x-ai/grok-4.5
+          provider: openrouter
+        nvidia/nemotron-3-ultra-550b-a55b:free:
+          model: nvidia/nemotron-3-ultra-550b-a55b:free
+          provider: openrouter
+        local-qwen3.6-27b-optiq-4bit:
+          model: /Users/josoroma/models/qwen/Qwen3.6-27B-OptiQ-4bit
+          provider: custom
+          base_url: http://127.0.0.1:8080/v1
+          api_key: not-needed
+        nemotron-3-ultra-free:
+          model: nvidia/nemotron-3-ultra-550b-a55b:free
+          provider: openrouter
+        local-mlx-vlm:
+          model: /Users/josoroma/models/qwen/Qwen3.6-27B-OptiQ-4bit
+          provider: custom
+          base_url: http://127.0.0.1:8080/v1
+          api_key: not-needed
+        deepseek-v4-pro:
           model: deepseek/deepseek-v4-pro
           provider: openrouter

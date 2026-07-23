@@ -1,0 +1,12 @@
+# Append under platforms.api_server.extra.model_routes in .hermes/config.yaml
+        x-ai/grok-4.5:
+          model: x-ai/grok-4.5
+          provider: openrouter
+        nvidia/nemotron-3-ultra-550b-a55b:free:
+          model: nvidia/nemotron-3-ultra-550b-a55b:free
+          provider: openrouter
+        local-qwen3.6-27b-optiq-4bit:
+          model: /Users/josoroma/models/qwen/Qwen3.6-27B-OptiQ-4bit
+          provider: custom
+          base_url: http://127.0.0.1:8080/v1
+          api_key: not-needed

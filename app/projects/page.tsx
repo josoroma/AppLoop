@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, AlertTriangle, ArchiveRestore, Copy, ExternalLink, FolderGit2, LayoutTemplate, LoaderCircle, Pencil, Plus, Square, Trash2 } from "lucide-react";
+import { Activity, AlertTriangle, ArchiveRestore, Copy, ExternalLink, FolderGit2, LayoutTemplate, LoaderCircle, Pencil, Plus, Settings, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   archiveProjectAction,
@@ -12,6 +12,7 @@ import {
 import { formatProjectWorkspacePath } from "@/lib/projects/service";
 import { getProjectService } from "@/lib/projects/store";
 import { stopRuntimeAction } from "@/lib/runtime/actions";
+import { getPreferredHermesModelSelection } from "@/lib/hermes/preferences";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
   ]);
   const activeProjectPage = paginateItems(activeProjects, activePage, pageSize);
   const archivedProjectPage = paginateItems(archivedProjects, archivedPage, pageSize);
+  const modelSelection = await getPreferredHermesModelSelection();
 
   return (
     <main className="luma-list-page min-h-screen px-6 py-8">
@@ -48,8 +50,18 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
             AppLoop builder
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-normal">Projects</h1>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Gateway model: <span className="font-medium text-foreground">{modelSelection.label}</span>
+            <span className="text-muted-foreground"> · {modelSelection.provider}</span>
+          </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
+          <Button asChild variant="outline">
+            <Link href="/projects/settings">
+              <Settings className="size-4" />
+              Settings
+            </Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href="/templates">
               <LayoutTemplate className="size-4" />

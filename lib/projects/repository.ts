@@ -214,6 +214,31 @@ export class SqliteProjectRepository implements ProjectRepository {
       });
   }
 
+  async getBuilderPreferences() {
+    const [preferences] = await this.db.select().from(builderPreferences).where(eq(builderPreferences.id, "local")).limit(1);
+    return preferences ?? null;
+  }
+
+  async updateBuilderPreferences(preferences: Partial<{ lastOpenedProjectId: string | null; selectedElementJson: string | null; defaultHermesModelId: string }>) {
+    const now = new Date();
+    const [updated] = await this.db
+      .insert(builderPreferences)
+      .values({
+        id: "local",
+        lastOpenedProjectId: preferences.lastOpenedProjectId ?? null,
+        selectedElementJson: preferences.selectedElementJson ?? null,
+        defaultHermesModelId: preferences.defaultHermesModelId ?? "deepseek-v4-pro",
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: builderPreferences.id,
+        set: { ...preferences, updatedAt: now },
+      })
+      .returning();
+
+    return updated;
+  }
+
   async setActiveConversation(projectId: string, conversationId: string, hermesSessionId: string | null) {
     const [project] = await this.db
       .update(projects)

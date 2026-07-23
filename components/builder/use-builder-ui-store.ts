@@ -73,11 +73,29 @@ export const useBuilderUiStore = create<BuilderUiState>((set, get) => ({
       };
     }),
   updateSelectedElementRect: (preferredSelector, boundingRect) =>
-    set((state) => ({
-      selectedElements: state.selectedElements.map((el) =>
-        el.preferredSelector === preferredSelector ? { ...el, boundingRect } : el,
-      ),
-    })),
+    set((state) => {
+      let changed = false;
+      const selectedElements = state.selectedElements.map((el) => {
+        if (el.preferredSelector !== preferredSelector) {
+          return el;
+        }
+
+        const prev = el.boundingRect;
+        if (
+          prev.x === boundingRect.x &&
+          prev.y === boundingRect.y &&
+          prev.width === boundingRect.width &&
+          prev.height === boundingRect.height
+        ) {
+          return el;
+        }
+
+        changed = true;
+        return { ...el, boundingRect };
+      });
+
+      return changed ? { selectedElements } : state;
+    }),
   removeSelectedElement: (preferredSelector) =>
     set((state) => ({
       selectedElements: state.selectedElements.filter((el) => el.preferredSelector !== preferredSelector),

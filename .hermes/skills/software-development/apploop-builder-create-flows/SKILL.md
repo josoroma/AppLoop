@@ -47,10 +47,28 @@ Shared pieces:
 
 ### `/projects` top actions
 
-1. `Templates` (outline) → `/templates`
-2. **`New project` (primary)** → `/projects/new`
+1. **`Settings` (outline)** → `/projects/settings` — builder-global default Hermes gateway model
+2. `Templates` (outline) → `/templates`
+3. **`New project` (primary)** → `/projects/new`
+
+Optional Projects subtitle: current gateway model label + provider (`getPreferredHermesModelSelection()`).
 
 Keep **New template** on the templates page header — not buried only under projects.
+
+## Builder settings (default Hermes model)
+
+| Route | Owns |
+| --- | --- |
+| `/projects/settings` | Builder-global model for **all** AppLoop ↔ Hermes traffic (create-template authoring, project-edit + template-edit chat) |
+
+- Catalog/ids: `lib/hermes/models.ts` — DeepSeek V4 Pro, Grok 4.5, Nemotron 3 Ultra (free), Local MLX VLM
+- Persist: `builder_preferences.default_hermes_model_id` (migration `0009_…`)
+- Apply: async `getHermesClient()` via `getPreferredHermesConfig()` so the next run picks up changes without restarting Next
+- Free OpenRouter slug must be the live OpenRouter id (e.g. `nvidia/nemotron-3-ultra-550b-a55b:free`)
+- Local option needs `make mlx-vlm-server` + matching `model_routes` in `.hermes/config.yaml`
+- Full recipe: [`references/preferred-gateway-model.md`](references/preferred-gateway-model.md)
+
+Do **not** bury this only in the per-project settings dialog (`packageInstallPolicy` / theme) — it is builder-global preference.
 
 ## Post-Create Redirects (required)
 
@@ -149,6 +167,8 @@ Detail: [`references/makefile-reset-and-seed.md`](references/makefile-reset-and-
 
 Same builder surface for projects and template-edit workspaces. Full walkthrough:
 [`references/inspect-edit-and-docs.md`](references/inspect-edit-and-docs.md) and `docs/README-USER-FLOW-EDIT-PROJECT-OR-TEMPLATE.md`.
+
+**Multi-select boxes messy on scroll:** re-query live DOM by `preferredSelector` each track tick + apply overlay CSS vars on render — do **not** only keep `Map` HTMLElement refs. Full recipe: [`references/inspect-multi-select-scroll-overlays.md`](references/inspect-multi-select-scroll-overlays.md).
 
 ## Documentation pack
 

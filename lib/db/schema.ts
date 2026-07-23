@@ -190,6 +190,7 @@ export const builderPreferences = sqliteTable("builder_preferences", {
   id: text("id").primaryKey().default("local"),
   lastOpenedProjectId: text("last_opened_project_id").references(() => projects.id, { onDelete: "set null" }),
   selectedElementJson: text("selected_element_json"),
+  defaultHermesModelId: text("default_hermes_model_id").notNull().default("deepseek-v4-pro"),
   ...timestamps,
 });
 
@@ -337,5 +338,7 @@ export type ChatCheckpointRow = typeof chatCheckpoints.$inferSelect;
 export type NewChatCheckpointRow = typeof chatCheckpoints.$inferInsert;
 export type SessionEvent = typeof sessionEvents.$inferSelect;
 export type NewSessionEvent = typeof sessionEvents.$inferInsert;
+export type BuilderPreferences = typeof builderPreferences.$inferSelect;
+export type NewBuilderPreferences = typeof builderPreferences.$inferInsert;
 export type HermesSessionLink = typeof hermesSessionLinks.$inferSelect;
 export type NewHermesSessionLink = typeof hermesSessionLinks.$inferInsert;

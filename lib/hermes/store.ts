@@ -1,12 +1,11 @@
 import { HermesClient } from "@/lib/hermes/client";
-import { getHermesConfig } from "@/lib/hermes/config";
+import { getPreferredHermesConfig } from "@/lib/hermes/preferences";
 
-let client: HermesClient | null = null;
-
-export function getHermesClient() {
-  if (!client) {
-    client = new HermesClient(getHermesConfig());
-  }
-
-  return client;
+/**
+ * Build a Hermes client using the builder-level preferred model.
+ * Create a fresh client per request so preference changes apply immediately
+ * without restarting the Next.js process.
+ */
+export async function getHermesClient() {
+  return new HermesClient(await getPreferredHermesConfig());
 }

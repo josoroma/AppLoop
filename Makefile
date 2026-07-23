@@ -236,7 +236,7 @@ hermes-gateway:
 		HERMES_HOME="$(HERMES_HOME_DIR)" \
 		API_SERVER_ENABLED="$${API_SERVER_ENABLED:-true}" \
 		API_SERVER_KEY="$${API_SERVER_KEY:-$(HERMES_GATEWAY_KEY)}" \
-		hermes gateway
+		hermes gateway run --replace
 
 .PHONY: hermes-gateway-curl-test
 hermes-gateway-curl-test:

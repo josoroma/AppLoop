@@ -48,7 +48,7 @@ describe("E9 visual element selection", () => {
     expect(stripSensitiveText("token bearer abc.def")).toBe("[redacted]");
     expect(createVisualSelectionPrompt("Make this compact", [sel])).toContain('"preferredSelector": ".analytics-card"');
     expect(createVisualSelectionPrompt("Make this compact", [sel])).toContain(".rounded-lg .analytics-card");
-    expect(createVisualSelectionPrompt("Make this compact", [sel, sel])).toContain("exact selectors or are descendants");
+    expect(createVisualSelectionPrompt("Make this compact", [sel, sel])).toContain("exact selectors or are strictly descendants");
   });
 
   it("validates stable inspector id format", () => {

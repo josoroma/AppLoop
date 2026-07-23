@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getServerEnv } from "@/lib/env/server";
+import { applyHermesGatewayModelPreference } from "@/lib/hermes/gateway-model-sync";
+import { hermesModelOptionIdSchema } from "@/lib/hermes/models";
 import {
   createProjectWorkspace,
   duplicateProjectWorkspace,
@@ -194,4 +196,26 @@ export async function updateProjectSettingsAction(formData: FormData) {
   }
 
   revalidatePath(`/projects/${projectId}`);
+}
+
+export async function updateBuilderHermesModelAction(formData: FormData) {
+  const modelId = hermesModelOptionIdSchema.parse(String(formData.get("defaultHermesModelId") ?? ""));
+  await getProjectRepository().updateBuilderPreferences({ defaultHermesModelId: modelId });
+
+  // Hermes ignores cosmetic request-model unless model_routes + gateway reload match.
+  const sync = await applyHermesGatewayModelPreference(modelId);
+
+  revalidatePath("/projects");
+  revalidatePath("/projects/settings");
+  revalidatePath("/templates");
+
+  const params = new URLSearchParams({ saved: "1" });
+  if (sync.gatewayReloaded) {
+    params.set("gateway", "reloaded");
+  } else if (sync.gatewayWarning) {
+    params.set("gateway", "warn");
+    params.set("gatewayMessage", sync.gatewayWarning);
+  }
+
+  redirect(`/projects/settings?${params.toString()}`);
 }

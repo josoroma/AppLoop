@@ -1,4 +1,5 @@
 import type {
+  BuilderPreferences,
   Conversation,
   NewConversation,
   NewGitCommit,
@@ -71,6 +72,8 @@ export interface ProjectRepository {
   markProjectSnapshotRestored(snapshotId: string, restoredAt: Date): Promise<void>;
   createGitCommit(commit: NewGitCommit): Promise<void>;
   rememberLastOpenedProject(projectId: string): Promise<void>;
+  getBuilderPreferences(): Promise<BuilderPreferences | null>;
+  updateBuilderPreferences(preferences: Partial<Omit<BuilderPreferences, "id" | "createdAt" | "updatedAt">>): Promise<BuilderPreferences>;
   setActiveConversation(projectId: string, conversationId: string, hermesSessionId: string | null): Promise<Project>;
   updateConversationHermesSession(conversationId: string, hermesSessionId: string): Promise<void>;
   updateProjectHermesSession(projectId: string, hermesSessionId: string): Promise<Project>;

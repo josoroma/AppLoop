@@ -51,7 +51,10 @@ Use this skill when the user asks to create/register a non-default template, or 
 
 ## Algovivo / soft-body specialty
 
-Detail recipe: [`references/algovivo-softbody-templates.md`](references/algovivo-softbody-templates.md)
+Detail recipes:
+
+- Soft-body class rules: [`references/algovivo-softbody-templates.md`](references/algovivo-softbody-templates.md)
+- Viewport chrome (starfield, mute floor, black-edge legend, boot thrash, rump tail): [`references/algovivo-viewport-chrome.md`](references/algovivo-viewport-chrome.md)
 
 Hard rules:
 
@@ -67,6 +70,16 @@ Hard rules:
 - Smaller subject ⇒ larger `viewport.tracker.visibleWorldWidth`
 - **`borderColor` also tints the floor line.** Hiding the grid does **not** remove the horizontal floor. After `new SystemViewport(...)`, mute it: `viewport.floor.mesh.lines = []; viewport.floor.mesh.lineShader.renderLine = () => {}`.
 - **Black mesh edges on dark HUD:** legible legend = fill `#0a0a0a` **plus** white outline on the swatch (`.legend-joint::before { box-shadow: 0 0 0 1.5px rgba(255,255,255,0.92), … }`). Black alone disappears.
+
+## Immersive monochrome particle landings (stay-curious class)
+
+Full-screen WebGL particle heroes (white on pure black, no header chrome):
+
+- Implementation patterns: `r3f-template-patterns` §5–6 + `r3f-template-patterns/references/responsive-particle-field.md`
+- React 19 deps: fiber `^9.6.1`, drei `^10.7.7`, postprocessing `^3.0.4` (fiber v8 → runtime `ReactCurrentOwner`)
+- Drop `SiteHeader`; shell is `100dvh` black; headline overlay `pointer-events: none`
+- Motion feel = inertia mouse forces + `aSpeed` streak shaders + radial CA — not colored gradients
+- Canonical: `templates/stay-curious/`
 
 ## Neon look recipes (short)
 
