@@ -66,6 +66,7 @@ const SEMANTIC_CLASS_NAMES = new Set([
   "template-ai-engineer-cv",
   "template-deep-research-paper",
   "template-luminous-rings",
+  "template-algovivo-creature",
   "metric-revenue",
   "metric-active-users",
   "metric-conversion",

@@ -49,7 +49,7 @@ AppLoop is a local-first visual builder for generated Next.js apps.
 
 - Builder UI: `components/builder/`
 - Project/template dashboards and create pages: `app/projects/`, `app/templates/`, `components/projects/`
-- Generated template sources: `templates/*/` (default, admin-luma, ai-engineer-cv, deep-research-paper, luminous-rings, solar-system, vestaboard, lumacv, …)
+- Generated template sources: `templates/*/` (default, admin-luma, ai-engineer-cv, deep-research-paper, luminous-rings, solar-system, algovivo-creature, immersive-full-screen, vestaboard, lumacv, …)
 - Visual inspector: often both `components/builder/preview-frame.tsx` and `templates/*/components/inspector-provider.tsx`
 - Runtime lifecycle: `lib/runtime/`
 - Hermes bridge: `lib/hermes/` + `.hermes/{agents,bundles,skills,hooks,commands}`

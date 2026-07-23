@@ -1,0 +1,417 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: oklch(0.11 0.03 275);
+  --foreground: oklch(0.96 0.02 240);
+  --card: oklch(0.15 0.04 275);
+  --card-foreground: oklch(0.96 0.02 240);
+  --primary: oklch(0.82 0.16 95);
+  --primary-foreground: oklch(0.16 0.03 90);
+  --secondary: oklch(0.22 0.04 240);
+  --secondary-foreground: oklch(0.95 0.02 95);
+  --muted: oklch(0.2 0.02 240);
+  --muted-foreground: oklch(0.76 0.03 240);
+  --accent: oklch(0.72 0.22 25);
+  --accent-foreground: oklch(0.98 0.02 25);
+  --border: oklch(0.58 0.14 240 / 40%);
+  --ring: oklch(0.82 0.16 95);
+  --radius: 1.25rem;
+  color-scheme: dark;
+  font-family: 'Avenir Next', 'SF Pro Display', 'Helvetica Neue', sans-serif;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow-x: hidden;
+  background: #05060f;
+  color: var(--foreground);
+}
+
+.algovivo-shell {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 18% 12%, oklch(0.4 0.16 290 / 22%), transparent 36%),
+    radial-gradient(circle at 82% 18%, oklch(0.42 0.18 220 / 18%), transparent 34%),
+    radial-gradient(circle at 50% 100%, oklch(0.3 0.12 320 / 20%), transparent 42%),
+    linear-gradient(160deg, #0a0d1f, #070913 48%, #04050c);
+}
+
+.algovivo-hero {
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+  gap: 1.25rem;
+  width: min(92rem, calc(100% - 2rem));
+  min-height: calc(100dvh - 2rem);
+  margin: 0 auto;
+  padding: 1rem 0 1.25rem;
+}
+
+.algovivo-copy {
+  border: 1px solid color-mix(in oklch, var(--primary) 34%, transparent);
+  border-radius: calc(var(--radius) + 0.15rem);
+  background:
+    linear-gradient(165deg, oklch(0.2 0.07 290 / 88%), oklch(0.14 0.05 270 / 92%)),
+    oklch(0.12 0.04 280 / 90%);
+  box-shadow:
+    inset 0 1px 0 oklch(0.9 0.08 210 / 14%),
+    0 18px 50px oklch(0.2 0.08 290 / 40%);
+  backdrop-filter: blur(16px);
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
+  padding: 1.35rem 1.3rem 1.4rem;
+}
+
+.algovivo-eyebrow {
+  margin: 0;
+  color: oklch(0.84 0.14 195);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.algovivo-title {
+  margin: 0;
+  color: oklch(0.97 0.02 210);
+  font-size: clamp(1.55rem, 2.4vw, 2.15rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.algovivo-summary {
+  margin: 0;
+  color: oklch(0.84 0.04 240);
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.algovivo-bullets {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.algovivo-bullet {
+  position: relative;
+  padding: 0.7rem 0.8rem 0.7rem 2rem;
+  border-radius: 0.85rem;
+  border: 1px solid oklch(0.7 0.14 300 / 24%);
+  background: oklch(0.18 0.06 285 / 70%);
+  color: oklch(0.92 0.03 220);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.algovivo-bullet::before {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, oklch(0.84 0.17 200), oklch(0.74 0.23 330));
+  box-shadow: 0 0 10px oklch(0.78 0.2 310 / 55%);
+  transform: translateY(-50%);
+}
+
+.algovivo-stage-region,
+.algovivo-stage {
+  min-width: 0;
+  min-height: 0;
+}
+
+.algovivo-stage-region {
+  border: 1px solid color-mix(in oklch, var(--primary) 40%, transparent);
+  border-radius: calc(var(--radius) + 0.2rem);
+  overflow: hidden;
+  background: #05070f;
+  box-shadow:
+    inset 0 0 0 1px oklch(0.82 0.14 205 / 12%),
+    0 22px 60px oklch(0.2 0.1 300 / 45%);
+}
+
+.algovivo-stage {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: min(72dvh, 44rem);
+}
+
+/* Universe backdrop: deep-space gradient + nebulas + three star layers.
+   The sim canvas above is fully transparent, so this shows through. */
+.algovivo-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 22% 24%, oklch(0.32 0.14 300 / 30%), transparent 44%),
+    radial-gradient(ellipse at 78% 14%, oklch(0.34 0.15 220 / 26%), transparent 40%),
+    radial-gradient(ellipse at 60% 80%, oklch(0.26 0.12 330 / 20%), transparent 46%),
+    radial-gradient(circle at 50% 40%, #0b1026 0%, #070a18 55%, #030510 100%);
+}
+
+.algovivo-viewport::before,
+.algovivo-viewport::after {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  pointer-events: none;
+}
+
+/* far stars: small, dense, faint */
+.algovivo-viewport::before {
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 22%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1.5px 1.5px at 28% 64%, rgba(180, 210, 255, 0.8), transparent),
+    radial-gradient(1.4px 1.4px at 37% 12%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1.5px 1.5px at 49% 43%, rgba(200, 220, 255, 0.85), transparent),
+    radial-gradient(1.4px 1.4px at 58% 78%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 66% 27%, rgba(190, 215, 255, 0.85), transparent),
+    radial-gradient(1.4px 1.4px at 74% 56%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1.5px 1.5px at 83% 15%, rgba(210, 225, 255, 0.8), transparent),
+    radial-gradient(1.4px 1.4px at 91% 69%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1.4px 1.4px at 7% 84%, rgba(200, 220, 255, 0.7), transparent),
+    radial-gradient(1.4px 1.4px at 20% 41%, rgba(255, 255, 255, 0.65), transparent),
+    radial-gradient(1.4px 1.4px at 95% 38%, rgba(255, 255, 255, 0.7), transparent);
+  background-size: 34% 34%;
+  animation: algovivo-starfield-drift 140s linear infinite;
+}
+
+/* near stars: bigger, neon-tinted, twinkle */
+.algovivo-viewport::after {
+  background-image:
+    radial-gradient(2.2px 2.2px at 17% 33%, rgba(120, 200, 255, 1), transparent),
+    radial-gradient(2.6px 2.6px at 43% 71%, rgba(255, 255, 255, 0.95), transparent),
+    radial-gradient(2.3px 2.3px at 61% 18%, rgba(255, 130, 160, 0.95), transparent),
+    radial-gradient(2.8px 2.8px at 79% 47%, rgba(160, 180, 255, 1), transparent),
+    radial-gradient(2.1px 2.1px at 31% 9%, rgba(255, 220, 120, 0.95), transparent),
+    radial-gradient(2.4px 2.4px at 88% 82%, rgba(140, 235, 255, 0.95), transparent),
+    radial-gradient(2.1px 2.1px at 9% 62%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(2.6px 2.6px at 53% 52%, rgba(190, 150, 255, 0.9), transparent);
+  background-size: 48% 48%;
+  animation:
+    algovivo-starfield-drift 90s linear infinite reverse,
+    algovivo-star-twinkle 5.5s ease-in-out infinite alternate;
+}
+
+@keyframes algovivo-starfield-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-12%, -8%, 0);
+  }
+}
+
+@keyframes algovivo-star-twinkle {
+  from {
+    opacity: 0.55;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .algovivo-viewport::before,
+  .algovivo-viewport::after {
+    animation: none;
+  }
+}
+
+.algovivo-viewport canvas,
+.algovivo-viewport svg {
+  position: relative;
+  z-index: 1;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.algovivo-hud {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+  padding: 0.95rem 1rem 1rem;
+  border: 1px solid color-mix(in oklch, var(--accent) 34%, transparent);
+  border-radius: calc(var(--radius) - 0.15rem);
+  background:
+    linear-gradient(165deg, oklch(0.18 0.07 300 / 78%), oklch(0.13 0.05 275 / 86%));
+  box-shadow: inset 0 1px 0 oklch(0.9 0.08 210 / 10%);
+}
+
+.creature-sidebar-hud {
+  width: 100%;
+}
+
+.algovivo-kicker {
+  margin: 0;
+  color: oklch(0.82 0.14 195);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.algovivo-hud-title {
+  margin: 0;
+  color: oklch(0.97 0.02 210);
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.algovivo-hud-copy {
+  margin: 0;
+  color: oklch(0.82 0.04 240);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.algovivo-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: oklch(0.86 0.16 330);
+}
+
+.algovivo-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0.15rem 0 0;
+}
+
+.algovivo-stat {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.45rem 0.4rem;
+  border-radius: 0.7rem;
+  border: 1px solid oklch(0.7 0.14 300 / 22%);
+  background: oklch(0.18 0.05 280 / 78%);
+}
+
+.algovivo-stat-label {
+  margin: 0;
+  color: oklch(0.74 0.05 240);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.algovivo-stat-value {
+  margin: 0;
+  color: oklch(0.96 0.03 210);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.algovivo-error {
+  margin: 0;
+  color: oklch(0.78 0.18 20);
+  font-size: 0.8rem;
+}
+
+.algovivo-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.15rem 0 0;
+}
+
+.legend-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: oklch(0.18 0.05 280 / 82%);
+  border: 1px solid oklch(0.7 0.12 290 / 24%);
+  color: oklch(0.88 0.04 220);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.legend-swatch::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.legend-joint {
+  color: #1e6fff;
+}
+
+.legend-edge {
+  color: #f5c400;
+}
+
+.legend-muscle {
+  color: #ff2a3a;
+}
+
+@media (max-width: 960px) {
+  .algovivo-hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .algovivo-stage {
+    min-height: min(68dvh, 34rem);
+  }
+
+  .algovivo-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .algovivo-hero {
+    width: min(100% - 1rem, 92rem);
+  }
+}

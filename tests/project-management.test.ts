@@ -77,7 +77,15 @@ describe("E2 project management", () => {
   });
 
   it("wires every GitHub templates directory into the create-project registry", async () => {
-    const expectedTemplateIds = ["admin-luma", "ai-engineer-cv", "deep-research-paper", "default", "luminous-rings", "solar-system"];
+    const expectedTemplateIds = [
+      "admin-luma",
+      "ai-engineer-cv",
+      "algovivo-creature",
+      "deep-research-paper",
+      "default",
+      "luminous-rings",
+      "solar-system",
+    ];
     const registeredTemplateIds = BUILT_IN_PROJECT_TEMPLATES.map((template) => template.id).toSorted();
 
     expect(registeredTemplateIds).toEqual(expectedTemplateIds);
@@ -150,6 +158,7 @@ describe("E2 project management", () => {
       ["deep-research-paper", "template-deep-research-paper", "DeepResearchPaperPage"],
       ["luminous-rings", "template-luminous-rings", "ParticlesHomePage"],
       ["solar-system", "template-solar-system", "SolarSystemPage"],
+      ["algovivo-creature", "template-algovivo-creature", "AlgovivoCreaturePage"],
     ] as const) {
       const workspacePath = path.join(tempRoot, templateId);
 

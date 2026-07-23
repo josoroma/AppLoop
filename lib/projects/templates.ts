@@ -43,6 +43,14 @@ export const BUILT_IN_PROJECT_TEMPLATES = [
     templatePath: "solar-system",
     defaultThemeId: "luma-indigo-emerald",
   },
+  {
+    id: "algovivo-creature",
+    name: "Algovivo Soft Creature",
+    description:
+      "2D neural-walker soft-body cat on algovivo (pretrained MLP gait + cat ears/tail) with neon yellow/blue/red stage and universe backdrop.",
+    templatePath: "algovivo-creature",
+    defaultThemeId: "luma-orange-stone",
+  },
 ] as const;
 
 export type ProjectTemplateId = (typeof BUILT_IN_PROJECT_TEMPLATES)[number]["id"];

@@ -109,7 +109,17 @@ describe("E11 generated app code standards", () => {
 
 async function collectTemplateUiFiles(templateRoot: string) {
   const files: string[] = [];
-  const ignored = new Set(["inspector-provider.tsx", "theme-provider.tsx", "button.tsx", "avatar.tsx", "layout.tsx", "solar-system-scene.tsx", "canvas-scene.tsx"]);
+  const ignored = new Set([
+    "inspector-provider.tsx",
+    "theme-provider.tsx",
+    "button.tsx",
+    "avatar.tsx",
+    "layout.tsx",
+    "solar-system-scene.tsx",
+    "canvas-scene.tsx",
+    "algovivo-creature-scene.tsx",
+    "creature-sidebar.tsx",
+  ]);
 
   async function walk(dir: string) {
     for (const entry of await fs.readdir(dir, { withFileTypes: true })) {

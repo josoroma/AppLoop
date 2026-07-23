@@ -1110,7 +1110,7 @@ Uses `/frontend-design`
 
 ### Tasks
 
-- [x] T-18.6.1: default, admin-luma, ai-engineer-cv, deep-research-paper, luminous-rings, solar-system
+- [x] T-18.6.1: default, admin-luma, ai-engineer-cv, deep-research-paper, luminous-rings, solar-system, algovivo-creature
 - [x] T-18.6.2: additional disk templates may exist without built-in registry entry until registered
 
 ---

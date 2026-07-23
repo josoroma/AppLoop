@@ -1,0 +1,46 @@
+{
+  "source": "cat-neural-walker-v4",
+  "num_vertices": 67,
+  "num_triangles": 100,
+  "num_muscles": 41,
+  "policy_vertex_count": 62,
+  "policy_muscle_count": 38,
+  "trunk_muscles": [
+    38,
+    39,
+    40
+  ],
+  "tail_anchor_count": 2,
+  "ear_vertices": [
+    62,
+    63
+  ],
+  "tail_vertices": [
+    64,
+    65,
+    66
+  ],
+  "muscles": [
+    {
+      "name": "tail-anchor-a",
+      "a": 0,
+      "b": 64,
+      "group": "tail",
+      "index": 38
+    },
+    {
+      "name": "tail-anchor-b",
+      "a": 1,
+      "b": 64,
+      "group": "tail",
+      "index": 39
+    },
+    {
+      "name": "tail-sway",
+      "a": 64,
+      "b": 66,
+      "group": "tail",
+      "index": 40
+    }
+  ]
+}
