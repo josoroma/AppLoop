@@ -7,7 +7,7 @@ license: MIT
 metadata:
   hermes:
     tags: [apploop, builder, templates, projects, routes, luma, ux]
-    related_skills: [frontend-design, generated-app-standards, theme-system]
+    related_skills: [frontend-design, generated-app-standards, theme-system, apploop-specialty-templates]
 ---
 
 # AppLoop Builder Create Flows
@@ -143,7 +143,7 @@ Nuclear (also drops root `node_modules`): `make reset && make install && make ap
 
 Detail: [`references/makefile-reset-and-seed.md`](references/makefile-reset-and-seed.md) and `docs/README-RESET.html`.
 
-**Catalog gap:** `apploop-template-seed` installs **every** `templates/*/package.json` (including vestaboard/lumacv). Demo projects from `scripts/seed-projects.mts` only cover `BUILT_IN_PROJECT_TEMPLATES` — register new built-ins there or they will not appear as seeded cards on `/projects`.
+**Catalog gap:** `apploop-template-seed` installs **every** `templates/*/package.json` (including vestaboard/lumacv/algovivo-creature). Demo projects from `scripts/seed-projects.mts` only cover `BUILT_IN_PROJECT_TEMPLATES` — register new built-ins there or they will not appear as seeded cards on `/projects`. After source edits on an already-seeded built-in, rsync `templates/<id>/` → `.apploop/projects/<slug>/` (exclude `node_modules`/`.next`/`.git`) or the builder preview keeps the stale workspace.
 
 ## Inspect / edit / restore
 
@@ -184,13 +184,26 @@ When the user wants a prompt *to run through* Create Template UI, deliver a past
 
 Root `SPECS.md` + README Product Hunt/YouTube + authority order + push-to-main notes: [`references/product-docs-and-main-ship.md`](references/product-docs-and-main-ship.md).
 
-## Immersive neon field specialty
+## Built-in specialty templates
 
-Square-framed horizontal neon fabric / R3F + bloom + spring pointer ref store: [`references/immersive-neon-field.md`](references/immersive-neon-field.md).
+- Promote disk template → built-in registry/seed: [`references/adding-built-in-template.md`](references/adding-built-in-template.md)
+- Algovivo soft creature (WASM, rsi, fixed-step Hz, left HUD): [`references/algovivo-creature-template.md`](references/algovivo-creature-template.md)
+- Immersive neon field (R3F fabric): [`references/immersive-neon-field.md`](references/immersive-neon-field.md)
+- Class-level specialty pack (soft-body + neon stages + registration): skill **`apploop-specialty-templates`**
+
+Hard lessons from specialty iteration (also in that pack):
+
+- Missing triangle `rsi` → stick-figure collapse
+- Sim speed via fixed-step accumulator; normal = 30Hz + `system.h ≈ 0.033` (below 16Hz / `h < 0.022` feels elastic-thrashy; uncapped rAF feels anxious)
+- No face overlays unless asked; put HUD in the left column
+- Custom mesh ⇒ scripted `system.a.set`, not mismatched MLP policy
+- **Low-noise mesh wins** — sparse ~40–50 verts / one muscle chain per leg joint; dense meshes read as "noise"
+- Keep `draggable: true` on the viewport — user expects drag-and-drop joints
+- After template edits, rsync into `.apploop/projects/<slug>/` then hard-reload preview
 
 ## Related detail
 
 - Template-authoring internals: generated-app-standards `references/custom-template-authoring.md` (may lag if protected)
-- Prefer also patching `generated-app-standards` / `theme-system` when unlocked — they currently reject autonomous curator writes
+- Prefer also patching `generated-app-standards` / `frontend-design` / `theme-system` when unlocked — protected skills reject autonomous curator writes; keep durable built-in-registration procedure **here**
 - `.apploop` vs `.hermes` coupling + agentBundle: hermes-gateway skill + `docs/README-HERMES.html`
-- Prefer **this** skill for builder UI route/redirect/CTA/ops/docs decisions
+- Prefer **this** skill for builder UI route/redirect/CTA/ops/docs **and built-in template promotion** decisions
