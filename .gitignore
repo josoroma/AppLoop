@@ -61,6 +61,8 @@ blob-report/
 .hermes/response_store.db
 .hermes/response_store.db-*
 .hermes/sessions/
+.hermes/state/
+.hermes/state-*/
 .hermes/state.db
 .hermes/state.db-*
 .hermes/verification_evidence.db
