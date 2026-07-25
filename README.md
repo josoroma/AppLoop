@@ -35,6 +35,8 @@ Start with the Product Hunt launch page and the walkthrough videos:
 | **Video** | [YouTube · RIXMJz4d5Es](https://www.youtube.com/watch?v=RIXMJz4d5Es) |
 | **Video** | [YouTube · eZhgSQLvL6c](https://www.youtube.com/watch?v=eZhgSQLvL6c) |
 | **Video** | [YouTube · kwJOute_Ej0](https://www.youtube.com/watch?v=kwJOute_Ej0) |
+| **Video** | [YouTube · I1QsbnubQxw](https://www.youtube.com/watch?v=I1QsbnubQxw) |
+| **Video** | [YouTube · rIOYjUbh0go](https://www.youtube.com/watch?v=rIOYjUbh0go) |
 
 > Prefer watching once before reading the rest of this README if you are new to the product.
 
