@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, AlertTriangle, ArchiveRestore, Copy, ExternalLink, FolderGit2, LayoutTemplate, LoaderCircle, Pencil, Plus, Settings, Square, Trash2 } from "lucide-react";
+import { Activity, AlertTriangle, ArchiveRestore, Copy, ExternalLink, FolderGit2, LayoutTemplate, LoaderCircle, Pencil, Plus, Presentation, Settings, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   archiveProjectAction,
@@ -66,6 +66,12 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
             <Link href="/templates">
               <LayoutTemplate className="size-4" />
               Templates
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/presentations">
+              <Presentation className="size-4" />
+              Presentations
             </Link>
           </Button>
           <Button asChild>

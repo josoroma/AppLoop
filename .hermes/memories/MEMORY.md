@@ -1,19 +1,19 @@
-AppLoop inspect: clipboard paste (Ctrl+V) only screenshot. Multi-select toggle. Overlays absolute inside preview-viewport-frame. Labels inline-grid+max-content+nowrap, right:0. Repeated elements = base + unique last classname. Tracking 100ms updates rects only, not toggles. Never auto-screenshot.
+Inspect: Ctrl+V screenshot only; multi-select; overlays absolute in preview-viewport-frame; labels max-content/right:0; unique last classname; track rects only.
 §
-User preference: If a visual/UI feature produces incorrect output and the user rejects it 2+ times ("no", "nope", "not equal", "still not the same"), stop iterating and offer removal or a fundamentally different approach. Don't repeatedly swap libraries/approaches when the user is signaling they want a different direction. This applies especially to screenshot/image capture features.
+UI reject 2+: stop iterating; offer remove/different approach (esp screenshot).
 §
-AppLoop: useChat id=projectId. Checkpoints in chat_checkpoints. New session clears messages. Preview bg-black. Post-Hermes CSS ?_t=. Create-project local; create-template Hermes first.
+useChat id=projectId; checkpoints chat_checkpoints; new session clears msgs; preview black; post-Hermes ?_t=; create-project local; create-template Hermes.
 §
-AppLoop visual prompt: preferredSelector=last classname; compose with Target selections JSON boundaries via createVisualSelectionPrompt.
+Visual prompt: preferredSelector=last classname; Target selections JSON via createVisualSelectionPrompt.
 §
-AppLoop restore: removes clicked prompt + all later messages from UI and persisted DB (timestamp-based delete to catch orphan assistant rows).
+Restore: drop clicked prompt + later UI+DB msgs (timestamp delete orphans).
 §
-AppLoop gateway model is builder-global at /projects/settings (defaultHermesModelId: deepseek-v4-pro|grok-4-5|nemotron-3-ultra-free|local-mlx-vlm). Async getHermesClient applies prefs each run; local needs make mlx-vlm-server + model_routes.
+Gateway model global /projects/settings (deepseek-v4-pro|grok-4-5|nemotron-3-ultra-free|local-mlx-vlm); getHermesClient prefs/run; local=mlx-vlm-server+model_routes.
 §
-algovivo-creature=neural-walker cat: quadruped+ears+rump tail verts(3,4); MLPPolicy active+caps; 30Hz max-1+lag clamp+rest settle; yellow#f5c400/black#0a0a0a/red; universe no floor/grid; status 0.72rem; legend black+white ring; vww~6.4; no face. generate-cat-mesh.py.
+algovivo cat neural-walker: quad+ears+tail(3,4); MLPPolicy on; 30Hz; yellow/black/red; no grid/face; generate-cat-mesh.py.
 §
-Inspect multi-select scroll: re-query via preferredSelector each track tick if stored node dead; apply --selection-* on render + skip no-op rects. Sync all template+workspace inspector-providers.
+Inspect multi-select: re-query preferredSelector each tick if node dead; --selection-* on render; skip no-op rects; sync inspectors.
 §
-Makefile `dev` passes `--port $(PORT)`; no port in package.json `dev`. Built-ins need BUILT_IN_PROJECT_TEMPLATES + seed; hot-edit template then rsync `.apploop/projects/<slug>/`.
+Makefile: dev --port PORT; hermes-gateway=`run --replace`; Built-in=registry+seed; rsync template	o projects.
 §
-Makefile hermes-gateway must start with `hermes gateway run --replace` (kill port alone leaves stale Hermes instance lock).
+Presentations: filmstrip+MDXEditor(@mdxeditor/editor v4,per-slide)+Marp preview+chat toggle. No inspect mode. Save: reconstruct deck.md preserving front matter+other slides. marp-utils.ts=client-safe(no node:fs), marp.ts=server-only. Slides API returns markdown. Delete slide via server action.

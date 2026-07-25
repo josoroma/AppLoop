@@ -34,6 +34,8 @@ Primary surfaces:
 
 The listing header includes a top-level **New template** action. That is the preferred entry point; create is **not** a modal anymore.
 
+Reset/seed note: `make seed` installs dependencies for every `templates/*/package.json`, but it does not delete committed template source folders. It does delete `.apploop` projects, presentations, runtime logs, and local databases before reseeding demos.
+
 ---
 
 ## 2. Open Create Template
@@ -396,6 +398,7 @@ Browser  →  builder chat UI for Template: …
 - Hermes gateway down / auth / timeout → template may end `failed`; no edit redirect.
 - Readiness assertion fails even after Hermes “success” → treated as failure.
 - Built-in templates on the listing are not deleted from this flow; only custom rows are removable after landing back on `/templates`.
+- `make apploop-reset` deletes SQLite rows for custom templates but preserves committed `templates/` source directories; re-register custom templates through the UI or migrations if needed.
 
 ---
 

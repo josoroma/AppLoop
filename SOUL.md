@@ -1,11 +1,13 @@
 # AppLoop Soul
 
-AppLoop is a local-first visual builder for generated Next.js apps. Its job is to make project creation and iteration feel immediate: chat on the left, a real running app on the right, and enough visual inspection context for edits to land exactly where the user points.
+AppLoop is a local-first visual builder for generated Next.js apps and Marp presentations. Its job is to make creation and iteration feel immediate: chat on the left, a real preview on the right, and enough visual inspection context for edits to land exactly where the user points.
 
 ## Product Principles
 
 - Keep the builder and generated apps separate. The builder runs on `localhost:3001`; generated projects run as independent Next.js dev servers on `127.0.0.1:3100-3199`.
+- Keep presentations distinct from generated apps. Presentations are Marp Markdown workspaces under `.apploop/presentations/<slug>` and render through AppLoop preview routes, not preview ports.
 - Treat every generated project as its own workspace with its own runtime, logs, chat history, settings, theme, preview route, and Hermes session.
+- Treat every presentation as its own deck workspace with its own chat history, Marp source file, slide state, and Hermes presentation session.
 - Preserve local-first behavior. Generated files, runtime logs, and local SQLite state live under `.apploop/` and should not be committed.
 - Make visual targeting precise. Inspector selection metadata should travel with prompts so Hermes can edit the intended element (preferredSelector = last classname), not a nearby guess.
 - Prefer full-page primary workflows over modal traps. Create Project and Create Template are first-class routes.
@@ -18,7 +20,9 @@ AppLoop is a local-first visual builder for generated Next.js apps. Its job is t
 
 - The Projects dashboard is home base for inventory and **New project** (`/projects/new`).
 - The Templates dashboard is home base for reusable blueprints and **New template** (`/templates/new`).
+- The Presentations dashboard is home base for Marp decks and **New presentation** (`/presentations/new`).
 - The project builder is the main work surface: Hermes chat, live preview, runtime controls, inspect mode, targets list, route/viewport controls, collapsible logs, restore/edit.
+- The presentation builder is a Markdown-first work surface: deck editor, Marp preview, filmstrip, slide URL state, slide BG/TXT controls, inspect style controls, and presentation-scoped Hermes chat.
 - Runtime failures should be explained through logs and state, not hidden behind generic errors.
 - Inspector mode should never trap normal preview behavior. Links, buttons, scrolling, route changes, and resize updates should keep working.
 - Template identity matters: `template-<id>` body classnames and inspectable base+unique classnames are part of the product contract.
@@ -34,7 +38,7 @@ The bridge is the project agent bundle assembled in `lib/hermes/agents.ts` and s
 - orchestrator + specialist agents under `.hermes/agents/`
 - `/ui-builder` bundle, skills, hooks, and commands under `.hermes/`
 
-Modes: `project-edit`, `template-edit`, `template-authoring`.
+Modes: `project-edit`, `template-edit`, `template-authoring`, `presentation-edit`.
 
 ## Engineering Posture
 

@@ -2,8 +2,8 @@
 
 <a href="https://www.producthunt.com/products/apploop-2?launch=apploop-2" target="_blank" rel="noopener noreferrer"><img alt="AppLoop - Visually build apps with local AI Hermes Loop | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1200850&theme=light"></a>
 
-**Local-first visual builder for generated Next.js apps.**
-Chat with Hermes on the left. Drive a real running preview on the right. Point at elements, name the change, and land edits on the exact target.
+**Local-first visual builder for generated Next.js apps and Marp presentations.**
+Chat with Hermes on the left. Drive a real preview on the right. Point at elements, name the change, and land edits on the exact target.
 
 ## Table of contents
 
@@ -48,11 +48,12 @@ AppLoop is **not** a cloud multiplayer IDE. It is a **laptop-native control plan
 | --- | --- | --- |
 | Builder UI | Next.js App Router | `http://localhost:3001` |
 | Generated previews | Independent `next dev` per project | `http://127.0.0.1:3100–3199` |
+| Presentation previews | Marp HTML iframe rendered by AppLoop | `/api/presentations/[id]/preview` |
 | AI gateway | Local Hermes with `HERMES_HOME=.hermes` | `http://127.0.0.1:8642` |
 | Product DB | SQLite via Drizzle | `.apploop/builder.sqlite` |
-| Workspaces | Real filesystem trees + per-project git | `.apploop/projects/<slug>` |
+| Workspaces | Project trees + Marp deck folders | `.apploop/projects/<slug>`, `.apploop/presentations/<slug>` |
 
-**AppLoop owns** projects, templates inventory, preview processes, theme application, chat durability, and security boundaries.
+**AppLoop owns** projects, templates inventory, presentation records, preview processes, Marp rendering, theme application, chat durability, and security boundaries.
 **Hermes owns** generative edits inside a path-contained workspace, guided by the repo-local agent bundle AppLoop ships on every run.
 
 ---
@@ -135,6 +136,15 @@ Guide: [`docs/README-USER-FLOW-TEMPLATES.md`](docs/README-USER-FLOW-TEMPLATES.md
 
 Guide: [`docs/README-USER-FLOW-EDIT-PROJECT-OR-TEMPLATE.md`](docs/README-USER-FLOW-EDIT-PROJECT-OR-TEMPLATE.md)
 
+### Create and edit a presentation (Marp, no runtime port)
+
+1. Open `/presentations` → **New presentation** → `/presentations/new`
+2. Name + Marp template
+3. AppLoop copies `presentations-templates/<id>` into `.apploop/presentations/<slug>`, writes presentation rows, and redirects to `/presentations/<id>`
+4. Edit Markdown, inspect whole slide elements, adjust slide BG/TXT, clone/delete slides, or chat through the `presentation-edit` Hermes bundle
+
+Guide: [`docs/README-USER-FLOW-PRESENTATIONS.md`](docs/README-USER-FLOW-PRESENTATIONS.md)
+
 ```text
 Inspect (preferredSelector = LAST classname)
    → compose bounded prompt
@@ -152,10 +162,12 @@ Inspect (preferredSelector = LAST classname)
 app/                     # Builder App Router (projects, templates, api)
 components/
   builder/               # BuilderShell, PreviewFrame, checkpoints, session history
+  presentations/         # Marp presentation create/editor shell
   projects/              # Create flow shell + project/template forms
   ui/                    # shadcn primitives
 lib/
   projects/              # domain: create, templates, actions, files
+  presentations/         # domain: Marp create, files, render, inspect persistence
   runtime/               # preview process lifecycle
   hermes/                # client, agent bundle, skills/hooks/commands registry
   themes/                # shadcn/Luma registry + apply
@@ -164,10 +176,11 @@ lib/
   db/                    # drizzle schema + repository contracts
   security/              # path containment, command allow-list, authz
 templates/               # source blueprints copied into projects
+presentations-templates/  # source blueprints copied into Marp presentations
 .hermes/                 # Hermes home — agents, bundles, skills, hooks, commands
-.apploop/                # LOCAL ONLY — sqlite, projects, runtime-logs
+.apploop/                # LOCAL ONLY — sqlite, projects, presentations, runtime-logs
 docs/                    # architecture / flow / ops HTML+MD
-scripts/                 # seed-projects.mts, hermes layout validation
+scripts/                 # seed-projects.mts, seed-presentations.mts, hermes layout validation
 ```
 
 Agent guidance lives in parallel:
@@ -201,14 +214,17 @@ Every template cycle should preserve:
 - body classname `template-<id>`
 - inspectable classnames with a **unique last classname**
 
+Presentation templates live in `presentations-templates/` and are registered in `lib/presentations/templates.ts`. `make seed` creates one demo presentation per built-in presentation template.
+
 ---
 
 ## Local state (`.apploop`)
 
 ```text
 .apploop/
-  builder.sqlite          # projects, conversations, messages, runs, runtimes, …
+  builder.sqlite          # projects, presentations, conversations, messages, runs, runtimes, …
   projects/<slug>/        # full generated Next apps + .git checkpoints
+  presentations/<slug>/   # Marp decks; deck.md is the source of truth
   runtime-logs/<id>.log   # preview process logs
 ```
 
@@ -256,6 +272,8 @@ Details: [`docs/README-HERMES.html`](docs/README-HERMES.html)
 | --- | --- |
 | `POST /api/chat` | AI SDK UI stream → Hermes; persists messages/runs |
 | `POST /api/chat/cancel` | Cancel active run |
+| `GET /api/presentations/[id]/preview` | Render presentation Markdown as Marp HTML |
+| `POST /api/presentations/chat` | Presentation edit stream → Hermes `presentation-edit` |
 | `GET /api/projects/[id]/runtime/logs` | Preview log polling |
 | `POST/GET /api/projects/[id]/screenshots` | Inspector/clipboard images |
 | `GET /api/diagnostics/export` | Local diagnostics |
@@ -350,7 +368,8 @@ Makefile Hermes targets set `HERMES_HOME` to the repo `.hermes/` directory and s
 | [`docs/README-USER-FLOW-PROJECTS.md`](docs/README-USER-FLOW-PROJECTS.md) | Create project walkthrough |
 | [`docs/README-USER-FLOW-TEMPLATES.md`](docs/README-USER-FLOW-TEMPLATES.md) | Create template walkthrough |
 | [`docs/README-USER-FLOW-EDIT-PROJECT-OR-TEMPLATE.md`](docs/README-USER-FLOW-EDIT-PROJECT-OR-TEMPLATE.md) | Inspect, chat, restore/edit |
-| [`docs/SPECS.md`](docs/SPECS.md) | Historical product/planning spec — verify vs code |
+| [`docs/README-USER-FLOW-PRESENTATIONS.md`](docs/README-USER-FLOW-PRESENTATIONS.md) | Marp presentation create/edit/inspect flow |
+| [`SPECS.md`](SPECS.md) | Historical product/planning spec — verify vs code |
 
 ---
 

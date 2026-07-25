@@ -18,6 +18,7 @@ export const serverEnvSchema = z
     API_SERVER_HOST: z.string().min(1).optional(),
     API_SERVER_PORT: z.coerce.number().int().min(1024).max(65535).optional(),
     PROJECTS_ROOT: z.string().min(1).default(".apploop/projects"),
+    PRESENTATIONS_ROOT: z.string().min(1).default(".apploop/presentations"),
     PREVIEW_PORT_START: z.coerce.number().int().min(1024).max(65535).default(3100),
     PREVIEW_PORT_END: z.coerce.number().int().min(1024).max(65535).default(3199),
     DATABASE_URL: z.string().min(1).default("file:.apploop/builder.sqlite"),

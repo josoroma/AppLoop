@@ -12,14 +12,15 @@ Use this file as project-specific guidance for Claude or Claude Code sessions wo
   - `.apploop` + `.hermes` assets: `docs/README-HERMES.html`
   - Reset/seed ops: `docs/README-RESET.html`
   - User flows: `docs/README-USER-FLOW-*.md`
-  - Historical planning spec: `docs/SPECS.md` (verify against code before trusting)
+  - Historical planning spec: `SPECS.md` (verify against code before trusting)
 
 ## What This App Is
 
-AppLoop is a local-first visual builder for generated Next.js apps.
+AppLoop is a local-first visual builder for generated Next.js apps and Marp presentations.
 
 - Builder: `localhost:3001`
 - Previews: separate Next.js dev servers on `127.0.0.1:3100-3199` from `.apploop/projects/<slug>` (or `templates/<id>` for template-edit projects)
+- Presentations: Marp decks under `.apploop/presentations/<slug>` rendered by AppLoop iframe preview routes; no runtime port/PID
 - Brain: local Hermes gateway (default `127.0.0.1:8642`) receiving AppLoop-assembled agent bundles
 
 ## Main User Workflows
@@ -45,10 +46,18 @@ AppLoop is a local-first visual builder for generated Next.js apps.
 4. Prompt + Send → git checkpoint + `POST /api/chat` → Hermes stream → assistant + files + preview
 5. Optional **Restore** / **Edit** on prior user messages (git revert + truncate chat from that prompt)
 
+### Create/edit presentation (local Marp)
+
+1. `/presentations` → **New presentation** → `/presentations/new`
+2. Name + template
+3. Server action copies `presentations-templates/<id>` → `.apploop/presentations/<slug>`, writes presentation rows, redirects `/presentations/[id]`
+4. Edit `deck.md`, slide BG/TXT, filmstrip clone/delete, inspect style controls, or chat with Hermes `presentation-edit`
+
 ## Common Development Tasks
 
 - Builder UI: `components/builder/`
 - Project/template dashboards and create pages: `app/projects/`, `app/templates/`, `components/projects/`
+- Presentation dashboard/editor: `app/presentations/`, `components/presentations/`, `lib/presentations/`
 - Generated template sources: `templates/*/` (default, admin-luma, ai-engineer-cv, deep-research-paper, luminous-rings, solar-system, algovivo-creature, immersive-full-screen, vestaboard, lumacv, …)
 - Visual inspector: often both `components/builder/preview-frame.tsx` and `templates/*/components/inspector-provider.tsx`
 - Runtime lifecycle: `lib/runtime/`
@@ -65,9 +74,12 @@ npm run typecheck
 npm test
 npm run test:e2e
 make hermes-gateway
-make seed
+make seed                 # resets/seeds projects and presentations
+make apploop-seed-presentations
 make check
 ```
+
+Presentation slices: `npm test -- tests/presentation-marp.test.ts tests/presentation-inspect-styles.test.ts`.
 
 Use focused Vitest slices when possible. For docs-only changes:
 
@@ -88,6 +100,7 @@ Do not print, commit, or move real secrets into browser-visible code.
 - Use existing services and schemas before adding new ones.
 - Do not hand-roll process, path, or command safety when helpers already exist.
 - Update active generated workspaces only when needed to validate a live preview issue; keep templates synchronized when the fix should apply to future projects.
+- Update active presentation workspaces only when needed to validate a deck issue; keep `presentations-templates/` synchronized when a change should apply to future decks.
 - Create flows are page routes (`/projects/new`, `/templates/new`), not dialogs.
 - Unique last classnames on generated/template UI are required for multi-select inspect.
 - Do not add screenshots with arbitrary resizing unless explicitly requested.

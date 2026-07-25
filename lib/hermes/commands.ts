@@ -5,7 +5,8 @@ export type HermesCommandId =
   | "project-theme"
   | "project-element-edit"
   | "project-validate"
-  | "project-snapshot";
+  | "project-snapshot"
+  | "presentation-build";
 
 export type HermesCommandDefinition = {
   id: HermesCommandId;
@@ -81,6 +82,15 @@ export const HERMES_COMMAND_DEFINITIONS: Record<HermesCommandId, HermesCommandDe
     outputs: ["snapshotSummary", "changedFiles", "validationState", "runtimeState"],
     loads: ["ui-builder"],
   },
+  "presentation-build": {
+    id: "presentation-build",
+    command: "/presentation-build",
+    title: "Presentation Build",
+    path: ".hermes/commands/presentation-build.md",
+    inputs: ["presentationId", "message", "workspacePath", "sourceFile"],
+    outputs: ["presentationMarkdownChange", "affectedFiles"],
+    loads: ["marp-builder", "presentation-scope-guard"],
+  },
 };
 
 export const UI_BUILDER_COMMAND_ORDER: HermesCommandId[] = [
@@ -93,6 +103,12 @@ export const UI_BUILDER_COMMAND_ORDER: HermesCommandId[] = [
   "project-snapshot",
 ];
 
+export const MARP_BUILDER_COMMAND_ORDER: HermesCommandId[] = ["presentation-build"];
+
 export const UI_BUILDER_COMMANDS: HermesCommandDefinition[] = UI_BUILDER_COMMAND_ORDER.map(
+  (commandId) => HERMES_COMMAND_DEFINITIONS[commandId],
+);
+
+export const MARP_BUILDER_COMMANDS: HermesCommandDefinition[] = MARP_BUILDER_COMMAND_ORDER.map(
   (commandId) => HERMES_COMMAND_DEFINITIONS[commandId],
 );

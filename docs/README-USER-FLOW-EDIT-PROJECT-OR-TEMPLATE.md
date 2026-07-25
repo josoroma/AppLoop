@@ -45,6 +45,8 @@ For a Vestaboard workspace, the inspect target in this guide is `.vestaboard-tit
 
 If the project is a template-edit binding, further Hermes runs use `mode: "template-edit"`; otherwise `mode: "project-edit"`. The click path in the UI is the same.
 
+Local-state warning: `make seed` is destructive for generated project workspaces and conversations. It resets `.apploop/projects`, `.apploop/presentations`, runtime logs, and local database files before reseeding demos.
+
 ---
 
 ## 2. Enable Inspect Elements

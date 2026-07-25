@@ -72,5 +72,11 @@ npx tsx scripts/seed-projects.mts
 - **Canvas/sim file fails classname audit** → add filename to `ignored`, do not fake classNames on WebGL/DOM-less nodes.
 - **Assuming custom-template DB row for built-ins** — wrong table.
 - **Disk-only templates** (vestaboard, lumacv, immersive-full-screen, …) stay unlisted until registered here.
+- **Nested `templates/<id>/.git` (gitlink / mode `160000`)** — accidental local `git init` inside a template makes the AppLoop parent track a submodule pointer instead of files. Symptom: parent `git status` shows `modified: templates/<id> (modified content, untracked content)` and `git push` never ships template sources. Sibling healthy templates are normal trees (`040000`), not gitlinks. **Fix when shipping**:
+  1. Commit inside the nested repo only if you need local history (optional).
+  2. `git rm --cached templates/<id>` in AppLoop root.
+  3. `rm -rf templates/<id>/.git`.
+  4. `git add templates/<id>` so files become a normal tree (match `templates/solar-system`, `algovivo-creature`, etc.).
+  5. Commit + push parent only — do **not** leave a remote-less nested submodule.
 
-See also: [`algovivo-creature-template.md`](algovivo-creature-template.md), [`makefile-reset-and-seed.md`](makefile-reset-and-seed.md).
+See also: [`algovivo-creature-template.md`](algovivo-creature-template.md), [`makefile-reset-and-seed.md`](makefile-reset-and-seed.md), [`stay-curious-particle-landing.md`](stay-curious-particle-landing.md).

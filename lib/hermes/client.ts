@@ -317,7 +317,46 @@ async function readGatewayRunId(response: Response) {
 
 function createGatewayInstructions(request: HermesRunRequest) {
   const bundle = request.agentBundle;
-  const isTemplateRun = bundle.projectContext.mode === "template-authoring" || bundle.projectContext.mode === "template-edit";
+  const mode = bundle.projectContext.mode ?? "project-edit";
+  const isPresentationRun = mode === "presentation-edit";
+  const isTemplateRun = mode === "template-authoring" || mode === "template-edit";
+
+  if (isPresentationRun) {
+    const sourceFile = bundle.projectContext.sourceFile ?? "deck.md";
+    const themeFile = bundle.projectContext.themeFile ?? "theme.css";
+    return [
+      "You are the AppLoop presentation builder for a local Marp Markdown deck.",
+      `Mode: presentation-edit`,
+      `Presentation ID: ${bundle.projectContext.presentationId ?? request.projectId}`,
+      `Workspace path: ${request.workspacePath}`,
+      `Source file: ${sourceFile}`,
+      `Theme file: ${themeFile}`,
+      "Package install policy: never",
+      "",
+      "Hard presentation isolation guardrail:",
+      `- The only writable root for this run is exactly: ${request.workspacePath}`,
+      "- Treat the workspace path as a containment boundary, not a suggestion.",
+      "- Before reading, writing, deleting, moving, or running commands against a path, normalize and realpath-resolve it and confirm it is still under this exact workspace path.",
+      `- Source of truth is ${sourceFile}. Optional theme CSS lives in ${themeFile} or front-matter style blocks.`,
+      "- Keep valid Marp front matter (`marp: true`). Slide separators are a line containing only `---`.",
+      "- For the Simple 3 slides starter, stay at three slides unless the user explicitly asks for more.",
+      "- Do not scaffold Next.js apps, edit projects/templates, install packages, or start preview runtimes.",
+      "- Do not modify AppLoop builder source, .hermes assets, presentations-templates blueprints, or sibling presentation workspaces.",
+      "",
+      "Use this repo-local AppLoop Hermes presentation bundle:",
+      `- Orchestrator: ${bundle.orchestrator.id} (${bundle.orchestrator.path})`,
+      `- Delegate agents: ${bundle.delegates.map((agent) => `${agent.id} (${agent.path})`).join(", ")}`,
+      `- Skill bundle: ${bundle.skillBundle.id} (${bundle.skillBundle.path})`,
+      `- Skills, in activation order: ${bundle.skillBundle.activationOrder.join(", ")}`,
+      `- Hooks: ${bundle.hooks.map((hook) => `${hook.id} (${hook.path})`).join(", ")}`,
+      `- Commands: ${bundle.commands.map((command) => `${command.command} (${command.path})`).join(", ")}`,
+      "",
+      "Completion criteria:",
+      ...bundle.completionCriteria.map((item) => `- ${item}`),
+      "",
+      "Edit the Markdown deck to satisfy the user. Report affected files. Do not reveal private reasoning.",
+    ].join("\n");
+  }
 
   const lines = [
     "You are the AppLoop project builder for a local generated Next.js workspace.",
@@ -332,16 +371,18 @@ function createGatewayInstructions(request: HermesRunRequest) {
     `- The only writable root for this run is exactly: ${request.workspacePath}`,
     "- Treat the workspace path as a containment boundary, not a suggestion.",
     "- Before reading, writing, deleting, moving, or running commands against a path, normalize and realpath-resolve it and confirm it is still under this exact workspace path.",
-    ...(isTemplateRun ? [
-      `- This is a ${bundle.projectContext.mode} run. You may modify only the exact templates/<id> workspace path above.`,
-      "- Do not modify AppLoop builder source files, .hermes assets, repository docs, root package/config files, generated projects, or sibling templates.",
-      `- Preserve/register the template body classname as template-${bundle.projectContext.templateId ?? "custom-template"} in app/layout.tsx.`,
-      "- Keep the template standalone and ready to copy into future generated projects.",
-    ] : [
-      "- Do not modify AppLoop builder source files, the source templates/ directory, .hermes assets, repository docs, or package files outside the generated workspace.",
-      "- Do not modify sibling generated projects under .apploop/projects/*; a path under .apploop/projects is writable only when it is inside the exact workspace path above.",
-      "- If the user asks for a template or cross-project change from a project-edit chat, refuse that scope and explain that project-edit prompts can only affect the active generated workspace.",
-    ]),
+    ...(isTemplateRun
+      ? [
+          `- This is a ${bundle.projectContext.mode} run. You may modify only the exact templates/<id> workspace path above.`,
+          "- Do not modify AppLoop builder source files, .hermes assets, repository docs, root package/config files, generated projects, or sibling templates.",
+          `- Preserve/register the template body classname as template-${bundle.projectContext.templateId ?? "custom-template"} in app/layout.tsx.`,
+          "- Keep the template standalone and ready to copy into future generated projects.",
+        ]
+      : [
+          "- Do not modify AppLoop builder source files, the source templates/ directory, .hermes assets, repository docs, or package files outside the generated workspace.",
+          "- Do not modify sibling generated projects under .apploop/projects/*; a path under .apploop/projects is writable only when it is inside the exact workspace path above.",
+          "- If the user asks for a template or cross-project change from a project-edit chat, refuse that scope and explain that project-edit prompts can only affect the active generated workspace.",
+        ]),
     "",
     "Use this repo-local AppLoop Hermes project bundle for every generated-project change:",
     `- Orchestrator: ${bundle.orchestrator.id} (${bundle.orchestrator.path})`,
@@ -363,7 +404,14 @@ function createGatewayInstructions(request: HermesRunRequest) {
   ];
 
   if (isTemplateRun) {
-    lines.splice(1, 0, `Mode: ${bundle.projectContext.mode}`, `Template ID: ${bundle.projectContext.templateId}`, `Template name: ${bundle.projectContext.templateName}`, `Base template ID: ${bundle.projectContext.baseTemplateId}`);
+    lines.splice(
+      1,
+      0,
+      `Mode: ${bundle.projectContext.mode}`,
+      `Template ID: ${bundle.projectContext.templateId}`,
+      `Template name: ${bundle.projectContext.templateName}`,
+      `Base template ID: ${bundle.projectContext.baseTemplateId}`,
+    );
   }
 
   return lines.join("\n");

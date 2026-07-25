@@ -1,0 +1,10 @@
+/* @theme apploop-presentation */
+
+/* Optional external theme for Marp preview.
+   Prefer front-matter `style:` in deck.md for single-file decks. */
+
+section {
+  background: #000000;
+  color: #ffffff;
+  font-family: Inter, "SF Pro Display", system-ui, sans-serif;
+}

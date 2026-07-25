@@ -6,13 +6,30 @@ Source of truth: repo root `Makefile`. Engineer HTML: `docs/README-RESET.html`.
 
 ```bash
 # Terminal A
-make hermes-gateway          # :8642, HERMES_HOME=.hermes
+make hermes-gateway          # :8642, HERMES_HOME=.hermes; launch via `hermes gateway run --replace`
 
 # Terminal B
 make dev                     # :3001, Makefile passes --port $(PORT)
 ```
 
 Optional: `make hermes-gateway-curl-test`.
+
+### `make hermes-gateway` replace rule
+
+Killing whatever is listening on `API_SERVER_PORT` / `8642` is **not enough**. Hermes keeps its own PID/lock; a plain `hermes gateway` then fails with:
+
+```text
+✗ Another gateway instance is already running (PID …).
+  Or use 'hermes gateway run --replace' to auto-replace.
+```
+
+Makefile target must launch:
+
+```makefile
+hermes gateway run --replace
+```
+
+(not bare `hermes gateway`). Optional pre-stop via `lsof` + wait is fine as belt-and-suspenders; `--replace` is the required CLI path.
 
 ## Target ladder
 
@@ -77,3 +94,4 @@ make apploop-seed-projects
 - Seeder is skip-by-**name**: rename registry `name` without `make seed` (or deleting the old project) and the new title never appears as a demo card.
 - README-RESET / root README catalog tables lag easily — treat them as part of the registration change, not a docs-only follow-up.
 - After template source edits, already-seeded workspaces stay stale until rsync `templates/<id>/` → `.apploop/projects/<slug>/` (exclude `node_modules`/`.next`/`.git`) + hard-reload.
+- **`make hermes-gateway` without `--replace`**: port free after kill still hits “Another gateway instance is already running” because of Hermes PID/lock files.

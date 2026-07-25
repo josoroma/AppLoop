@@ -10,10 +10,13 @@ Key surfaces:
 
 - Builder pages: `app/projects/page.tsx`, `app/projects/new/page.tsx`, `app/projects/[projectId]/page.tsx`
 - Template pages: `app/templates/page.tsx`, `app/templates/new/page.tsx`
+- Presentation pages: `app/presentations/page.tsx`, `app/presentations/new/page.tsx`, `app/presentations/[presentationId]/page.tsx`
 - Builder UI: `components/builder/`
-- Create flows: `components/projects/` (`create-flow-shell`, `project-create-form`, `template-create-form`)
+- Presentation UI: `components/presentations/`
+- Create flows: `components/projects/` (`create-flow-shell`, `project-create-form`, `template-create-form`) and `components/presentations/presentation-create-form.tsx`
 - Project creation and files: `lib/projects/`
-- Runtime lifecycle: `lib/runtime/`
+- Presentation creation and Marp render: `lib/presentations/`
+- Runtime lifecycle: `lib/runtime/` (projects only — presentations do not use preview ports)
 - Hermes integration: `lib/hermes/` and `.hermes/`
 - Themes: `lib/themes/`
 - Visual inspector: `lib/visual-selector/`, `components/builder/preview-frame.tsx`, and `templates/*/components/inspector-provider.tsx`
@@ -29,10 +32,11 @@ Deep docs (read when relevant):
 - `docs/README-USER-FLOW-PROJECTS.md`
 - `docs/README-USER-FLOW-TEMPLATES.md`
 - `docs/README-USER-FLOW-EDIT-PROJECT-OR-TEMPLATE.md`
+- `docs/README-USER-FLOW-PRESENTATIONS.md`
 
 ## Ownership Boundary
 
-- **AppLoop owns** project/template records, SQLite, preview ports/PIDs, path containment, theme validation, redirects, and agent-bundle assembly.
+- **AppLoop owns** project/template/presentation records, SQLite, preview ports/PIDs (projects only), Marp HTML preview rendering, path containment, theme validation, redirects, and agent-bundle assembly.
 - **Hermes owns** generative workspace edits through the local gateway using the shipped `.hermes` agents/skills/hooks/commands.
 - **Browser owns** inspect selection, composer UI, and stream consumption — never secrets or authoritative FS writes.
 
@@ -62,9 +66,10 @@ make dev
 make check
 make hermes-gateway
 make hermes-gateway-curl-test
-make seed                 # apploop-reset + migrate + template deps + demo projects
+make seed                 # apploop-reset + migrate + template deps + demo projects/presentations
 make apploop-reset
 make apploop-seed
+make apploop-seed-presentations
 make reset                # also removes root node_modules
 ```
 
@@ -74,6 +79,7 @@ If the shell prompts to source `.env` during validation, answer `N` unless the t
 
 - Do not commit `.apploop/`, `.next/`, runtime logs, local SQLite databases, Hermes auth files, Hermes logs, Hermes cache, session dumps, or local gateway state.
 - Generated project workspaces under `.apploop/projects/` may need temporary edits for live validation, but durable template changes should usually be made under `templates/` as well.
+- Generated presentation workspaces under `.apploop/presentations/` are local Marp decks; `deck.md` is source of truth and presentations do not have preview ports/PIDs.
 - If the active generated workspace is relevant to a user-reported preview bug, patch the active `.apploop/projects/<slug>` copy and the source template when appropriate.
 - Template-edit projects point `workspacePath` at `templates/<id>` (live template source), not a projects-root clone.
 
@@ -97,6 +103,7 @@ Choose the narrowest meaningful check after edits:
 
 - Visual selector changes: `npm test -- tests/visual-selector.test.ts`
 - Runtime changes: `npm test -- tests/runtime*.test.ts tests/preview-browser.test.ts`
+- Presentation changes: `npm test -- tests/presentation-marp.test.ts tests/presentation-inspect-styles.test.ts`
 - Theme changes: `npm test -- tests/theme-system.test.ts`
 - Project domain changes: `npm test -- tests/project-*.test.ts`
 - Checkpoint restore: `npm test -- tests/checkpoint-restore.test.ts`
@@ -120,8 +127,17 @@ Modes:
 - `project-edit` — normal generated project workspace under `.apploop/projects/`
 - `template-edit` — chat on a project whose workspace is `templates/<id>`
 - `template-authoring` — Create Template gateway pass before redirect into template edit
+- `presentation-edit` — Marp deck under `.apploop/presentations/<slug>/`; source of truth is `deck.md`
 
-The app owns project state and runtime control. Hermes agents own generated-project edit workflows. Keep that boundary clear.
+Presentation Hermes assets:
+
+- Agent: `.hermes/agents/presentation-builder.md`
+- Bundle: `.hermes/bundles/marp-builder/BUNDLE.md`
+- Skill: `.hermes/skills/marp-presentations/SKILL.md`
+- Command: `.hermes/commands/presentation-build.md`
+- Hook: `.hermes/hooks/presentation-scope-guard/HOOK.md`
+
+The app owns project state and runtime control. Hermes agents own generated-project edit workflows. Presentation runs own Markdown-only Marp edits. Keep that boundary clear.
 
 ## Security Rules
 

@@ -230,8 +230,8 @@
           This assumes dependencies and env are already set up (Hermes installed, root
           <code>.env</code> / <code>.hermes/.env</code> present). It documents the
           <strong>Makefile</strong> path to boot the builder, wipe local AppLoop state, reinstall
-          every template’s dependencies, migrate SQLite, and seed one demo project per built-in
-          template.
+          every template’s dependencies, migrate SQLite, and seed one demo project and one demo
+          presentation per built-in registry entry.
         </p>
         <div class="meta-row">
           <span class="pill"><strong>Builder</strong> make dev → :3001</span>
@@ -250,7 +250,7 @@
         <article class="kpi">
           <div class="label">Soft reseed</div>
           <div class="value">make seed</div>
-          <p class="hint">Wipe <code>.apploop</code> + template node_modules, migrate DB, install templates, seed demos. Keeps root <code>node_modules</code>.</p>
+          <p class="hint">Wipe projects, presentations, logs, DB + template node_modules, migrate DB, install templates, seed demos. Keeps root <code>node_modules</code>.</p>
         </article>
         <article class="kpi">
           <div class="label">Hard teardown</div>
@@ -408,7 +408,7 @@ make dev
             <text x="305" y="175" fill="oklch(0.98 0 0)" font-size="16" font-family="Avenir Next, sans-serif" font-weight="700">apploop-template-seed</text>
 
             <rect x="280" y="230" width="280" height="58" rx="12" fill="oklch(0.205 0 0)" stroke="oklch(0.488 0.243 264.376)" />
-            <text x="305" y="265" fill="oklch(0.98 0 0)" font-size="16" font-family="Avenir Next, sans-serif" font-weight="700">apploop-seed-projects</text>
+            <text x="305" y="265" fill="oklch(0.98 0 0)" font-size="16" font-family="Avenir Next, sans-serif" font-weight="700">seed projects + decks</text>
 
             <rect x="620" y="230" width="200" height="58" rx="12" fill="oklch(0.205 0 0)" stroke="oklch(0.845 0.143 164.978)" />
             <text x="655" y="265" fill="oklch(0.98 0 0)" font-size="16" font-family="Avenir Next, sans-serif" font-weight="700">make apploop-seed</text>
@@ -448,7 +448,7 @@ make dev
               <tr>
                 <td><code>make apploop-reset</code></td>
                 <td>
-                  Deletes <code>.apploop/projects</code>, <code>.apploop/runtime-logs</code>, SQLite files under
+                  Deletes <code>.apploop/projects</code>, <code>.apploop/presentations</code>, <code>.apploop/runtime-logs</code>, SQLite files under
                   <code>.apploop/</code>; strips every <code>templates/*/{node_modules,package-lock.json,pnpm-lock.yaml}</code>
                 </td>
                 <td>Remove root deps; delete template source code; wipe <code>.hermes/</code></td>
@@ -456,16 +456,26 @@ make dev
               <tr>
                 <td><code>make apploop-template-seed</code></td>
                 <td><code>npm install</code> in each <code>templates/*/</code> that has <code>package.json</code></td>
-                <td>Touch SQLite or create projects</td>
+                <td>Touch SQLite or create projects/presentations</td>
+              </tr>
+              <tr>
+                <td><code>make apploop-db-migrate</code></td>
+                <td><code>npm run db:migrate</code>; shared prerequisite for seed scripts</td>
+                <td>Install template deps or create demos</td>
               </tr>
               <tr>
                 <td><code>make apploop-seed-projects</code></td>
-                <td>Depends on template-seed → <code>npm run db:migrate</code> → <code>npx tsx scripts/seed-projects.mts</code></td>
+                <td>Depends on template-seed + db migrate → <code>npx tsx scripts/seed-projects.mts</code></td>
                 <td>Wipe existing demos with same names (skips duplicates)</td>
               </tr>
               <tr>
+                <td><code>make apploop-seed-presentations</code></td>
+                <td>Depends on db migrate → <code>npx tsx scripts/seed-presentations.mts</code></td>
+                <td>Start preview ports (presentations render through Marp HTML routes)</td>
+              </tr>
+              <tr>
                 <td><code>make apploop-seed</code></td>
-                <td>Alias end of seed-projects with success banner</td>
+                <td>Runs project and presentation seed targets with success banner</td>
                 <td>Reset first</td>
               </tr>
               <tr>
@@ -488,7 +498,7 @@ make dev
           <p class="eyebrow">04 · Current catalog</p>
           <h2>Seed what we have now</h2>
           <p class="muted">
-            Two different “template sets” matter. Do not conflate them.
+            Three different “template sets” matter. Do not conflate them.
           </p>
         </div>
 
@@ -563,6 +573,29 @@ Env defaults (overridable):
   DATABASE_URL=file:.apploop/builder.sqlite
   PREVIEW_PORT_START=3100
   PREVIEW_PORT_END=3199</pre>
+
+        <h3>C. Demo presentations created by seed script</h3>
+        <p class="muted">
+          <code>scripts/seed-presentations.mts</code> creates <strong>one presentation per entry in
+          <code>BUILT_IN_PRESENTATION_TEMPLATES</code></strong> (<code>lib/presentations/templates.ts</code>). Current registry:
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>id</th><th>Presentation name seeded</th><th>Source</th></tr></thead>
+            <tbody>
+              <tr><td><code>simple-3-slides</code></td><td>Simple 3 Slides</td><td><code>presentations-templates/simple-3-slides</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre>For each built-in presentation template not already present by active name:
+  PresentationService.createPresentation({ name: template.name, templateId: template.id })
+    → SQLite: presentations, presentation_conversations
+  createPresentationWorkspace(PRESENTATIONS_ROOT, workspacePath, { template })
+    → FS copy presentations-templates/<path> → .apploop/presentations/<slug>
+
+Env defaults (overridable):
+  PRESENTATIONS_ROOT=file path → .apploop/presentations
+  DATABASE_URL=file:.apploop/builder.sqlite</pre>
       </section>
 
       <section id="from-scratch" class="card stack">

@@ -61,6 +61,8 @@ A pending overlay shows `Creating your project…`. This wait is usually **short
 
 Submitting the form posts to `createProjectAction` in `lib/projects/actions.ts`.
 
+Reset/seed note: `make seed` wipes `.apploop/projects`, `.apploop/presentations`, runtime logs, and local databases before recreating demo projects and demo presentations. Use it only when local generated work can be discarded.
+
 There is **no Hermes gateway conversation during project create**. Hermes becomes involved later, when you send chat prompts inside the builder.
 
 ### A. Resolve template + theme (local)
@@ -372,6 +374,7 @@ User     →  first chat message
 - Port exhaustion in preview range → allocation error from project service.
 - Bundle insert failure rolls back the project row best-effort in repository error path.
 - Gateway being down **does not** block create project; it only blocks subsequent chat/preview-agent workflows.
+- Running `make seed` after creating a project deletes the generated workspace and SQLite row; it is a clean-start operation, not a non-destructive refresh.
 
 ---
 

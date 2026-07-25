@@ -1,13 +1,13 @@
 ---
 name: apploop-builder-create-flows
-description: "Use when building or changing AppLoop builder create/list UX (/projects/new, /templates/new page routes not modals, post-create redirects, Templates New template CTA, Luma create shell), Makefile reset/seed runbooks, or the docs pack for architecture/user-flows/inspect-edit."
+description: "Use when building or changing AppLoop builder create/list UX (/projects/new, /templates/new, /presentations/new page routes not modals, post-create redirects, cross-nav among projects/templates/presentations, Luma create shell), Makefile reset/seed runbooks, or the docs pack for architecture/user-flows/inspect-edit."
 version: 1.0.0
 author: Hermes Agent
 license: MIT
 metadata:
   hermes:
-    tags: [apploop, builder, templates, projects, routes, luma, ux]
-    related_skills: [frontend-design, generated-app-standards, theme-system, apploop-specialty-templates]
+    tags: [apploop, builder, templates, projects, presentations, routes, luma, ux]
+    related_skills: [frontend-design, generated-app-standards, theme-system, apploop-specialty-templates, apploop-presentations-architecture]
 ---
 
 # AppLoop Builder Create Flows
@@ -30,26 +30,40 @@ AppLoop project and template **creation are full page routes**, not Dialog modal
 |------|-------|----------------|-------|
 | New project | `/projects/new` | `components/projects/project-create-form.tsx` | `create-flow-shell.tsx` |
 | New template | `/templates/new` | `components/projects/template-create-form.tsx` | `create-flow-shell.tsx` |
+| New presentation | `/presentations/new` | `components/presentations/presentation-create-form.tsx` | `create-flow-shell.tsx` |
 
 Shared pieces:
 
 - Shell: `components/projects/create-flow-shell.tsx`
 - Styles: `.luma-create-page`, `.luma-create-ambient`, `.luma-create-panel`, `.luma-create-input`, `.luma-select-card`, `.luma-create-footer`, `.luma-list-page` in `app/globals.css`
-- Server actions: `lib/projects/actions.ts` → `createProjectAction`, `createCustomTemplateAction`
+- Server actions: `lib/projects/actions.ts` → `createProjectAction`, `createCustomTemplateAction`; presentations → `lib/presentations/actions.ts` → `createPresentationAction`
 - Do **not** restore `project-create-dialog.tsx` unless the user explicitly asks for modals again
+- Presentation create/chat/preview: [`references/presentations-create-and-chat.md`](references/presentations-create-and-chat.md) + skill **`apploop-presentations-architecture`**
 
 ## Listing Headers
 
 ### `/templates` top actions (required)
 
 1. `Projects` (outline) → `/projects`
-2. **`New template` (primary)** → `/templates/new`
+2. `Presentations` (outline) → `/presentations`
+3. **`New template` (primary)** → `/templates/new`
 
 ### `/projects` top actions
 
 1. **`Settings` (outline)** → `/projects/settings` — builder-global default Hermes gateway model
 2. `Templates` (outline) → `/templates`
-3. **`New project` (primary)** → `/projects/new`
+3. `Presentations` (outline) → `/presentations`
+4. **`New project` (primary)** → `/projects/new`
+
+### `/presentations` top actions
+
+1. `Projects` → `/projects`
+2. `Templates` → `/templates`
+3. **`New presentation`** → `/presentations/new`
+
+### Presentation **builder** chrome (`/presentations/[id]`)
+
+House/home control must be **Presentations → `/presentations`**. Never send deck editors home to Projects (user-corrected).
 
 Optional Projects subtitle: current gateway model label + provider (`getPreferredHermesModelSelection()`).
 
@@ -143,9 +157,11 @@ Confirm routes resolve and actions still redirect into `/projects/[projectId]`.
 |------|----------------|------------------------|--------------|
 | Create project | FS copy + SQLite bundle | **No** (chat later) | `/projects/:id` |
 | Create template | Gateway one-shot authoring | **Yes** `runProjectOnce` | `/projects/:id` after `openTemplateForEditing` |
+| Create presentation | FS copy + SQLite presentation rows | **No** (chat later) | `/presentations/:id` |
 | Inspect send | Streaming chat | **Yes** `streamProjectRun` | Same builder sheet |
+| Presentation chat | Streaming chat | **Yes** `presentation-edit` | Filmstrip + single-slide Marp (`?_t=`) |
 
-Do not promise multi-minute waits for create project; do expect longer waits for create template.
+Do not promise multi-minute waits for create project/presentation; do expect longer waits for create template.
 
 ## Ops: reset / seed
 
@@ -153,11 +169,13 @@ Prefer soft reseed after dirty local state:
 
 ```bash
 make seed                 # apploop-reset + migrate + template npm install + seed demos
-make hermes-gateway
+make hermes-gateway       # must use `hermes gateway run --replace` under the hood
 make dev
 ```
 
 Nuclear (also drops root `node_modules`): `make reset && make install && make apploop-seed`.
+
+**Gateway restart:** freeing port 8642 alone is not enough if Hermes still holds a PID/lock — start with `hermes gateway run --replace` (see [`references/makefile-reset-and-seed.md`](references/makefile-reset-and-seed.md)).
 
 Detail: [`references/makefile-reset-and-seed.md`](references/makefile-reset-and-seed.md) and `docs/README-RESET.html`.
 
@@ -209,6 +227,7 @@ Root `SPECS.md` + README Product Hunt/YouTube + authority order + push-to-main n
 - Promote disk template → built-in registry/seed: [`references/adding-built-in-template.md`](references/adding-built-in-template.md)
 - Algovivo soft creature (WASM, rsi, fixed-step Hz, left HUD): [`references/algovivo-creature-template.md`](references/algovivo-creature-template.md)
 - Immersive neon field (R3F fabric): [`references/immersive-neon-field.md`](references/immersive-neon-field.md)
+- Stay Curious monochrome particle landing: [`references/stay-curious-particle-landing.md`](references/stay-curious-particle-landing.md)
 - Class-level specialty pack (soft-body + neon stages + registration): skill **`apploop-specialty-templates`**
 
 Hard lessons from specialty iteration (also in that pack):
@@ -229,3 +248,4 @@ Hard lessons from specialty iteration (also in that pack):
 - Prefer also patching `generated-app-standards` / `frontend-design` / `theme-system` when unlocked — protected skills reject autonomous curator writes; keep durable built-in-registration procedure **here**
 - `.apploop` vs `.hermes` coupling + agentBundle: hermes-gateway skill + `docs/README-HERMES.html`
 - Prefer **this** skill for builder UI route/redirect/CTA/ops/docs **and built-in template promotion** decisions
+- Marp presentations architecture (no ports, presentation-edit Hermes): skill **`apploop-presentations-architecture`**

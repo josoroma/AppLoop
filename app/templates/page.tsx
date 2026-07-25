@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Copy, FolderGit2, House, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, FolderGit2, House, Pencil, Plus, Presentation, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cloneTemplateAction, deleteTemplateAction, editTemplateAction } from "@/lib/projects/actions";
 import { getProjectRepository } from "@/lib/projects/store";
@@ -41,6 +41,12 @@ export default async function TemplatesPage({ searchParams }: TemplatesPageProps
             <Link href="/projects">
               <House className="size-4" />
               Projects
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/presentations">
+              <Presentation className="size-4" />
+              Presentations
             </Link>
           </Button>
           <Button asChild>

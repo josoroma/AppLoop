@@ -1,4 +1,9 @@
-export type HermesHookId = "project-scope-guard" | "generated-code-review" | "theme-integrity" | "preview-readiness";
+export type HermesHookId =
+  | "project-scope-guard"
+  | "generated-code-review"
+  | "theme-integrity"
+  | "preview-readiness"
+  | "presentation-scope-guard";
 
 export type HermesHookTrigger = "pre-tool-use" | "post-edit" | "before-completion";
 
@@ -61,6 +66,21 @@ export const HERMES_HOOK_DEFINITIONS: Record<HermesHookId, HermesHookDefinition>
     outputs: ["allow", "block", "previewReady"],
     enforcement: ["process-status-check", "http-reachability-check", "compile-log-inspection", "preview-ready-event-gate"],
   },
+  "presentation-scope-guard": {
+    id: "presentation-scope-guard",
+    title: "Presentation Scope Guard",
+    path: ".hermes/hooks/presentation-scope-guard/HOOK.md",
+    trigger: "pre-tool-use",
+    inputs: ["workspacePath", "operation", "targets"],
+    outputs: ["allow", "block", "auditLog"],
+    enforcement: [
+      "normalize-paths",
+      "resolve-symlinks",
+      "block-traversal",
+      "block-package-managers",
+      "log-blocked-operations",
+    ],
+  },
 };
 
 export const UI_BUILDER_HOOK_ORDER: HermesHookId[] = [
@@ -70,4 +90,8 @@ export const UI_BUILDER_HOOK_ORDER: HermesHookId[] = [
   "preview-readiness",
 ];
 
+export const MARP_BUILDER_HOOK_ORDER: HermesHookId[] = ["presentation-scope-guard"];
+
 export const UI_BUILDER_HOOKS: HermesHookDefinition[] = UI_BUILDER_HOOK_ORDER.map((hookId) => HERMES_HOOK_DEFINITIONS[hookId]);
+
+export const MARP_BUILDER_HOOKS: HermesHookDefinition[] = MARP_BUILDER_HOOK_ORDER.map((hookId) => HERMES_HOOK_DEFINITIONS[hookId]);

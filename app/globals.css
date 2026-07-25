@@ -319,3 +319,295 @@ select {
 .theme-card-preview[data-theme-id="luma-orange-stone"] .theme-preview-secondary { background: oklch(0.967 0.012 70); }
 .theme-card-preview[data-theme-id="luma-orange-stone"] .theme-preview-accent { background: oklch(0.9 0.09 38); }
 .theme-card-preview[data-theme-id="luma-orange-stone"] .theme-preview-background { background: oklch(1 0 0); }
+/* Presentation filmstrip */
+.presentation-builder-grid {
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) 18rem minmax(0, 1fr);
+  min-height: 0;
+  width: 100%;
+}
+
+@media (max-width: 1280px) {
+  .presentation-builder-grid {
+    grid-template-columns: minmax(14rem, 18rem) 16rem minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .presentation-builder-grid {
+    grid-template-columns: minmax(13rem, 16rem) 14rem minmax(0, 1fr);
+  }
+}
+
+.presentation-chat-pane,
+.presentation-filmstrip,
+.presentation-preview-pane {
+  min-height: 0;
+  min-width: 0;
+}
+
+.presentation-filmstrip {
+  width: 100%;
+}
+
+.presentation-filmstrip-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: #a1a1aa #18181b;
+}
+
+.presentation-filmstrip-scroll::-webkit-scrollbar {
+  width: 14px;
+}
+
+.presentation-filmstrip-scroll::-webkit-scrollbar-track {
+  background: #18181b;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.presentation-filmstrip-scroll::-webkit-scrollbar-thumb {
+  background: #a1a1aa;
+  border-radius: 999px;
+  border: 3px solid #18181b;
+}
+
+.presentation-slide-card {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 10.5rem;
+}
+
+.presentation-slide-card iframe {
+  width: 100%;
+  max-width: 100%;
+}
+
+.presentation-builder-grid-inspector {
+  grid-template-columns: minmax(14rem, 18rem) 15rem minmax(0, 1fr) minmax(13rem, 16rem);
+}
+
+.presentation-inspector-pane {
+  min-height: 0;
+  min-width: 0;
+}
+
+@media (max-width: 1280px) {
+  .presentation-builder-grid-inspector {
+    grid-template-columns: minmax(12rem, 15rem) 13rem minmax(0, 1fr) minmax(12rem, 14rem);
+  }
+}
+
+/* Presentation MDX editor — readable dark mode (global; pierces MDXEditor internals) */
+.presentation-mdx-editor,
+.presentation-mdx-editor *,
+.presentation-mdx-editor [class*="mdxeditor"] {
+  --mdxeditor-text: var(--presentation-slide-text, #f4f4f5) !important;
+  --basePageBg: #111113 !important;
+  --baseBg: #18181b !important;
+  --baseBgSubtle: #09090b !important;
+  --baseText: var(--presentation-slide-text, #f4f4f5) !important;
+  --baseTextContrast: var(--presentation-slide-text, #fafafa) !important;
+  --baseBorder: #3f3f46 !important;
+  --baseBorderHover: #52525b !important;
+  --baseSolid: #3f3f46 !important;
+  --baseSolidHover: #52525b !important;
+  --baseLine: #3f3f46 !important;
+}
+
+.presentation-mdx-editor [class*="mdxeditor"],
+.presentation-mdx-editor .mdxeditor {
+  color: var(--presentation-slide-text, #f4f4f5) !important;
+  background: var(--presentation-slide-bg, #111113) !important;
+  border: 0 !important;
+  font-size: 15px !important;
+}
+
+.presentation-mdx-editor [class*="mdxeditor-toolbar"],
+.presentation-mdx-editor .mdxeditor-toolbar {
+  background: #18181b !important;
+  border-bottom: 1px solid #3f3f46 !important;
+  border-radius: 0 !important;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.presentation-mdx-editor [class*="mdxeditor-toolbar"] button,
+.presentation-mdx-editor [class*="mdxeditor-toolbar"] [role="combobox"],
+.presentation-mdx-editor [class*="mdxeditor-toolbar"] [role="button"],
+.presentation-mdx-editor .mdxeditor-toolbar button,
+.presentation-mdx-editor .mdxeditor-toolbar [role="combobox"],
+.presentation-mdx-editor .mdxeditor-toolbar [role="button"] {
+  color: #e4e4e7 !important;
+  background: transparent;
+}
+
+.presentation-mdx-editor .mdxeditor-toolbar button svg,
+.presentation-mdx-editor .mdxeditor-toolbar [role="button"] svg {
+  fill: #e4e4e7 !important;
+  color: #e4e4e7 !important;
+  stroke: #e4e4e7 !important;
+}
+
+.presentation-mdx-editor .mdxeditor-toolbar button:hover,
+.presentation-mdx-editor .mdxeditor-toolbar button[data-state="on"],
+.presentation-mdx-editor .mdxeditor-toolbar button[data-active="true"],
+.presentation-mdx-editor .mdxeditor-toolbar [role="combobox"]:hover {
+  color: #fafafa !important;
+  background: #27272a !important;
+}
+
+.presentation-mdx-editor .mdxeditor-toolbar button:hover svg,
+.presentation-mdx-editor .mdxeditor-toolbar button[data-state="on"] svg,
+.presentation-mdx-editor .mdxeditor-toolbar button[data-active="true"] svg {
+  fill: #fafafa !important;
+  color: #fafafa !important;
+  stroke: #fafafa !important;
+}
+
+.presentation-mdx-editor [contenteditable="true"],
+.presentation-mdx-editor [contenteditable],
+.presentation-mdx-editor [role="textbox"],
+.presentation-mdx-editor .mdxeditor-root-contenteditable,
+.presentation-mdx-editor .mdxeditor-rich-text-editor,
+.presentation-mdx-editor [class*="root-contenteditable"],
+.presentation-mdx-editor [class*="rich-text-editor"],
+.presentation-mdx-editor .mdxeditor-root-contenteditable *,
+.presentation-mdx-editor .mdxeditor-rich-text-editor *,
+.presentation-mdx-editor [contenteditable="true"] *,
+.presentation-mdx-editor [class*="root-contenteditable"] *,
+.presentation-mdx-editor [class*="rich-text-editor"] * {
+  color: var(--presentation-slide-text, #f4f4f5);
+  background: transparent;
+  caret-color: var(--presentation-slide-text, #fafafa) !important;
+}
+
+.presentation-mdx-editor .mdxeditor-root-contenteditable,
+.presentation-mdx-editor .mdxeditor-rich-text-editor,
+.presentation-mdx-editor [contenteditable="true"],
+.presentation-mdx-editor [class*="root-contenteditable"],
+.presentation-mdx-editor [class*="rich-text-editor"] {
+  color: var(--presentation-slide-text, #f4f4f5);
+  background: transparent !important;
+  caret-color: var(--presentation-slide-text, #fafafa) !important;
+  min-height: 20rem;
+  padding: 1.25rem 1.5rem !important;
+  line-height: 1.6 !important;
+}
+
+.presentation-mdx-editor .mdxeditor-root-contenteditable *,
+.presentation-mdx-editor .mdxeditor-rich-text-editor *,
+.presentation-mdx-editor [contenteditable="true"] *,
+.presentation-mdx-editor [class*="root-contenteditable"] *,
+.presentation-mdx-editor [class*="rich-text-editor"] * {
+  color: inherit;
+}
+
+.presentation-mdx-editor h1,
+.presentation-mdx-editor h2,
+.presentation-mdx-editor h3,
+.presentation-mdx-editor h4 {
+  color: var(--presentation-slide-text, #fafafa);
+  font-weight: 700 !important;
+}
+
+.presentation-mdx-editor p,
+.presentation-mdx-editor li,
+.presentation-mdx-editor span {
+  color: inherit;
+}
+
+.presentation-mdx-editor li::marker {
+  color: currentColor !important;
+}
+
+.presentation-mdx-editor li input[type="checkbox"] {
+  accent-color: currentColor;
+}
+
+.presentation-mdx-editor [class^="_listItemChecked_"]::before,
+.presentation-mdx-editor [class*=" _listItemChecked_"]::before,
+.presentation-mdx-editor [class^="_listItemUnchecked_"]::before,
+.presentation-mdx-editor [class*=" _listItemUnchecked_"]::before {
+  border-color: currentColor !important;
+  top: 0.8em !important;
+  transform: translateY(-50%);
+}
+
+.presentation-mdx-editor [class^="_listItemChecked_"]::before,
+.presentation-mdx-editor [class*=" _listItemChecked_"]::before {
+  background-color: currentColor !important;
+}
+
+.presentation-mdx-editor [class^="_listItemChecked_"]::after,
+.presentation-mdx-editor [class*=" _listItemChecked_"]::after {
+  border-color: var(--presentation-slide-bg, #000000) !important;
+  top: calc(0.8em - 0.25rem) !important;
+  transform: rotate(45deg) translateY(-50%) !important;
+}
+
+.presentation-mdx-editor a {
+  color: #7dd3fc !important;
+}
+
+.presentation-mdx-editor code,
+.presentation-mdx-editor pre {
+  background: #09090b !important;
+  color: #fde68a !important;
+  border: 1px solid #3f3f46 !important;
+  border-radius: 0.375rem;
+}
+
+.presentation-mdx-editor blockquote {
+  border-left: 3px solid #52525b !important;
+  color: #d4d4d8 !important;
+  background: rgba(255, 255, 255, 0.03);
+  padding-left: 1rem !important;
+}
+
+.presentation-mdx-editor table th,
+.presentation-mdx-editor table td {
+  border-color: #3f3f46 !important;
+  color: inherit;
+}
+
+.presentation-mdx-editor .mdxeditor-popup-container,
+.presentation-mdx-editor .mdxeditor-select-content,
+[data-radix-popper-content-wrapper] .mdxeditor-select-content {
+  background: #18181b !important;
+  color: #f4f4f5 !important;
+  border: 1px solid #3f3f46 !important;
+}
+
+.presentation-mdx-editor [role="tooltip"],
+[data-radix-popper-content-wrapper] [role="tooltip"],
+[data-radix-popper-content-wrapper] .mdxeditor-tooltip,
+[data-radix-popper-content-wrapper] [class*="tooltip"] {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
+
+.presentation-mdx-canvas {
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.presentation-mdx-canvas .mdxeditor {
+  background: transparent !important;
+}
+
+.presentation-slide-editor-pane {
+  background: #0c0c0e;
+  color: #f4f4f5;
+}
+
+.presentation-slide-editor-pane header,
+.presentation-slide-editor-header {
+  background: #141416;
+  border-bottom-color: #27272a !important;
+  color: #f4f4f5;
+}

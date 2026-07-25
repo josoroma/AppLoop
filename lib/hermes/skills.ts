@@ -5,7 +5,8 @@ export type HermesSkillId =
   | "theme-system"
   | "project-runtime"
   | "visual-selector"
-  | "security-review";
+  | "security-review"
+  | "marp-presentations";
 
 export type HermesSkillDefinition = {
   id: HermesSkillId;
@@ -15,7 +16,7 @@ export type HermesSkillDefinition = {
   capabilities: string[];
 };
 
-export type HermesSkillBundleId = "ui-builder";
+export type HermesSkillBundleId = "ui-builder" | "marp-builder";
 
 export type HermesSkillBundleDefinition = {
   id: HermesSkillBundleId;
@@ -76,6 +77,13 @@ export const HERMES_SKILL_DEFINITIONS: Record<HermesSkillId, HermesSkillDefiniti
     path: ".hermes/skills/security-review/SKILL.md",
     capabilities: ["path-containment", "secret-exposure", "dangerous-command-review", "runtime-isolation", "iframe-boundaries"],
   },
+  "marp-presentations": {
+    id: "marp-presentations",
+    command: "/marp-presentations",
+    title: "Marp Presentations",
+    path: ".hermes/skills/marp-presentations/SKILL.md",
+    capabilities: ["marp-front-matter", "slide-separators", "deck-md-ownership", "theme-css-optional"],
+  },
 };
 
 export const UI_BUILDER_SKILL_ORDER: HermesSkillId[] = [
@@ -88,6 +96,12 @@ export const UI_BUILDER_SKILL_ORDER: HermesSkillId[] = [
   "project-runtime",
 ];
 
+export const MARP_BUILDER_SKILL_ORDER: HermesSkillId[] = [
+  "security-review",
+  "hermes-gateway",
+  "marp-presentations",
+];
+
 export const UI_BUILDER_SKILL_BUNDLE: HermesSkillBundleDefinition = {
   id: "ui-builder",
   command: "/ui-builder",
@@ -95,4 +109,13 @@ export const UI_BUILDER_SKILL_BUNDLE: HermesSkillBundleDefinition = {
   path: ".hermes/bundles/ui-builder/BUNDLE.md",
   skills: UI_BUILDER_SKILL_ORDER.map((skillId) => HERMES_SKILL_DEFINITIONS[skillId]),
   activationOrder: UI_BUILDER_SKILL_ORDER,
+};
+
+export const MARP_BUILDER_SKILL_BUNDLE: HermesSkillBundleDefinition = {
+  id: "marp-builder",
+  command: "/marp-builder",
+  title: "Marp Builder",
+  path: ".hermes/bundles/marp-builder/BUNDLE.md",
+  skills: MARP_BUILDER_SKILL_ORDER.map((skillId) => HERMES_SKILL_DEFINITIONS[skillId]),
+  activationOrder: MARP_BUILDER_SKILL_ORDER,
 };

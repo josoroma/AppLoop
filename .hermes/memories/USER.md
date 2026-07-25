@@ -1,9 +1,9 @@
-Senior SWE/product owner Joso (/Users/josoroma; CV "Joso R."). Next.js, AI SDK, local-first agentic infra. Values production architecture, privacy, observability.
+Name: Joso (home /Users/josoroma; CV "Joso R.").
 §
-AppLoop edits: Hermes gateway + repo-local .hermes agents/skills. UI needs shared + unique last classname. Project-edit = active workspace only; durable changes go to templates/repo.
+AppLoop prefs: CSS Grid; git checkpoints; chat Restore/Edit; unique last classname; preserve template identity; kill flaky after 2 fails. Create project/template=pages not modals; →/projects/:id. Create-template=Hermes first; create-project=local. Paginate def 10. Docs: live code>SPECS.md>README-USER-FLOW-*. Ops: make seed. Large features: plan-first, wait for explicit go. Planned: Presentations (Marp) as 3rd surface.
 §
-User's name is Joso (home directory /Users/josoroma, CV template uses "Joso R.").
+Create-template prompts: long paste-ready packs (name, desc, heavy brief) with unique-last-classname, template-<id>, providers, dark neon/WebGL rules; phased slices for stiff multi-route/R3F briefs.
 §
-AppLoop prefs: CSS Grid; git checkpoints; chat Restore/Edit; unique last classname; preserve template identity; kill flaky features after 2 fails. Create project/template are pages (/projects/new,/templates/new) not modals; success redirects to /projects/:id. Create-template = Hermes authoring first; create-project = local scaffold only. Template form: name/desc/prompt/CSS; paginate 5/10/15/50/100 def 10; Edit in place. User-flow docs docs/README-USER-FLOW-*.md: TOC+wait+APIs+DB+files. Docs authority: live code > root SPECS.md > docs/README-* pack. Ops: prefers make seed. Product refs in README: Product Hunt apploop-2 + YouTube demos.
+Presentations UX: home → /presentations labeled Presentations; CSS grid chat(~16–22rem)+fixed filmstrip(~14–18rem)+preview fills rest — not percentage resizable panels that crush the strip; full-width native mini thumbs + visible scrollbar; single-slide preview; no MD editor v1. Inspect: multi-select toggle, keep outlines visible, clear targets on slide change, click again to unselect.
 §
-Create-template prompt requests: wants long paste-ready packs (name, short description, heavy design brief) that bake in unique-last-classname, template-<id>, providers, and dark neon/WebGL high-contrast rules; offer phased slices for stiff multi-route/R3F briefs when risk is high.
+User prefers concise, actionable updates over verbose explanations. When presenting technical solutions, lead with what was fixed/added and provide verification evidence, then optionally explain the approach if needed. Avoid over-explaining when a clear demonstration of the fix suffices.

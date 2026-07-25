@@ -194,6 +194,55 @@ export const builderPreferences = sqliteTable("builder_preferences", {
   ...timestamps,
 });
 
+export const presentations = sqliteTable(
+  "presentations",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    workspacePath: text("workspace_path").notNull(),
+    templateId: text("template_id").notNull(),
+    sourceFile: text("source_file").notNull().default("deck.md"),
+    hermesSessionId: text("hermes_session_id"),
+    activeConversationId: text("active_conversation_id"),
+    status: text("status", { enum: ["active", "archived", "deleted"] }).notNull().default("active"),
+    ...timestamps,
+  },
+  (table) => [uniqueIndex("presentations_slug_idx").on(table.slug)],
+);
+
+export const presentationConversations = sqliteTable(
+  "presentation_conversations",
+  {
+    id: text("id").primaryKey(),
+    presentationId: text("presentation_id")
+      .notNull()
+      .references(() => presentations.id, { onDelete: "cascade" }),
+    hermesSessionId: text("hermes_session_id"),
+    title: text("title").notNull().default("Presentation chat"),
+    status: text("status", { enum: ["active", "archived", "deleted"] }).notNull().default("active"),
+    ...timestamps,
+  },
+  (table) => [index("presentation_conversations_presentation_id_idx").on(table.presentationId)],
+);
+
+export const presentationMessages = sqliteTable(
+  "presentation_messages",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => presentationConversations.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["user", "assistant", "system", "tool"] }).notNull(),
+    content: text("content").notNull(),
+    metadataJson: text("metadata_json"),
+    hermesSessionId: text("hermes_session_id"),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: timestamps.createdAt,
+  },
+  (table) => [index("presentation_messages_conversation_id_idx").on(table.conversationId)],
+);
+
 export const screenshots = sqliteTable(
   "screenshots",
   {
@@ -306,6 +355,9 @@ export const builderTables = {
   projectSettings,
   projectTemplates,
   builderPreferences,
+  presentations,
+  presentationConversations,
+  presentationMessages,
   screenshots,
   chatCheckpoints,
   sessionEvents,
@@ -342,3 +394,9 @@ export type BuilderPreferences = typeof builderPreferences.$inferSelect;
 export type NewBuilderPreferences = typeof builderPreferences.$inferInsert;
 export type HermesSessionLink = typeof hermesSessionLinks.$inferSelect;
 export type NewHermesSessionLink = typeof hermesSessionLinks.$inferInsert;
+export type Presentation = typeof presentations.$inferSelect;
+export type NewPresentation = typeof presentations.$inferInsert;
+export type PresentationConversation = typeof presentationConversations.$inferSelect;
+export type NewPresentationConversation = typeof presentationConversations.$inferInsert;
+export type PresentationMessage = typeof presentationMessages.$inferSelect;
+export type NewPresentationMessage = typeof presentationMessages.$inferInsert;

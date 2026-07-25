@@ -44,8 +44,9 @@
 | E16: UX, Accessibility & Responsiveness | 5 | 0 | 0 | 5 | 0 |
 | E17: Testing & Observability | 6 | 0 | 1 | 5 | 0 |
 | E18: Template Authoring & Template Edit | 6 | 0 | 0 | 6 | 0 |
-| E19: Deployment & Remote Runtimes | 5 | 5 | 0 | 0 | 0 |
-| **Total** | **109** | **5** | **1** | **103** | **0** |
+| E19: Marp Presentations | 6 | 0 | 0 | 6 | 0 |
+| E20: Deployment & Remote Runtimes | 5 | 5 | 0 | 0 | 0 |
+| **Total** | **115** | **5** | **1** | **109** | **0** |
 
 ---
 
@@ -130,9 +131,10 @@ Layout intent references may live under `docs/` (wireframes and screenshots). Im
 13. Theme selection is stored per project.
 14. Selected visual elements are referenced through classnames; **preferredSelector is the last classname**.
 15. Generated / template UI must follow inspectable classname and code standards.
-16. Deployment / remote runtimes are **out of MVP** and remain epic E19.
+16. Deployment / remote runtimes are **out of MVP** and remain epic E20.
 17. Create Project does **not** call Hermes; Create Template **does** (`runProjectOnce`).
 18. Primary create workflows are **full page routes**, not modal dialogs.
+19. Presentations are Marp Markdown decks under `.apploop/presentations/<slug>` and do not allocate preview ports.
 
 ---
 
@@ -1115,44 +1117,107 @@ Uses `/frontend-design`
 
 ---
 
-# E19: Deployment & Remote Runtimes
+# E19: Marp Presentations
+
+## US-19.1: Create Presentation [x]
+
+    Feature: Presentation creation
+      Scenario: Create from a Marp template
+        Given I open "/presentations/new"
+        When I submit a name and templateId
+        Then a presentation bundle is written to SQLite
+        And a deck workspace is copied under PRESENTATIONS_ROOT
+        And I am redirected to "/presentations/{id}"
+        And no preview runtime port is allocated
+
+### Tasks
+
+- [x] T-19.1.1: `/presentations` listing and `/presentations/new` page
+- [x] T-19.1.2: `PresentationService.createPresentation`
+- [x] T-19.1.3: `createPresentationWorkspace`
+- [x] T-19.1.4: `presentations` + `presentation_conversations` persistence
+
+## US-19.2: Marp Preview Rendering [x]
+
+### Tasks
+
+- [x] T-19.2.1: `@marp-team/marp-core` render path
+- [x] T-19.2.2: `/api/presentations/[presentationId]/preview`
+- [x] T-19.2.3: cache-busted iframe reloads without `next dev` runtime
+
+## US-19.3: Presentation Editor Controls [x]
+
+### Tasks
+
+- [x] T-19.3.1: Markdown editor save path for `deck.md`
+- [x] T-19.3.2: URL-backed active slide (`?slide=N`)
+- [x] T-19.3.3: filmstrip clone/delete and reorder preservation
+- [x] T-19.3.4: slide BG/TXT override with undo/redo
+
+## US-19.4: Presentation Inspect Styles [x]
+
+### Tasks
+
+- [x] T-19.4.1: Marp iframe inspect assets
+- [x] T-19.4.2: managed front matter CSS persistence
+- [x] T-19.4.3: table/list whole-element selection
+- [x] T-19.4.4: table padding/border cell scoping
+
+## US-19.5: Presentation Hermes Mode [x]
+
+### Tasks
+
+- [x] T-19.5.1: `.hermes/agents/presentation-builder.md`
+- [x] T-19.5.2: `.hermes/bundles/marp-builder/BUNDLE.md`
+- [x] T-19.5.3: `presentation-edit` agent bundle mode and scope guard
+
+## US-19.6: Seed Demo Presentations [x]
+
+### Tasks
+
+- [x] T-19.6.1: `scripts/seed-presentations.mts`
+- [x] T-19.6.2: Makefile `apploop-seed-presentations` and presentation-aware reset hygiene
+
+---
+
+# E20: Deployment & Remote Runtimes
 
 > Not shipped. Local preview only.
 
-## US-19.1: Publish Generated App [ ]
+## US-20.1: Publish Generated App [ ]
 
 ### Tasks
 
-- [ ] T-19.1.1: Define publish provider abstraction
-- [ ] T-19.1.2: One-click deploy from builder
+- [ ] T-20.1.1: Define publish provider abstraction
+- [ ] T-20.1.2: One-click deploy from builder
 
-## US-19.2: Remote Runtime Provider [ ]
-
-### Tasks
-
-- [ ] T-19.2.1: Daytona/Docker/Vercel Sandbox adapter decision
-- [ ] T-19.2.2: Remote preview URL plumbing
-
-## US-19.3: Multi-user Hosted Builder [ ]
+## US-20.2: Remote Runtime Provider [ ]
 
 ### Tasks
 
-- [ ] T-19.3.1: AuthN/AuthZ model
-- [ ] T-19.3.2: Multi-tenant isolation beyond single-user local SQLite
+- [ ] T-20.2.1: Daytona/Docker/Vercel Sandbox adapter decision
+- [ ] T-20.2.2: Remote preview URL plumbing
 
-## US-19.4: Hosted Postgres Mode [ ]
-
-### Tasks
-
-- [ ] T-19.4.1: Production DATABASE_URL topology
-- [ ] T-19.4.2: Migration story for hosted
-
-## US-19.5: Billing / Quotas [ ]
+## US-20.3: Multi-user Hosted Builder [ ]
 
 ### Tasks
 
-- [ ] T-19.5.1: Meter Hermes/agent usage
-- [ ] T-19.5.2: Plan limits
+- [ ] T-20.3.1: AuthN/AuthZ model
+- [ ] T-20.3.2: Multi-tenant isolation beyond single-user local SQLite
+
+## US-20.4: Hosted Postgres Mode [ ]
+
+### Tasks
+
+- [ ] T-20.4.1: Production DATABASE_URL topology
+- [ ] T-20.4.2: Migration story for hosted
+
+## US-20.5: Billing / Quotas [ ]
+
+### Tasks
+
+- [ ] T-20.5.1: Meter Hermes/agent usage
+- [ ] T-20.5.2: Plan limits
 
 ---
 
@@ -1300,7 +1365,7 @@ Exact names are resolved through `lib/env` + Makefile Hermes targets; never expo
 
 1. Whether additional disk templates (`vestaboard`, `lumacv`, …) should be promoted into `BUILT_IN_PROJECT_TEMPLATES` + seed.
 2. How aggressively to expand Playwright critical-path coverage (E17.6).
-3. Hosted runtime provider choice remains deferred (E19).
+3. Hosted runtime provider choice remains deferred (E20).
 4. Whether custom themes become a first-class shareable gallery beyond project token JSON.
 5. Whether session-boundary checkpoints should be fully server-canonical vs client-assisted.
 6. Whether package installs during agent runs should harden further UX beyond policy enum.
