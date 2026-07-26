@@ -6,7 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { createPresentationWorkspace, readPresentationMarkdown } from "@/lib/presentations/files";
 import { createPresentationAgentBundle } from "@/lib/hermes/agents";
-import { cloneMarpSlide, deleteMarpSlide, moveMarpListItem, moveMarpSlideBlock, removeMarpSlideElement, reorderMarpSlide } from "@/lib/presentations/marp-utils";
+import { buildPresentationInspectAssets } from "@/lib/presentations/inspect-editor-assets";
+import { cloneMarpSlide, convertMarpSlideElementToList, deleteMarpSlide, moveMarpListItem, moveMarpSlideBlock, removeMarpSlideElement, reorderMarpSlide } from "@/lib/presentations/marp-utils";
 
 describe("presentation templates", () => {
   it("lists the simple 3-slide built-in template", () => {
@@ -98,6 +99,30 @@ describe("marp rendering", () => {
     expect(body.indexOf("- First task")).toBeLessThan(body.indexOf("- Second task"));
   });
 
+  it("converts selected text to an ordered list", () => {
+    const markdown = `---\nmarp: true\n---\n\n# Plan\n\nImportant note\n\nOutro\n`;
+    const next = convertMarpSlideElementToList(markdown, 1, "Important note", "ordered");
+    const body = getMarpSlideBody(next, 1);
+    expect(body).toContain("1. Important note");
+    expect(body).not.toContain("\nImportant note\n");
+  });
+
+  it("converts selected html pills to checklists", () => {
+    const markdown = `---\nmarp: true\n---\n\n<span class="pill pill-emerald">Rules</span>\n<span class="pill pill-sky">Skills</span>\n`;
+    const next = convertMarpSlideElementToList(markdown, 1, "Rules", "checklist");
+    const body = getMarpSlideBody(next, 1);
+    expect(body).toContain("- [ ] Rules");
+    expect(body).toContain("<span class=\"pill pill-sky\">Skills</span>");
+  });
+
+  it("converts existing bullet lists to checklists as a block", () => {
+    const markdown = `---\nmarp: true\n---\n\n- First task\n- Second task\n\nOutro\n`;
+    const next = convertMarpSlideElementToList(markdown, 1, "First task Second task", "checklist");
+    const body = getMarpSlideBody(next, 1);
+    expect(body).toContain("- [ ] First task\n- [ ] Second task");
+    expect(body).toContain("Outro");
+  });
+
   it("moves one list item only inside its current list", () => {
     const markdown = `---\nmarp: true\n---\n\n# Plan\n\n- First task\n- Second task\n- Third task\n\nOutside\n\n- Other list\n`;
     const next = moveMarpListItem(markdown, 1, "Third task", "First task", "before");
@@ -176,6 +201,28 @@ describe("marp rendering", () => {
     expect(next).not.toContain("Third point");
   });
 
+  it("removes a selected markdown table as a whole block", () => {
+    const slide = `# Metrics\n\nIntro\n\n| Metric | Status | Owner |\n| --- | --- | --- |\n| Adoption | On track | Team |\n| Risk | Watch | Team |\n\nOutro`;
+    const next = removeMarpSlideElement(slide, "Metric Status Owner Adoption On track Team Risk Watch Team");
+    expect(next).toContain("# Metrics");
+    expect(next).toContain("Intro");
+    expect(next).toContain("Outro");
+    expect(next).not.toContain("| Metric | Status | Owner |");
+    expect(next).not.toContain("| --- | --- | --- |");
+    expect(next).not.toContain("| Adoption | On track | Team |");
+    expect(next).not.toContain("| Risk | Watch | Team |");
+  });
+
+  it("removes a selected styled table wrapper with the whole table", () => {
+    const slide = `# Metrics\n\n<div class="apploop-el-table">\n\n| Metric | Status | Owner |\n| --- | --- | --- |\n| Adoption | On track | Team |\n| Risk | Watch | Team |\n\n</div>\n\nOutro`;
+    const next = removeMarpSlideElement(slide, "Metric Status Owner Adoption On track Team Risk Watch Team");
+    expect(next).toContain("# Metrics");
+    expect(next).toContain("Outro");
+    expect(next).not.toContain("apploop-el-table");
+    expect(next).not.toContain("| --- | --- | --- |");
+    expect(next).not.toContain("| Adoption | On track | Team |");
+  });
+
   it("injects @theme meta so optional theme.css never crashes Marpit", async () => {
     const markdown = await fs.readFile(
       path.join(process.cwd(), "presentations-templates", "simple-3-slides", "deck.md"),
@@ -216,6 +263,40 @@ describe("marp rendering", () => {
     expect(documentHtml).toContain("div.marpit section, div.marpit section :where(*) { color: #00ff00 !important;");
     expect(documentHtml).toContain("-webkit-text-fill-color: #00ff00 !important");
     expect(documentHtml).toContain("background-image: none !important");
+  });
+
+  it("injects free element movement as the default inspect behavior", () => {
+    const assets = buildPresentationInspectAssets({
+      activeSlide: 1,
+      totalSlides: 1,
+      slideMarkdown: "# Move me\n\nBody",
+    });
+
+    expect(assets.script).toContain("moveSelectedBy(Number(data.dxPx) || 0, moveDy);");
+    expect(assets.script).toContain("lastGestureKind = 'drag'");
+    expect(assets.script).toContain("lastGestureKind = 'resize'");
+    expect(assets.script).toContain("startW: rect.width");
+    expect(assets.script).toContain("function hasExplicitTableWidth(style)");
+    expect(assets.script).toContain("draggingTable ? draggingTableWidth : Math.round(dragging.startW) + 'px'");
+    expect(assets.script).toContain("draggingTable && !draggingTableHasExplicitWidth ? '0%' : leftPct.toFixed(2) + '%'");
+    expect(assets.script).toContain("draggingTable ? 'table' : 'inline-block'");
+    expect(assets.script).toContain("draggingTable ? 'fixed' : undefined");
+    expect(assets.script).toContain("width: Math.round(w) + 'px'");
+    expect(assets.script).toContain("resizingTable ? 'table' : 'inline-block'");
+    expect(assets.css).toContain("#apploop-alignment-guides");
+    expect(assets.css).toContain(".apploop-empty-managed-host");
+    expect(assets.css).toContain(".apploop-empty-managed-host .pill");
+    expect(assets.script).toContain("updateAlignmentGuidesForElement");
+    expect(assets.script).toContain("visibleElementForItem");
+    expect(assets.script).toContain("isEmptyManagedTextHost");
+    expect(assets.script).toContain("refreshEmptyManagedTextHosts");
+    expect(assets.script).toContain("toLowerCase() === 'section') return null");
+    expect(assets.script).toContain("emitStyleApply('apploop-presentation-style-apply')");
+    expect(assets.script).toContain("apploop-presentation-flush-styles");
+    expect(assets.script).toContain("requestId: requestId || null");
+    expect(assets.script).not.toContain("apploop-presentation-set-free-move");
+    expect(assets.script).not.toContain("apploop-presentation-smart-organize-element");
+    expect(assets.script).not.toContain("swapActiveBlock");
   });
 });
 

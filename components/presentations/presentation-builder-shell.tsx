@@ -13,6 +13,8 @@ import {
   Download,
   Eye,
   House,
+  ListChecks,
+  ListOrdered,
   LoaderCircle,
   MessageSquare,
   PanelLeftClose,
@@ -58,7 +60,7 @@ import "@mdxeditor/editor/style.css";
 import { Button } from "@/components/ui/button";
 import type { BuilderChatMessage } from "@/lib/chat/messages";
 import { getMessageText } from "@/lib/chat/messages";
-import { applyPresentationInspectStylesAction, deletePresentationElementAction, organizePresentationElementAction, replacePresentationElementTextAction, savePresentationMarkdownAction } from "@/lib/presentations/actions";
+import { applyPresentationInspectStylesAction, convertPresentationElementToListAction, deletePresentationElementAction, replacePresentationElementTextAction, savePresentationMarkdownAction } from "@/lib/presentations/actions";
 import {
   splitMarpDocument,
   cloneMarpSlide,
@@ -90,14 +92,6 @@ type SlideHistoryEntry =
   | { kind: "markdown"; before: string; after: string }
   | { kind: "slide-style"; before: SlideStyleSnapshot; after: SlideStyleSnapshot };
 type SlideHistory = Record<number, { undo: SlideHistoryEntry[]; redo: SlideHistoryEntry[] }>;
-type PresentationDragPreview = {
-  slide: number;
-  sourceText: string;
-  targetText: string;
-  placement: "before" | "after";
-  targets: PresentationSelectionTarget[];
-  keepSelection?: boolean;
-};
 type MarpInsertKind = "heading" | "paragraph" | "bullets" | "numbered" | "checklist" | "quote" | "code" | "table" | "callout" | "columns" | "divider";
 type BuilderProps = {
   presentationId: string;
@@ -272,6 +266,15 @@ function textGradientStyle(from: string, to: string, angle: number, display?: st
     webkitBackgroundClip: "text",
     webkitTextFillColor: "transparent",
     color: "transparent",
+  };
+}
+
+function boxGradientStyle(from: string, to: string, angle: number): Record<string, string> {
+  return {
+    backgroundImage: `linear-gradient(${angle}deg, ${from} 0%, ${to} 100%)`,
+    backgroundClip: "",
+    webkitBackgroundClip: "",
+    webkitTextFillColor: "",
   };
 }
 
@@ -550,6 +553,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const [selectionTextColor, setSelectionTextColor] = useState(DEFAULT_SLIDE_TEXT);
   const [selectionBackgroundColor, setSelectionBackgroundColor] = useState(DEFAULT_SELECTION_BG);
   const [elementEditEnabled, setElementEditEnabled] = useState(true);
+  const [elementEditModeSaving, setElementEditModeSaving] = useState(false);
   const [selectedTargets, setSelectedTargets] = useState<PresentationSelectionTarget[]>([]);
   const [activeTargetId, setActiveTargetId] = useState<string | null>(null);
   const [slideHistory, setSlideHistory] = useState<SlideHistory>({});
@@ -571,8 +575,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const fullMarkdownRef = useRef("");
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
   const selectAllPendingRef = useRef(false);
-  const dragPreviewRef = useRef<PresentationDragPreview | null>(null);
-  const dragCommitKeyRef = useRef<string | null>(null);
+  const inspectFlushResolversRef = useRef<Map<string, () => void>>(new Map());
   const styleSaveTimerRef = useRef<number | null>(null);
   const pendingStyleSaveRef = useRef<{ target: PresentationSelectionTarget; message: string } | null>(null);
   const slideStylesDirtyRef = useRef(false);
@@ -646,12 +649,14 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const activeTargetKind = activeTarget?.tag.toLowerCase() ?? "";
   const activeTargetIsTable = activeTargetKind === "table";
   const activeTargetIsList = activeTargetKind === "ul" || activeTargetKind === "ol";
+  const activeTargetIsPill = activeTargetKind === "pill";
   const activeTargetUsesTextToolbar = activeTarget ? !activeTargetIsTable && !activeTargetIsList : false;
   const activeTargetPadding = Math.round(parsePxValue(activeTarget?.style.padding, 0));
   const activeTargetMargin = Math.round(parsePxValue(activeTarget?.style.margin, 0));
   const activeTargetBorderWidth = Math.round(parsePxValue(activeTarget?.style.border, 1));
   const activeTargetBorderColor = safeHexColor(activeTarget?.style.border?.match(/#[0-9a-fA-F]{6}/)?.[0], "#94a3b8");
   const activeTargetBorderRadius = Math.round(parsePxValue(activeTarget?.style.borderRadius, 0));
+  const activeTargetFillColor = safeHexColor(activeTarget?.style.background?.match(/#[0-9a-fA-F]{6}/)?.[0], "#111827");
   const activeTargetListIndent = Math.round(parsePxValue(activeTarget?.style.paddingLeft, activeTargetKind === "ol" ? 36 : 28));
 
   const activeBackground = getSlideValue(slideBackgrounds, activeSlide, DEFAULT_SLIDE_BG);
@@ -801,38 +806,48 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     void loadSlides();
   }, [activeSlide, loadSlides, presentationId, preserveSlideQueryAfterMutation, recordSlideHistory]);
 
-  const commitDragPreview = useCallback(async (preview: PresentationDragPreview) => {
-    const sourceText = preview.sourceText.trim();
-    const targetText = preview.targetText.trim();
-    if (!sourceText || !targetText || sourceText === targetText) return;
-    const key = `${preview.slide}\u0000${sourceText}\u0000${targetText}\u0000${preview.placement}`;
-    if (dragCommitKeyRef.current === key) return;
-    dragCommitKeyRef.current = key;
-    dragPreviewRef.current = null;
-    setStatus("Organizing slide content...");
-    const result = await organizePresentationElementAction({ presentationId, slide: preview.slide, sourceText, targetText, placement: preview.placement });
-    if (!result.ok) {
-      setStatus("Drop kept as visual placement.");
-      void applyInspectTargets(preview.targets.filter((target) => target.slide === preview.slide), "Element position saved.");
-      window.setTimeout(() => {
-        if (dragCommitKeyRef.current === key) dragCommitKeyRef.current = null;
-      }, 1000);
+  const resolveInspectFlush = useCallback((requestId: string | null) => {
+    if (!requestId) return;
+    const resolver = inspectFlushResolversRef.current.get(requestId);
+    if (!resolver) return;
+    inspectFlushResolversRef.current.delete(requestId);
+    resolver();
+  }, []);
+
+  const requestInspectStyleFlush = useCallback(() => new Promise<void>((resolve) => {
+    const frameWindow = currentSlideFrameRef.current?.contentWindow;
+    if (!frameWindow) {
+      resolve();
       return;
     }
-    recordSlideHistory(preview.slide, result.previousMarkdown, result.markdown);
-    setFullMarkdown(result.markdown);
-    if (!preview.keepSelection) {
-      setSelectedTargets([]);
-      setActiveTargetId(null);
+    const requestId = `inspect-flush-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const timer = window.setTimeout(() => {
+      inspectFlushResolversRef.current.delete(requestId);
+      resolve();
+    }, 900);
+    inspectFlushResolversRef.current.set(requestId, () => {
+      window.clearTimeout(timer);
+      resolve();
+    });
+    frameWindow.postMessage({ type: "apploop-presentation-flush-styles", requestId }, "*");
+  }), []);
+
+  const toggleElementEditMode = useCallback(() => {
+    if (!elementEditEnabled) {
+      setElementEditEnabled(true);
+      return;
     }
-    setPreviewKey((value) => value + 1);
-    setStatus("Slide content organized.");
-    preserveSlideQueryAfterMutation(preview.slide);
-    void loadSlides();
-    window.setTimeout(() => {
-      if (dragCommitKeyRef.current === key) dragCommitKeyRef.current = null;
-    }, 1000);
-  }, [applyInspectTargets, loadSlides, presentationId, preserveSlideQueryAfterMutation, recordSlideHistory]);
+    void (async () => {
+      setElementEditModeSaving(true);
+      setStatus("Saving element position...");
+      currentSlideFrameRef.current?.contentWindow?.postMessage({ type: "apploop-presentation-finish-drag" }, "*");
+      setIframeDragActive(false);
+      await requestInspectStyleFlush();
+      setElementEditEnabled(false);
+      setElementEditModeSaving(false);
+      setStatus("Element edit mode disabled.");
+    })();
+  }, [elementEditEnabled, requestInspectStyleFlush]);
 
   const patchActiveTarget = useCallback(async (style: Record<string, string | undefined>, successMessage: string) => {
     if (!activeTarget) return;
@@ -876,14 +891,40 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   }, [patchSelectedTextStyle]);
 
   const applyCustomTextGradient = useCallback((from: string, to: string, angle: number) => {
-    patchSelectedTextStyle(textGradientStyle(from, to, angle, activeTarget?.style.display), "Custom gradient applied.");
-  }, [activeTarget?.style.display, patchSelectedTextStyle]);
+    const style = activeTargetIsPill ? boxGradientStyle(from, to, angle) : textGradientStyle(from, to, angle, activeTarget?.style.display);
+    patchSelectedTextStyle(style, "Custom gradient applied.");
+  }, [activeTarget?.style.display, activeTargetIsPill, patchSelectedTextStyle]);
 
   const applyTextStylePreset = useCallback((presetId: string) => {
     const preset = TEXT_STYLE_PRESETS.find((item) => item.id === presetId);
     if (!preset) return;
     void patchActiveTarget(preset.style, `${preset.label} text style applied.`);
   }, [patchActiveTarget]);
+
+  const convertActiveTargetToList = useCallback((kind: "ordered" | "checklist") => {
+    if (!activeTarget) return;
+    void (async () => {
+      setStatus(kind === "checklist" ? "Converting to checklist..." : "Converting to ordered list...");
+      const result = await convertPresentationElementToListAction({
+        presentationId,
+        slide: activeSlide,
+        text: activeTarget.text,
+        kind,
+      });
+      if (!result.ok) {
+        setStatus("Couldn't match this element in the slide source. Use the Markdown editor for this conversion.");
+        setPreviewKey((value) => value + 1);
+        return;
+      }
+      recordSlideHistory(activeSlide, result.previousMarkdown, result.markdown);
+      setFullMarkdown(result.markdown);
+      setSelectedTargets([]);
+      setActiveTargetId(null);
+      setPreviewKey((value) => value + 1);
+      setStatus(kind === "checklist" ? "Converted to checklist." : "Converted to ordered list.");
+      void loadSlides();
+    })();
+  }, [activeSlide, activeTarget, loadSlides, presentationId, recordSlideHistory]);
 
   const insertMarpBlock = useCallback(async (kind: MarpInsertKind) => {
     const before = fullMarkdownRef.current || fullMarkdown;
@@ -1043,12 +1084,10 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   }, []);
 
   const finishIframeDrag = useCallback(() => {
-    const preview = dragPreviewRef.current;
-    if (!iframeDragActive && !preview) return;
+    if (!iframeDragActive) return;
     currentSlideFrameRef.current?.contentWindow?.postMessage({ type: "apploop-presentation-finish-drag" }, "*");
     setIframeDragActive(false);
-    if (preview) void commitDragPreview(preview);
-  }, [commitDragPreview, iframeDragActive]);
+  }, [iframeDragActive]);
 
   useEffect(() => {
     if (!iframeDragActive) return;
@@ -1118,7 +1157,6 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
         type: "apploop-presentation-move-selection",
         dxPx: event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0,
         dyPx: event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0,
-        swap: !event.shiftKey && (event.key === "ArrowUp" || event.key === "ArrowDown"),
       }, "*");
     }
     window.addEventListener("keydown", handleSelectedElementKeyDown, true);
@@ -1129,7 +1167,6 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset selection when the active slide changes
     setSelectedTargets([]);
     setActiveTargetId(null);
-    dragPreviewRef.current = null;
     setIframeDragActive(false);
   }, [activeSlide]);
 
@@ -1178,25 +1215,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
       }
 
       if (data.type === "apploop-presentation-drag-start") {
-        dragPreviewRef.current = null;
         setIframeDragActive(true);
-        return;
-      }
-
-      if (data.type === "apploop-presentation-drag-preview") {
-        const sourceText = typeof data.sourceText === "string" ? data.sourceText : "";
-        const targetText = typeof data.targetText === "string" ? data.targetText : "";
-        const placement = data.placement === "before" ? "before" : "after";
-        const slide = typeof data.slide === "number" ? data.slide : activeSlide;
-        const targets = Array.isArray(data.targets) ? data.targets as PresentationSelectionTarget[] : [];
-        if (sourceText && targetText && sourceText !== targetText) {
-          dragPreviewRef.current = { slide, sourceText, targetText, placement, targets };
-        }
-        return;
-      }
-
-      if (data.type === "apploop-presentation-drag-preview-clear") {
-        dragPreviewRef.current = null;
         return;
       }
 
@@ -1217,18 +1236,12 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
 
       if (data.type === "apploop-presentation-style-apply") {
         const targets = Array.isArray(data.targets) ? data.targets as PresentationSelectionTarget[] : [];
+        const requestId = typeof data.requestId === "string" ? data.requestId : null;
         // Positions are already reflected live in the iframe; save without reloading.
-        void applyInspectTargets(targets.filter((target) => target.slide === activeSlide), "Element position saved.", { refreshPreview: false });
-        return;
-      }
-
-      if (data.type === "apploop-presentation-smart-organize-element") {
-        const sourceText = typeof data.sourceText === "string" ? data.sourceText : "";
-        const targetText = typeof data.targetText === "string" ? data.targetText : "";
-        const placement = data.placement === "before" ? "before" : "after";
-        if (!sourceText || !targetText || sourceText === targetText) return;
-        const targets = Array.isArray(data.targets) ? data.targets as PresentationSelectionTarget[] : [];
-        void commitDragPreview({ slide: activeSlide, sourceText, targetText, placement, targets, keepSelection: data.keepSelection === true });
+        void (async () => {
+          await applyInspectTargets(targets.filter((target) => target.slide === activeSlide), "Element position saved.", { refreshPreview: false });
+          resolveInspectFlush(requestId);
+        })();
         return;
       }
 
@@ -1264,7 +1277,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
 
     window.addEventListener("message", handlePresentationInspectMessage);
     return () => window.removeEventListener("message", handlePresentationInspectMessage);
-  }, [activeSlide, activeTargetId, applyInspectTargets, commitDragPreview, deleteSelectedTarget, loadSlides, presentationId, recordSlideHistory, redoSlideEdit, selectedTargets, undoSlideEdit]);
+  }, [activeSlide, activeTargetId, applyInspectTargets, deleteSelectedTarget, loadSlides, presentationId, recordSlideHistory, redoSlideEdit, resolveInspectFlush, selectedTargets, undoSlideEdit]);
   const isStreaming = chat.status === "streaming" || chat.status === "submitted";
 
   // ---- Save content ----
@@ -1582,8 +1595,8 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                         <Redo2 className="size-4" />
                       </Button>
                     </div>
-                    <Button aria-pressed={elementEditEnabled} size="sm" onClick={() => setElementEditEnabled((value) => !value)} variant={elementEditEnabled ? "default" : "outline"}>
-                      Edit elements
+                    <Button aria-pressed={elementEditEnabled} size="sm" onClick={toggleElementEditMode} disabled={elementEditModeSaving} variant={elementEditEnabled ? "default" : "outline"}>
+                      {elementEditModeSaving ? "Saving..." : "Edit elements"}
                     </Button>
                     <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1" title={activeTarget ? `Selected: ${activeTarget.tag}` : "Select an element on the slide"}>
                       <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => alignActiveTarget("left")} title="Align selected element left">
@@ -1594,6 +1607,14 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                       </Button>
                       <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => alignActiveTarget("right")} title="Align selected element right">
                         <AlignRight className="size-4" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1" title="Convert selected element">
+                      <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => convertActiveTargetToList("ordered")} title="Convert selected element to ordered list">
+                        <ListOrdered className="size-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => convertActiveTargetToList("checklist")} title="Convert selected element to checklist">
+                        <ListChecks className="size-4" />
                       </Button>
                     </div>
                   </>
@@ -1685,6 +1706,43 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                       </label>
                     </>
                   )}
+                  {activeTargetIsPill && (
+                    <>
+                      <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Pill text color">
+                        <span>Text</span>
+                        <input type="color" value={activeTargetColor} onInput={(event) => patchSelectedTextStyle({ color: event.currentTarget.value, webkitTextFillColor: "" }, "Pill text color applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0" />
+                      </label>
+                      <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Pill background color">
+                        <span>Fill</span>
+                        <input type="color" value={activeTargetFillColor} onInput={(event) => patchSelectedTextStyle({ background: event.currentTarget.value, backgroundImage: "", backgroundClip: "", webkitBackgroundClip: "", webkitTextFillColor: "" }, "Pill background applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0" />
+                      </label>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Pill roundness">
+                        <span>Round {activeTargetBorderRadius}px</span>
+                        <input type="range" min="0" max="999" step="1" value={activeTargetBorderRadius} onChange={(event) => patchSelectedTextStyle({ borderRadius: `${event.target.value}px` }, "Pill roundness applied.")} className="w-24" />
+                      </label>
+                      <Button size="sm" variant="outline" onClick={() => patchSelectedTextStyle({ borderRadius: "999px" }, "Pill roundness applied.")}>Round</Button>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Pill border width">
+                        <span>Border {activeTargetBorderWidth}px</span>
+                        <input type="range" min="0" max="8" step="1" value={activeTargetBorderWidth} onChange={(event) => patchSelectedTextStyle({ border: `${event.target.value}px solid ${activeTargetBorderColor}` }, "Pill border applied.")} className="w-20" />
+                      </label>
+                      <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Pill border color">
+                        <span>Border</span>
+                        <input type="color" value={activeTargetBorderColor} onInput={(event) => patchSelectedTextStyle({ border: `${activeTargetBorderWidth}px solid ${event.currentTarget.value}` }, "Pill border color applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0" />
+                      </label>
+                      <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1" title="Pill background gradient presets">
+                        <Sparkles className="mx-1 size-4 text-zinc-400" />
+                        {GRADIENT_PRESETS.map((preset) => (
+                          <button key={preset.id} type="button" className="h-6 w-10 rounded border border-white/15" style={{ backgroundImage: `linear-gradient(${preset.angle}deg, ${preset.from}, ${preset.to})` }} title={preset.label}
+                            onClick={() => {
+                              setGradientFrom(preset.from);
+                              setGradientTo(preset.to);
+                              setGradientAngle(preset.angle);
+                              patchSelectedTextStyle(boxGradientStyle(preset.from, preset.to, preset.angle), `${preset.label} pill gradient applied.`);
+                            }} />
+                        ))}
+                      </div>
+                    </>
+                  )}
                   {activeTargetUsesTextToolbar && (
                     <>
                   <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Apply a text style preset to the selected element">
@@ -1714,7 +1772,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                           setGradientFrom(preset.from);
                           setGradientTo(preset.to);
                           setGradientAngle(preset.angle);
-                          patchSelectedTextStyle(textGradientStyle(preset.from, preset.to, preset.angle, activeTarget.style.display), `${preset.label} gradient applied.`);
+                          patchSelectedTextStyle(activeTargetIsPill ? boxGradientStyle(preset.from, preset.to, preset.angle) : textGradientStyle(preset.from, preset.to, preset.angle, activeTarget.style.display), `${preset.label} gradient applied.`);
                         }} />
                     ))}
                   </div>

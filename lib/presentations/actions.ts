@@ -10,7 +10,7 @@ import {
 } from "@/lib/presentations/files";
 import { getPresentationService, getPresentationRepository } from "@/lib/presentations/store";
 import { assertPresentationTemplate } from "@/lib/presentations/templates";
-import { moveMarpSlideBlock, removeMarpSlideElement } from "@/lib/presentations/marp-utils";
+import { convertMarpSlideElementToList, moveMarpSlideBlock, removeMarpSlideElement } from "@/lib/presentations/marp-utils";
 
 export async function createPresentationAction(formData: FormData) {
   const name = String(formData.get("name") ?? "");
@@ -230,6 +230,40 @@ export async function deletePresentationElementAction(input: {
     overview.presentation.sourceFile,
   );
 
+  await getPresentationService().openPresentation(input.presentationId);
+  revalidatePath(`/presentations/${input.presentationId}`);
+  revalidatePath(`/api/presentations/${input.presentationId}/preview`);
+
+  return { ok: true as const, previousMarkdown: markdown, markdown: nextMarkdown };
+}
+
+export async function convertPresentationElementToListAction(input: {
+  presentationId: string;
+  slide: number;
+  text: string;
+  kind: "ordered" | "checklist";
+}) {
+  const overview = await getPresentationService().findPresentationOverview(input.presentationId);
+  if (!overview || overview.presentation.status === "deleted") {
+    throw new Error("Presentation not found.");
+  }
+
+  const { readPresentationMarkdown } = await import("@/lib/presentations/files");
+  const markdown = await readPresentationMarkdown(
+    overview.presentation.workspacePath,
+    overview.presentation.sourceFile,
+  );
+
+  const nextMarkdown = convertMarpSlideElementToList(markdown, input.slide, input.text, input.kind);
+  if (nextMarkdown === markdown) {
+    return { ok: false as const, previousMarkdown: markdown, markdown };
+  }
+
+  await writePresentationMarkdown(
+    overview.presentation.workspacePath,
+    nextMarkdown,
+    overview.presentation.sourceFile,
+  );
   await getPresentationService().openPresentation(input.presentationId);
   revalidatePath(`/presentations/${input.presentationId}`);
   revalidatePath(`/api/presentations/${input.presentationId}/preview`);

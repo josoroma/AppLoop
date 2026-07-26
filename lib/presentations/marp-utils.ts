@@ -246,6 +246,21 @@ function isMarkdownTableLine(line: string) {
   return trimmed.startsWith("|") && trimmed.endsWith("|");
 }
 
+function listItemContent(line: string) {
+  return normalizeBlockText(line.replace(/^\s*(?:[-*+]\s+(?:\[[ xX]\]\s+)?|\d+\.\s+)/, ""));
+}
+
+function linesToListItems(lines: string[], fallbackText: string, kind: "ordered" | "checklist") {
+  const items = lines
+    .map((line) => listItemContent(line))
+    .filter(Boolean);
+  if (items.length === 0) {
+    const fallback = normalizeBlockText(fallbackText);
+    if (fallback) items.push(fallback);
+  }
+  return items.map((item, index) => kind === "checklist" ? `- [ ] ${item}` : `${index + 1}. ${item}`);
+}
+
 function removeEmptyMarkdownMarkers(markdown: string) {
   return markdown
     .replace(/^#{1,6}\s*$/gm, "")
@@ -259,6 +274,12 @@ export function removeMarpSlideElement(slideMarkdown: string, text: string) {
   if (!normalizedText) return slideMarkdown;
 
   const lines = slideMarkdown.split("\n");
+  const rangeMatch = findMarkdownBlockRange(lines, text, { groupLists: true });
+  if (rangeMatch) {
+    const range = expandApploopWrapperRange(lines, expandMarkdownTableOrListRange(lines, rangeMatch));
+    return removeEmptyMarkdownMarkers([...lines.slice(0, range.start), ...lines.slice(range.end)].join("\n"));
+  }
+
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? "";
     const start = index;
@@ -287,6 +308,33 @@ export function removeMarpSlideElement(slideMarkdown: string, text: string) {
       .replace(new RegExp(`<span\\b[^>]*\\bclass=["'][^"']*apploop-el-[^"']*["'][^>]*>\\s*${escaped}\\s*<\\/span>`, "gi"), "")
       .replace(new RegExp(escaped, "g"), ""),
   );
+}
+
+export function convertMarpSlideElementToList(
+  markdown: string,
+  slideIndex1Based: number,
+  sourceText: string,
+  kind: "ordered" | "checklist",
+) {
+  const { frontMatter, slides } = splitMarpDocument(markdown);
+  const slideIndex = Math.min(Math.max(slideIndex1Based, 1), slides.length) - 1;
+  const slide = slides[slideIndex] ?? "";
+  const lines = slide.split("\n");
+  const sourceRangeMatch = findMarkdownBlockRange(lines, sourceText, { groupLists: true });
+  if (!sourceRangeMatch) return markdown;
+  const sourceRange = expandApploopWrapperRange(lines, expandMarkdownTableOrListRange(lines, sourceRangeMatch));
+  const sourceLines = lines.slice(sourceRange.start, sourceRange.end);
+  const nextList = linesToListItems(sourceLines, sourceText, kind);
+  if (nextList.length === 0) return markdown;
+
+  const nextLines = [
+    ...lines.slice(0, sourceRange.start),
+    ...nextList,
+    ...lines.slice(sourceRange.end),
+  ];
+  const nextSlides = [...slides];
+  nextSlides[slideIndex] = nextLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return `${frontMatter}\n\n${nextSlides.join("\n\n---\n\n")}\n`;
 }
 
 export function moveMarpSlideBlock(

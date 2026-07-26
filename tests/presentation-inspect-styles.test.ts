@@ -87,13 +87,18 @@ describe("presentation inspect styles", () => {
       tag: "table",
       text: "Name Value A 1 B 2",
       path: "section > table",
-      style: { padding: "12px", border: "2px solid #94a3b8", margin: "24px", borderCollapse: "collapse" },
+      style: { padding: "12px", border: "2px solid #94a3b8", margin: "24px", width: "420px", display: "inline-block", tableLayout: "auto", borderCollapse: "collapse" },
     };
     const first = applyPresentationElementStylesToMarkdown(deck, [target]);
     const className = first.classNames[0]!;
     expect(first.markdown).toContain(`<div class="${className}">`);
     expect(first.markdown).toContain("</div>");
     expect(first.markdown).toContain(`.${className} > table {`);
+    expect(first.markdown).toContain("width: 420px !important;");
+    expect(first.markdown).toContain("display: table !important;");
+    expect(first.markdown).toContain("table-layout: fixed !important;");
+    expect(first.markdown).not.toContain("display: inline-block !important;");
+    expect(first.markdown).not.toContain("table-layout: auto !important;");
     expect(first.markdown).toContain(`.${className} th,`);
     expect(first.markdown).toContain("padding: 12px !important;");
     expect(first.markdown).toContain("margin: 24px !important;");
@@ -109,6 +114,23 @@ describe("presentation inspect styles", () => {
     expect(second.markdown).toContain("border-radius: 8px !important;");
     expect(second.markdown).toContain("padding: 12px !important;");
     expect(second.markdown).not.toContain("!important !important");
+  });
+
+  it("defaults persisted table width to full when no resize width is present", () => {
+    const deck = `---\nmarp: true\n---\n\n# Metrics\n\n| Name | Value |\n| ---- | ----- |\n| A | 1 |\n`;
+    const result = applyPresentationElementStylesToMarkdown(deck, [
+      {
+        slide: 1,
+        tag: "table",
+        text: "Name Value A 1",
+        path: "section > table",
+        style: { top: "24%", position: "absolute" },
+      },
+    ]);
+
+    expect(result.markdown).toContain("width: 100% !important;");
+    expect(result.markdown).toContain("display: table !important;");
+    expect(result.markdown).toContain("table-layout: fixed !important;");
   });
 
   it("persists table padding without creating a border declaration", () => {
@@ -150,7 +172,7 @@ describe("presentation inspect styles", () => {
     expect(markdown).toContain("- Second");
   });
 
-  it("wraps matching text with class + inline style and CSS block", () => {
+  it("persists headings as heading elements with class + inline style", () => {
     const className = buildElementClassName({
       slide: 1,
       tag: "h1",
@@ -181,8 +203,109 @@ describe("presentation inspect styles", () => {
     expect(markdown).toContain("top: 20%;");
     expect(markdown).toContain("position: absolute;");
     expect(markdown).toContain("@apploop-inspect-styles");
-    expect(markdown).toContain(`span class="${className}" style="`);
+    expect(markdown).toContain(`<h1 class="${className}" style="`);
+    expect(markdown).not.toContain(`# <span class="${className}"`);
     expect(markdown).toContain("## Next");
+  });
+
+  it("keeps gradient heading movement visible after reload", () => {
+    const deck = `---\nmarp: true\n---\n\n# Claude Code Harness\n\nBody\n`;
+    const { markdown, classNames } = applyPresentationElementStylesToMarkdown(deck, [
+      {
+        slide: 1,
+        tag: "h1",
+        text: "Claude Code Harness",
+        path: "section > h1",
+        style: {
+          display: "inline-block",
+          position: "absolute",
+          left: "30%",
+          top: "82%",
+          right: "auto",
+          bottom: "auto",
+          transform: "none",
+          zIndex: "3",
+        },
+      },
+    ]);
+
+    expect(markdown).toContain(`<h1 class="${classNames[0]}" style="`);
+    expect(markdown).toContain("Claude Code Harness</h1>");
+    expect(markdown).toContain("top: 82%;");
+    expect(markdown).not.toContain(`<span class="${classNames[0]}"`);
+    expect(markdown).not.toContain("# <span");
+  });
+
+  it("persists pill styles on the pill element itself", () => {
+    const deck = `---\nmarp: true\n---\n\n<span class="pill pill-emerald">Rules</span>\n<span class="pill pill-sky">Skills</span>\n`;
+    const { markdown, classNames } = applyPresentationElementStylesToMarkdown(deck, [
+      {
+        slide: 1,
+        tag: "pill",
+        text: "Rules",
+        path: "section > span.pill:nth-of-type(1)",
+        style: {
+          color: "#ecfeff",
+          background: "rgba(20, 184, 166, 0.22)",
+          backgroundImage: "linear-gradient(135deg, #14b8a6 0%, #38bdf8 100%)",
+          border: "2px solid #2dd4bf",
+          borderRadius: "999px",
+        },
+      },
+    ]);
+
+    expect(markdown).toContain(`<span class="pill pill-emerald ${classNames[0]}" style="`);
+    expect(markdown).toContain("background: rgba(20, 184, 166, 0.22);");
+    expect(markdown).toContain("background-image: linear-gradient(135deg, #14b8a6 0%, #38bdf8 100%);");
+    expect(markdown).toContain("border-radius: 999px;");
+    expect(markdown).toContain(">Rules</span>");
+    expect(markdown).toContain(`<span class="pill pill-sky">Skills</span>`);
+    expect(markdown).not.toContain(`<span class="${classNames[0]}"`);
+  });
+
+  it("keeps pill classes after repeated move and style saves", () => {
+    const deck = `---\nmarp: true\n---\n\n<p><span class="pill pill-sky">Skills</span><br>\n<span class="pill pill-amber">Agents</span></p>\n`;
+    const first = applyPresentationElementStylesToMarkdown(deck, [
+      {
+        slide: 1,
+        tag: "pill",
+        text: "Skills",
+        path: "section > p > span.pill:nth-of-type(1)",
+        style: {
+          position: "absolute",
+          left: "24%",
+          top: "42%",
+          transform: "none",
+          zIndex: "3",
+        },
+      },
+    ]);
+    const className = first.classNames[0]!;
+
+    const second = applyPresentationElementStylesToMarkdown(first.markdown, [
+      {
+        slide: 1,
+        tag: "pill",
+        text: "Skills",
+        path: `section > p > span.${className}`,
+        style: {
+          left: "30%",
+          top: "55%",
+          borderRadius: "999px",
+          background: "#0f172a",
+          border: "2px solid #38bdf8",
+        },
+      },
+    ]);
+
+    expect(second.markdown).toContain(`<span class="pill pill-sky ${className}" style="`);
+    expect(second.markdown).toContain("left: 30%;");
+    expect(second.markdown).toContain("top: 55%;");
+    expect(second.markdown).toContain("border-radius: 999px;");
+    expect(second.markdown).toContain(">Skills</span>");
+    expect(second.markdown).toContain(`<span class="pill pill-amber">Agents</span>`);
+    expect(second.markdown).not.toContain(`\nSkills\n`);
+    expect(second.markdown).not.toContain(`<span class="${className}"`);
   });
 
   it("clears previous gradient fields when a flat text color is applied", () => {

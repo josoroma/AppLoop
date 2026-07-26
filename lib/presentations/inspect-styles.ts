@@ -15,6 +15,7 @@ export const PresentationElementStyleSchema = z.object({
   borderRadius: z.string().optional(),
   borderCollapse: z.string().optional(),
   borderSpacing: z.string().optional(),
+  tableLayout: z.string().optional(),
   listStyleType: z.string().optional(),
   opacity: z.string().optional(),
   fontSize: z.string().optional(),
@@ -56,6 +57,7 @@ export type PresentationStyleTarget = {
 const STYLE_BLOCK_START = "/* @apploop-inspect-styles */";
 const STYLE_BLOCK_END = "/* @apploop-inspect-styles-end */";
 const CLASS_PREFIX = "apploop-el-";
+const HEADING_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
 
 const CSS_PROP_MAP: Array<[keyof PresentationElementStyle, string]> = [
   ["background", "background"],
@@ -73,6 +75,7 @@ const CSS_PROP_MAP: Array<[keyof PresentationElementStyle, string]> = [
   ["borderRadius", "border-radius"],
   ["borderCollapse", "border-collapse"],
   ["borderSpacing", "border-spacing"],
+  ["tableLayout", "table-layout"],
   ["listStyleType", "list-style-type"],
   ["opacity", "opacity"],
   ["fontSize", "font-size"],
@@ -148,8 +151,17 @@ export function styleToCssRule(className: string, style: PresentationElementStyl
   if (tag === "table") {
     const cellProps = new Set(["padding", "border"]);
     const cellDeclarations = declarations.filter((line) => cellProps.has(line.split(":")[0]?.trim() ?? ""));
-    const tableDeclarations = declarations.filter((line) => !cellProps.has(line.split(":")[0]?.trim() ?? ""));
+    const tableDeclarations = declarations.filter((line) => {
+      const prop = line.split(":")[0]?.trim() ?? "";
+      return !cellProps.has(prop) && prop !== "display" && prop !== "table-layout";
+    });
+    const hasWidth = tableDeclarations.some((line) => (line.split(":")[0]?.trim() ?? "") === "width");
     const rules: string[] = [];
+    tableDeclarations.unshift("table-layout: fixed !important;");
+    tableDeclarations.unshift("display: table !important;");
+    if (!hasWidth) {
+      tableDeclarations.unshift("width: 100% !important;");
+    }
     if (tableDeclarations.length > 0) {
       rules.push(`.${className} > table {\n    ${tableDeclarations.join("\n    ")}\n  }`);
     }
@@ -186,6 +198,17 @@ export function stylesToCssBlock(entries: Array<{ className: string; style: Pres
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function escapeHtmlText(value: string) {
+  return value
+    .replace(/&/g, "&" + "amp;")
+    .replace(/</g, "&" + "lt;")
+    .replace(/>/g, "&" + "gt;");
+}
+
+function textFromHtml(value: string) {
+  return value.replace(/<[^>]*>/g, "");
 }
 
 export function parseManagedStyleEntries(markdown: string): Array<{ className: string; style: PresentationElementStyle; tag?: string }> {
@@ -304,12 +327,87 @@ function stripExistingWrapper(markdown: string, className: string) {
   );
 }
 
+function stripAttribute(attrs: string, name: string) {
+  return attrs.replace(new RegExp(`\\s+${name}=["'][^"']*["']`, "i"), "");
+}
+
+function upsertClassAttribute(attrs: string, className: string) {
+  const match = attrs.match(/\sclass=(['"])(.*?)\1/i);
+  if (!match) return `${attrs} class="${className}"`;
+  const quote = match[1] ?? '"';
+  const classes = new Set((match[2] ?? "").split(/\s+/).filter(Boolean));
+  classes.add(className);
+  return attrs.replace(/\sclass=(['"])(.*?)\1/i, ` class=${quote}${[...classes].join(" ")}${quote}`);
+}
+
+function upsertStyleAttribute(attrs: string, style: PresentationElementStyle) {
+  const inline = styleToInlineAttribute(style);
+  const withoutStyle = stripAttribute(attrs, "style");
+  return inline ? `${withoutStyle} style="${inline}"` : withoutStyle;
+}
+
+function removeManagedPillStyle(slideMarkdown: string, className: string) {
+  return slideMarkdown.replace(
+    /<(span|div)\b([^>]*\bclass=["'][^"']*\bpill\b[^"']*["'][^>]*)>([\s\S]*?)<\/\1>/gi,
+    (match: string, tag: string, attrs: string, inner: string) => {
+      if (!new RegExp(`\\b${escapeRegExp(className)}\\b`).test(attrs)) return match;
+      const classMatch = attrs.match(/\sclass=(['"])(.*?)\1/i);
+      const quote = classMatch?.[1] ?? '"';
+      const classes = (classMatch?.[2] ?? "").split(/\s+/).filter((token) => token && token !== className);
+      const withoutClass = attrs.replace(/\sclass=(['"])(.*?)\1/i, classes.length ? ` class=${quote}${classes.join(" ")}${quote}` : "");
+      return `<${tag}${stripAttribute(withoutClass, "style")}>${inner}</${tag}>`;
+    },
+  );
+}
+
 function makeWrapperOpenTag(className: string, style: PresentationElementStyle) {
   const inline = styleToInlineAttribute(style);
   if (inline) {
     return `<span class="${className}" style="${inline}">`;
   }
   return `<span class="${className}">`;
+}
+
+function makeHeadingTag(tag: string, className: string, style: PresentationElementStyle, text: string) {
+  const inline = styleToInlineAttribute(style);
+  const styleAttribute = inline ? ` style="${inline}"` : "";
+  return `<${tag} class="${className}"${styleAttribute}>${escapeHtmlText(text)}</${tag}>`;
+}
+
+function stripExistingHeadingWrapper(slideMarkdown: string, className: string) {
+  return slideMarkdown.replace(
+    new RegExp(
+      `<h([1-6])\\b[^>]*\\bclass=["'][^"']*\\b${escapeRegExp(className)}\\b[^"']*["'][^>]*>([\\s\\S]*?)<\\/h\\1>`,
+      "g",
+    ),
+    (_match, level: string, inner: string) => `${"#".repeat(Number(level))} ${normalizeText(textFromHtml(inner))}`,
+  );
+}
+
+function wrapHeadingInSlideMarkdown(
+  slideMarkdown: string,
+  target: PresentationStyleTarget,
+  className: string,
+  style: PresentationElementStyle,
+) {
+  const tag = target.tag.toLowerCase();
+  const level = Number(tag.slice(1));
+  const text = normalizeText(target.text);
+  if (!level || !text) return slideMarkdown;
+
+  let body = stripExistingHeadingWrapper(slideMarkdown, className);
+  body = stripAllApploopWrappersAroundText(body, text);
+  body = stripExistingWrapper(body, className);
+  const lines = body.split("\n");
+  const lineIndex = lines.findIndex((line) => {
+    const match = line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
+    return Boolean(match && match[1]?.length === level && normalizeText(match[2] ?? "") === text);
+  });
+  if (lineIndex === -1) {
+    return wrapTextInSlideMarkdown(body, target, className, style);
+  }
+  lines[lineIndex] = makeHeadingTag(tag, className, style, text);
+  return lines.join("\n");
 }
 
 function wrapTextInSlideMarkdown(
@@ -340,6 +438,29 @@ function wrapTextInSlideMarkdown(
   }
 
   return `${body.slice(0, idx)}${open}${text}</span>${body.slice(idx + text.length)}`;
+}
+
+function wrapPillInSlideMarkdown(
+  slideMarkdown: string,
+  target: PresentationStyleTarget,
+  className: string,
+  style: PresentationElementStyle,
+) {
+  const text = normalizeText(target.text);
+  if (!text) return slideMarkdown;
+
+  const body = removeManagedPillStyle(slideMarkdown, className);
+  let replaced = false;
+  const next = body.replace(
+    /<(span|div)\b([^>]*\bclass=["'][^"']*\bpill\b[^"']*["'][^>]*)>([\s\S]*?)<\/\1>/gi,
+    (match: string, tag: string, attrs: string, inner: string) => {
+      if (replaced || normalizeText(textFromHtml(inner)) !== text) return match;
+      replaced = true;
+      const nextAttrs = upsertStyleAttribute(upsertClassAttribute(attrs, className), style);
+      return `<${tag}${nextAttrs}>${escapeHtmlText(text)}</${tag}>`;
+    },
+  );
+  return replaced ? next : wrapTextInSlideMarkdown(body, target, className, style);
 }
 
 function collectReferencedClassNames(markdown: string) {
@@ -415,6 +536,8 @@ export function applyPresentationElementStylesToMarkdown(
     classNames.push(className);
     const targetTag = target.tag.toLowerCase();
     const isBlockTarget = BLOCK_WRAP_TAGS.has(targetTag);
+    const isHeadingTarget = HEADING_TAGS.has(targetTag);
+    const isPillTarget = targetTag === "pill";
     const incoming = PresentationElementStyleSchema.parse(target.style ?? {});
     // Merge onto any previously saved style for this stable class so partial updates
     // (drag-only, color-only) do not wipe earlier properties.
@@ -434,11 +557,19 @@ export function applyPresentationElementStylesToMarkdown(
       entryMap.set(className, { style: parsedStyle, tag: isBlockTarget ? targetTag : undefined });
       nextSlides[slideIndex] = isBlockTarget
         ? wrapBlockInSlideMarkdown(nextSlides[slideIndex] ?? "", target, className)
+        : isHeadingTarget
+          ? wrapHeadingInSlideMarkdown(nextSlides[slideIndex] ?? "", target, className, parsedStyle)
+          : isPillTarget
+            ? wrapPillInSlideMarkdown(nextSlides[slideIndex] ?? "", target, className, parsedStyle)
         : wrapTextInSlideMarkdown(nextSlides[slideIndex] ?? "", target, className, parsedStyle);
     } else {
       entryMap.delete(className);
       nextSlides[slideIndex] = isBlockTarget
         ? stripExistingBlockWrapper(nextSlides[slideIndex] ?? "", className)
+        : isHeadingTarget
+          ? stripExistingHeadingWrapper(nextSlides[slideIndex] ?? "", className)
+          : isPillTarget
+            ? removeManagedPillStyle(nextSlides[slideIndex] ?? "", className)
         : stripExistingWrapper(nextSlides[slideIndex] ?? "", className);
     }
   }
