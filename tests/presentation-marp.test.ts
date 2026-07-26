@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { createPresentationWorkspace, listPresentationImageAssets, readPresentationAsset, readPresentationMarkdown, writePresentationAsset } from "@/lib/presentations/files";
 import { createPresentationAgentBundle } from "@/lib/hermes/agents";
+import { BUILT_IN_PRESENTATION_TEMPLATES } from "@/lib/presentations/templates";
 import { buildPresentationInspectAssets } from "@/lib/presentations/inspect-editor-assets";
 import { DEFAULT_PRESENTATION_GRADIENT_PRESETS, cloneMarpSlide, convertMarpSlideElementToList, deleteMarpSlide, insertBlankMarpSlide, moveMarpListItem, moveMarpSlideBlock, readPresentationGradientPresets, removeMarpSlideElement, reorderMarpSlide, upsertPresentationGradientPresets } from "@/lib/presentations/marp-utils";
 
@@ -506,6 +507,17 @@ describe("presentation workspace clone", () => {
     const markdown = await readPresentationMarkdown(workspacePath);
     expect(markdown).toContain("marp: true");
     expect(countMarpSlides(markdown)).toBe(3);
+  });
+
+  it("copies every registered presentation template into a valid workspace", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "apploop-presentations-"));
+    for (const template of BUILT_IN_PRESENTATION_TEMPLATES) {
+      const workspacePath = path.join(root, template.id);
+      await createPresentationWorkspace(root, workspacePath, { template });
+      const markdown = await readPresentationMarkdown(workspacePath, template.sourceFile);
+      expect(markdown).toContain("marp: true");
+      expect(countMarpSlides(markdown)).toBeGreaterThan(0);
+    }
   });
 
   it("stores uploaded presentation images in the workspace assets directory", async () => {
