@@ -475,6 +475,8 @@ describe("marp rendering", () => {
     expect(assets.css).toContain('#apploop-inspect-box[data-table-cell="true"] .drag-del');
     expect(assets.css).toContain('#apploop-inspect-box[data-list-item="true"] .drag');
     expect(assets.css).toContain('#apploop-inspect-box[data-list-item="true"] .handle');
+    expect(assets.css).toContain("#apploop-inspect-hover-box");
+    expect(assets.css).toContain("[data-apploop-shape].apploop-inspect-hover");
     expect(assets.css).toContain(".apploop-empty-managed-host");
     expect(assets.css).toContain(".apploop-empty-managed-host .pill");
     expect(assets.script).toContain("updateAlignmentGuidesForElement");
@@ -569,5 +571,35 @@ describe("presentation agent bundle", () => {
       expect(() => new Function(scriptBody)).not.toThrow();
       expect(assets.script).toContain("split(/\\n/)");
       expect(assets.script).toContain("join('\\n')");
+    });
+
+    it("keeps authored SVG shapes separate from the outer Marp render SVG", () => {
+      const assets = buildPresentationInspectAssets({
+        activeSlide: 1,
+        totalSlides: 1,
+        slideMarkdown: '<svg viewBox="0 0 100 100"><circle data-apploop-shape="circle-a" cx="50" cy="50" r="42" fill="#3355ff" fill-opacity="0.5" stroke="#ffffff" stroke-width="4" /></svg>',
+      });
+      expect(assets.script).toContain("hasAttribute('data-marpit-svg')) return null");
+      expect(assets.script).toContain("marker.closest && marker.closest('svg') === el");
+      expect(assets.script).toContain("function svgShapeAttributeStyleForElement(el)");
+      expect(assets.script).toContain("fillOpacity: 'fill-opacity'");
+      expect(assets.script).toContain("function svgOnlyTextHostChild(el)");
+      expect(assets.script).toContain("if (svgOnlyTextHostChild(el)) return false");
+      expect(assets.script).toContain("if (svgOnlyChild) return svgOnlyChild");
+      expect(assets.script).toContain("tagName.toLowerCase() === 'svg' && svgShapeMarkerElement(el)");
+      expect(assets.script).toContain("function rectFromSvgBBox(el)");
+      expect(assets.script).toContain("function visualRectForElement(el)");
+      expect(assets.script).toContain("return rectFromSvgBBox(marker) || (marker ? marker.getBoundingClientRect() : el.getBoundingClientRect())");
+      expect(assets.script).toContain("hoverBox.id = 'apploop-inspect-hover-box'");
+      expect(assets.script).toContain("function updateHoverBoxForTarget(target)");
+      expect(assets.script).toContain("target.closest ? target.closest('svg') : null");
+      expect(assets.script).toContain("var hoverTarget = isSvgShapeElement(target) ? svgShapeMarkerElement(target) : target");
+      expect(assets.script).toContain("hoverTarget.matches && hoverTarget.matches(svgPrimitiveSelector)");
+      expect(assets.script).toContain("updateHoverBoxForTarget(target)");
+      expect(assets.script).toContain("value.match(/translate\\(\\s*(-?\\d+");
+      expect(assets.script).toContain("function currentElementTranslate(el, fallbackTransform)");
+      expect(assets.script).toContain("el.style.getPropertyValue('transform')");
+      expect(assets.script).toContain("startH: rect.height");
+      expect(assets.script).toContain("startTransform: isSvgShapeElement(el) ? currentElementTranslate(el, item.style && item.style.transform) : null");
     });
 });

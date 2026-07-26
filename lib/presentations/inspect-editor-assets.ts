@@ -57,6 +57,15 @@ export function buildPresentationInspectAssets(options: {
         outline: 2px solid #fbbf24 !important;
         box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.45);
       }
+      body[data-inspect="true"] [data-apploop-shape].apploop-inspect-hover,
+      body[data-inspect="true"] [data-apploop-shape].apploop-inspect-selected,
+      body[data-inspect="true"] [data-apploop-shape].apploop-inspect-selected[data-active-edit="true"],
+      body[data-inspect="true"] svg.apploop-inspect-hover,
+      body[data-inspect="true"] svg.apploop-inspect-selected,
+      body[data-inspect="true"] svg.apploop-inspect-selected[data-active-edit="true"] {
+        outline: none !important;
+        box-shadow: none !important;
+      }
       body[data-inspect="true"] .apploop-empty-managed-host {
         pointer-events: none !important;
       }
@@ -77,6 +86,17 @@ export function buildPresentationInspectAssets(options: {
         display: none;
       }
       #apploop-inspect-box[data-open="true"] { display: block; }
+      #apploop-inspect-hover-box {
+        position: absolute;
+        z-index: 2147483643;
+        border: 2px dashed rgba(96, 165, 250, 0.95);
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-select: none;
+        box-sizing: border-box;
+        display: none;
+      }
+      #apploop-inspect-hover-box[data-open="true"] { display: block; }
       #apploop-inspect-box .handle {
         position: absolute;
         width: 10px;
@@ -225,6 +245,14 @@ export function buildPresentationInspectAssets(options: {
           function svgShapeMarkerElement(el) {
             if (!el) return null;
             if (el.matches && el.matches(svgPrimitiveSelector) && el.getAttribute('data-apploop-shape')) return el;
+            if (el.tagName && el.tagName.toLowerCase() === 'svg') {
+              if (el.hasAttribute && el.hasAttribute('data-marpit-svg')) return null;
+              if (!el.querySelectorAll) return null;
+              var markers = Array.prototype.slice.call(el.querySelectorAll('[data-apploop-shape]'));
+              return markers.find(function (marker) {
+                return marker.closest && marker.closest('svg') === el;
+              }) || null;
+            }
             if (el.querySelector) return el.querySelector('[data-apploop-shape]');
             return null;
           }
@@ -313,6 +341,19 @@ export function buildPresentationInspectAssets(options: {
             return cleanText(clone.textContent || '').length === 0;
           }
 
+          function svgOnlyTextHostChild(el) {
+            if (!el || !el.querySelectorAll || !el.tagName) return null;
+            var tag = el.tagName.toLowerCase();
+            if (!(tag === 'p' || /^h[1-6]$/.test(tag))) return null;
+            if (cleanText(el.textContent || '').length !== 0) return null;
+            var children = Array.prototype.slice.call(el.children || []).filter(function (child) {
+              return child && child.tagName && child.tagName.toLowerCase() !== 'br';
+            });
+            if (children.length !== 1) return null;
+            var child = children[0];
+            return child && child.tagName && child.tagName.toLowerCase() === 'svg' && svgShapeMarkerElement(child) ? child : null;
+          }
+
           function refreshEmptyManagedTextHosts() {
             Array.prototype.forEach.call(document.querySelectorAll('.apploop-empty-managed-host'), function (node) {
               node.classList.remove('apploop-empty-managed-host');
@@ -336,6 +377,8 @@ export function buildPresentationInspectAssets(options: {
               var ownerSvg = target.closest ? target.closest('svg') : null;
               return ownerSvg || target;
             }
+            var svgOnlyChild = svgOnlyTextHostChild(target);
+            if (svgOnlyChild) return svgOnlyChild;
             var table = target.closest ? target.closest('table') : null;
             if (table) return table;
             var list = target.closest ? target.closest('ul,ol') : null;
@@ -449,11 +492,61 @@ export function buildPresentationInspectAssets(options: {
             return marker && marker !== el ? inlineStyleForElement(marker) : {};
           }
 
+          function svgShapeAttributeStyleForElement(el) {
+            var marker = svgShapeMarkerElement(el);
+            if (!marker || marker === el || !marker.getAttribute) return {};
+            var map = {
+              fill: 'fill',
+              fillOpacity: 'fill-opacity',
+              stroke: 'stroke',
+              strokeLinecap: 'stroke-linecap',
+              strokeLinejoin: 'stroke-linejoin',
+              strokeWidth: 'stroke-width',
+            };
+            var style = {};
+            Object.keys(map).forEach(function (key) {
+              var value = marker.getAttribute(map[key]);
+              if (value && value.trim()) style[key] = value.trim();
+            });
+            return style;
+          }
+
+          function rectFromSvgBBox(el) {
+            if (!el || !el.getBBox || !el.getScreenCTM) return null;
+            try {
+              var bbox = el.getBBox();
+              var matrix = el.getScreenCTM();
+              if (!bbox || !matrix) return null;
+              var points = [
+                new DOMPoint(bbox.x, bbox.y),
+                new DOMPoint(bbox.x + bbox.width, bbox.y),
+                new DOMPoint(bbox.x, bbox.y + bbox.height),
+                new DOMPoint(bbox.x + bbox.width, bbox.y + bbox.height),
+              ].map(function (point) { return point.matrixTransform(matrix); });
+              var xs = points.map(function (point) { return point.x; });
+              var ys = points.map(function (point) { return point.y; });
+              var left = Math.min.apply(Math, xs);
+              var top = Math.min.apply(Math, ys);
+              var right = Math.max.apply(Math, xs);
+              var bottom = Math.max.apply(Math, ys);
+              return { left: left, top: top, width: right - left, height: bottom - top };
+            } catch (e) {
+              return null;
+            }
+          }
+
+          function visualRectForElement(el) {
+            if (!isSvgShapeElement(el)) return el.getBoundingClientRect();
+            var marker = svgShapeMarkerElement(el);
+            return rectFromSvgBBox(marker) || (marker ? marker.getBoundingClientRect() : el.getBoundingClientRect());
+          }
+
           function selectionStyleForElement(el) {
             var saved = savedStyleForElement(el);
             var inline = inlineStyleForElement(el);
+            var svgShapeAttributes = el && el.tagName && el.tagName.toLowerCase() === 'svg' ? svgShapeAttributeStyleForElement(el) : {};
             var svgShapeInline = el && el.tagName && el.tagName.toLowerCase() === 'svg' ? svgShapeInlineStyleForElement(el) : {};
-            return Object.assign({}, saved, svgShapeInline, inline);
+            return Object.assign({}, svgShapeAttributes, saved, svgShapeInline, inline);
           }
 
           function promoteSavedManagedStyles() {
@@ -503,6 +596,7 @@ export function buildPresentationInspectAssets(options: {
               var parentPill = el.closest ? el.closest('.pill') : null;
               if (parentPill && parentPill !== el && el.matches && el.matches('span[class*="apploop-el-"]')) return false;
               if (tag === 'li' && el.closest('ul,ol')) return false;
+              if (svgOnlyTextHostChild(el)) return false;
               if (isEmptyManagedTextHost(el)) return false;
               if (tag === 'svg' && !svgShapeMarkerElement(el)) return false;
               if (tag !== 'svg' && el.closest && el.closest('svg')) return false;
@@ -658,6 +752,8 @@ export function buildPresentationInspectAssets(options: {
           function visibleElementForItem(item, fallbackEl) {
             var el = fallbackEl || (item ? pathToElement(item.path) : null);
             if (!item || !el) return el;
+            var svgOnlyChild = svgOnlyTextHostChild(el);
+            if (svgOnlyChild) return svgOnlyChild;
             if (el.classList && Array.prototype.some.call(el.classList, function (name) { return /^apploop-el-/.test(name); })) return el;
             if (!el.querySelectorAll) return el;
             var managed = Array.prototype.slice.call(el.querySelectorAll('span[class*="apploop-el-"]'));
@@ -685,6 +781,10 @@ export function buildPresentationInspectAssets(options: {
           box.innerHTML = '<div class="drag">drag</div><button class="drag-del" title="Delete element">&times;</button><div class="handle br" data-handle="br"></div><div class="handle bm" data-handle="bm"></div><div class="handle mr" data-handle="mr"></div>';
           document.body.appendChild(box);
 
+          var hoverBox = document.createElement('div');
+          hoverBox.id = 'apploop-inspect-hover-box';
+          document.body.appendChild(hoverBox);
+
           var guides = document.createElement('div');
           guides.id = 'apploop-alignment-guides';
           guides.innerHTML = '<div class="guide vertical"></div><div class="guide horizontal"></div>';
@@ -694,6 +794,26 @@ export function buildPresentationInspectAssets(options: {
 
           function setBoxOpen(open) {
             box.setAttribute('data-open', open ? 'true' : 'false');
+          }
+
+          function setHoverBoxOpen(open) {
+            hoverBox.setAttribute('data-open', open ? 'true' : 'false');
+          }
+
+          function updateHoverBoxForTarget(target) {
+            var svgTarget = target && isSvgShapeElement(target)
+              ? target
+              : (target && target.closest ? target.closest('svg') : null);
+            if (!svgTarget || !isSvgShapeElement(svgTarget) || svgTarget.classList.contains('apploop-inspect-selected')) {
+              setHoverBoxOpen(false);
+              return;
+            }
+            var rect = visualRectForElement(svgTarget);
+            hoverBox.style.left = rect.left + 'px';
+            hoverBox.style.top = rect.top + 'px';
+            hoverBox.style.width = rect.width + 'px';
+            hoverBox.style.height = rect.height + 'px';
+            setHoverBoxOpen(true);
           }
 
           function isTableCellSelection(item, el) {
@@ -724,8 +844,8 @@ export function buildPresentationInspectAssets(options: {
               setBoxOpen(false);
               return;
             }
-            var rect = el.getBoundingClientRect();
             var isSvgSelection = isSvgShapeElement(el);
+            var rect = visualRectForElement(el);
             box.style.left = rect.left + 'px';
             box.style.top = rect.top + 'px';
             box.style.width = (isSvgSelection ? rect.width : Math.max(8, rect.width)) + 'px';
@@ -803,18 +923,28 @@ export function buildPresentationInspectAssets(options: {
           }
 
           function isSvgShapeElement(el) {
-            return Boolean(el && el.matches && el.matches(svgShapeSelector));
+            return Boolean(el && el.tagName && el.tagName.toLowerCase() === 'svg' && svgShapeMarkerElement(el));
           }
 
           function parseTranslatePx(transform) {
             var value = String(transform || '');
-            var match = value.match(/translate\(\s*(-?\d+(?:\.\d+)?)px(?:\s*,\s*|\s+)(-?\d+(?:\.\d+)?)px\s*\)/i)
-              || value.match(/translate3d\(\s*(-?\d+(?:\.\d+)?)px\s*,\s*(-?\d+(?:\.\d+)?)px\s*,\s*0(?:px)?\s*\)/i);
+            var match = value.match(/translate\\(\\s*(-?\\d+(?:\\.\\d+)?)px(?:\\s*,\\s*|\\s+)(-?\\d+(?:\\.\\d+)?)px\\s*\\)/i)
+              || value.match(/translate3d\\(\\s*(-?\\d+(?:\\.\\d+)?)px\\s*,\\s*(-?\\d+(?:\\.\\d+)?)px\\s*,\\s*0(?:px)?\\s*\\)/i);
             return { x: match ? Number(match[1]) || 0 : 0, y: match ? Number(match[2]) || 0 : 0 };
           }
 
           function translateStyleFrom(start, dx, dy) {
             return 'translate(' + Math.round((start && start.x ? start.x : 0) + dx) + 'px, ' + Math.round((start && start.y ? start.y : 0) + dy) + 'px)';
+          }
+
+          function currentElementTranslate(el, fallbackTransform) {
+            var inlineTransform = el && el.style ? el.style.getPropertyValue('transform') : '';
+            var computedTransform = '';
+            if (el && window.getComputedStyle) {
+              var computed = window.getComputedStyle(el);
+              computedTransform = computed ? computed.transform : '';
+            }
+            return parseTranslatePx(inlineTransform || fallbackTransform || computedTransform);
           }
 
           function slideBoundedWidthPx(width, srect) {
@@ -1200,9 +1330,16 @@ export function buildPresentationInspectAssets(options: {
             if (!inspect || dragging || resizing) return;
             var target = resolveClickTarget(event.target);
             if (!target) return;
-            if (hoverEl && hoverEl !== target) hoverEl.classList.remove('apploop-inspect-hover');
-            hoverEl = target;
-            if (!hoverEl.classList.contains('apploop-inspect-selected')) {
+            var hoverTarget = isSvgShapeElement(target) ? svgShapeMarkerElement(target) : target;
+            if (!hoverTarget) return;
+            if (hoverEl && hoverEl !== hoverTarget) hoverEl.classList.remove('apploop-inspect-hover');
+            hoverEl = hoverTarget;
+            if (isSvgShapeElement(target) || (hoverTarget.matches && hoverTarget.matches(svgPrimitiveSelector))) {
+              updateHoverBoxForTarget(target);
+              return;
+            }
+            setHoverBoxOpen(false);
+            if (!target.classList.contains('apploop-inspect-selected') && !hoverEl.classList.contains('apploop-inspect-selected')) {
               hoverEl.classList.add('apploop-inspect-hover');
             }
           }, true);
@@ -1248,7 +1385,7 @@ export function buildPresentationInspectAssets(options: {
                 srect: srect,
                 el: el,
                 item: item,
-                startTransform: isSvgShapeElement(el) ? parseTranslatePx(item.style && item.style.transform) : null,
+                startTransform: isSvgShapeElement(el) ? currentElementTranslate(el, item.style && item.style.transform) : null,
               };
             } else {
               lastGestureKind = 'drag';
@@ -1256,11 +1393,13 @@ export function buildPresentationInspectAssets(options: {
                 startX: event.clientX,
                 startY: event.clientY,
                 startW: rect.width,
+                startH: rect.height,
                 startLeft: rect.left - srect.left,
                 startTop: rect.top - srect.top,
                 srect: srect,
                 el: el,
                 item: item,
+                startTransform: isSvgShapeElement(el) ? currentElementTranslate(el, item.style && item.style.transform) : null,
               };
             }
             if (dragging || resizing) window.parent.postMessage({ type: 'apploop-presentation-drag-start' }, '*');

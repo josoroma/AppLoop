@@ -415,6 +415,8 @@ function boxGradientStyle(from: string, to: string, angle: number): Record<strin
   };
 }
 
+const SVG_ELEMENT_TAGS = ["svg", "rect", "circle", "ellipse", "line", "path", "polygon", "polyline"];
+
 function buildMarpInsertBlock(kind: MarpInsertKind) {
   switch (kind) {
     case "heading":
@@ -863,7 +865,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const activeTargetIsTable = activeTargetKind === "table";
   const activeTargetIsList = activeTargetKind === "ul" || activeTargetKind === "ol";
   const activeTargetIsDivider = activeTargetKind === "hr";
-  const activeTargetIsShape = ["rect", "circle", "ellipse", "line", "path", "polygon", "polyline"].includes(activeTargetKind);
+  const activeTargetIsShape = SVG_ELEMENT_TAGS.includes(activeTargetKind);
   const activeTargetIsPill = activeTargetKind === "pill";
   const activeTargetUsesTextToolbar = activeTarget ? !activeTargetIsImage && !activeTargetIsTable && !activeTargetIsList && !activeTargetIsDivider && !activeTargetIsShape : false;
   const canConvertActiveTargetToList = Boolean(activeTarget && !activeTargetIsImage && !activeTargetIsTable && !activeTargetIsDivider && !activeTargetIsShape);
@@ -879,6 +881,8 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const activeTargetShapeFillOpacity = Math.round(Math.min(1, Math.max(0, Number.parseFloat(activeTarget?.style.fillOpacity ?? "1") || 0)) * 100);
   const activeTargetShapeStrokeLinecap = activeTarget?.style.strokeLinecap ?? "round";
   const activeTargetShapeStrokeLinejoin = activeTarget?.style.strokeLinejoin ?? "round";
+  const activeTargetShapeWidth = Math.round(parsePxValue(activeTarget?.style.width, 220));
+  const activeTargetShapeHeight = Math.round(parsePxValue(activeTarget?.style.height, 140));
   const activeTargetDividerColor = safeHexColor(activeTarget?.style.background?.match(/#[0-9a-fA-F]{6}/)?.[0], "#ffffff");
   const activeTargetDividerThickness = Math.round(parsePxValue(activeTarget?.style.height, 1));
   const activeTargetDividerWidth = Math.round(parsePxValue(activeTarget?.style.width, 100));
@@ -2247,13 +2251,21 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                   )}
                   {activeTargetIsShape && (
                     <>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="SVG element width">
+                        <span>Width {activeTargetShapeWidth}px</span>
+                        <input type="range" min="20" max="1200" step="10" value={activeTargetShapeWidth} onChange={(event) => patchSelectedTextStyle({ width: `${event.target.value}px`, boxSizing: "border-box", display: "inline-block", backgroundImage: "", backgroundClip: "", webkitBackgroundClip: "", webkitTextFillColor: "", color: "" }, "Shape width applied.")} className="w-24" />
+                      </label>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="SVG element height">
+                        <span>Height {activeTargetShapeHeight}px</span>
+                        <input type="range" min="20" max="900" step="10" value={activeTargetShapeHeight} onChange={(event) => patchSelectedTextStyle({ height: `${event.target.value}px`, boxSizing: "border-box", display: "inline-block", backgroundImage: "", backgroundClip: "", webkitBackgroundClip: "", webkitTextFillColor: "", color: "" }, "Shape height applied.")} className="w-24" />
+                      </label>
                       <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Shape fill color">
                         <span>Fill</span>
-                        <input type="color" value={activeTargetShapeFillColor} onInput={(event) => patchSelectedTextStyle({ fill: event.currentTarget.value }, "Shape fill applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0" />
+                        <input type="color" value={activeTargetShapeFillColor} onInput={(event) => patchSelectedTextStyle({ fill: event.currentTarget.value, backgroundImage: "", backgroundClip: "", webkitBackgroundClip: "", webkitTextFillColor: "", color: "" }, "Shape fill applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0" />
                       </label>
                       <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Shape stroke color">
                         <span>Stroke</span>
-                        <input type="color" value={activeTargetShapeStrokeColor} onInput={(event) => patchSelectedTextStyle({ stroke: event.currentTarget.value }, "Shape stroke applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0" />
+                        <input type="color" value={activeTargetShapeStrokeColor} onInput={(event) => patchSelectedTextStyle({ stroke: event.currentTarget.value, backgroundImage: "", backgroundClip: "", webkitBackgroundClip: "", webkitTextFillColor: "", color: "" }, "Shape stroke applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0" />
                       </label>
                       <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Shape stroke width">
                         <span>Stroke {activeTargetShapeStrokeWidth}px</span>

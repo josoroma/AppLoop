@@ -310,6 +310,49 @@ describe("presentation inspect styles", () => {
     expect(markdown).toContain(`.${classNames[0]} {`);
   });
 
+  it("clears text gradient wrapper styles when saving SVG shape attributes", () => {
+    const deck = `---\nmarp: true\n---\n\n<svg viewBox="0 0 220 140" width="220" height="140" aria-label="Editable SVG element"><path data-apploop-shape="shape-rounded-triangle-a" d="M110 8 Q118 8 123 16 L207 124 Q213 134 200 134 H20 Q7 134 13 124 L97 16 Q102 8 110 8 Z" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"></path></svg>\n`;
+    const { markdown, classNames } = applyPresentationElementStylesToMarkdown(deck, [
+      {
+        slide: 1,
+        tag: "svg",
+        text: 'data-apploop-shape="shape-rounded-triangle-a"',
+        path: "section > svg",
+        style: {
+          backgroundImage: "",
+          backgroundClip: "",
+          webkitBackgroundClip: "",
+          webkitTextFillColor: "",
+          color: "",
+          width: "474px",
+          height: "308px",
+          boxSizing: "border-box",
+          display: "inline-block",
+          transform: "translate(330px, -224px)",
+          position: "absolute",
+          zIndex: "3",
+          fill: "#7d8cff",
+          fillOpacity: "0.45",
+          stroke: "#f7f7ff",
+          strokeWidth: "6px",
+          strokeLinejoin: "bevel",
+        },
+      },
+    ]);
+    expect(markdown).toContain(`<svg viewBox="0 0 220 140" width="220" height="140" aria-label="Editable SVG element" class="${classNames[0]}" style="`);
+    expect(markdown).toContain("width: 474px");
+    expect(markdown).toContain("height: 308px");
+    expect(markdown).toContain("box-sizing: border-box");
+    expect(markdown).toContain("transform: translate(330px, -224px)");
+    expect(markdown).toContain("position: absolute");
+    expect(markdown).toContain("z-index: 3");
+    expect(markdown).toContain(`<path data-apploop-shape="shape-rounded-triangle-a"`);
+    expect(markdown).toContain(`style="fill: #7d8cff; fill-opacity: 0.45; stroke: #f7f7ff; stroke-linejoin: bevel; stroke-width: 6px;"`);
+    expect(markdown).not.toContain("background-image: linear-gradient");
+    expect(markdown).not.toContain("-webkit-text-fill-color: transparent");
+    expect(markdown).not.toContain("color: transparent");
+  });
+
   it("persists headings as heading elements with class + inline style", () => {
     const className = buildElementClassName({
       slide: 1,
