@@ -1,11 +1,15 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getServerEnv } from "@/lib/env/server";
 import {
   createPresentationWorkspace,
+  listPresentationImageAssets,
   movePresentationWorkspaceToTrash,
+  writePresentationAsset,
   writePresentationMarkdown,
 } from "@/lib/presentations/files";
 import { getPresentationService, getPresentationRepository } from "@/lib/presentations/store";
@@ -78,13 +82,68 @@ export async function savePresentationMarkdownAction(formData: FormData) {
     throw new Error("Presentation not found.");
   }
 
+  const { repairManagedStyleBlock } = await import("@/lib/presentations/inspect-styles");
+  const repairedMarkdown = repairManagedStyleBlock(markdown);
+
   await writePresentationMarkdown(
     overview.presentation.workspacePath,
-    markdown,
+    repairedMarkdown,
     overview.presentation.sourceFile,
   );
   await getPresentationService().openPresentation(presentationId);
   revalidatePath(`/presentations/${presentationId}`);
+}
+
+export async function uploadPresentationImageAction(formData: FormData) {
+  const presentationId = String(formData.get("presentationId") ?? "");
+  const file = formData.get("image");
+  const overview = await getPresentationService().findPresentationOverview(presentationId);
+
+  if (!overview || overview.presentation.status === "deleted") {
+    throw new Error("Presentation not found.");
+  }
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false as const, error: "Choose an image to upload." };
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return { ok: false as const, error: "Images must be 10 MB or smaller." };
+  }
+
+  const extension = imageExtensionForFile(file);
+  if (!extension) {
+    return { ok: false as const, error: "Unsupported image type. Use PNG, GIF, JPG, or SVG." };
+  }
+
+  const safeBase = path
+    .basename(file.name, path.extname(file.name))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "image";
+  const fileName = `${safeBase}-${randomUUID().slice(0, 8)}${extension}`;
+  const contents = Buffer.from(await file.arrayBuffer());
+  const relativePath = await writePresentationAsset(overview.presentation.workspacePath, fileName, contents);
+
+  revalidatePath(`/presentations/${presentationId}`);
+  return { ok: true as const, path: relativePath, alt: safeBase.replace(/-/g, " ") };
+}
+
+export async function listPresentationImagesAction(presentationId: string) {
+  const overview = await getPresentationService().findPresentationOverview(presentationId);
+  if (!overview || overview.presentation.status === "deleted") {
+    throw new Error("Presentation not found.");
+  }
+  return listPresentationImageAssets(overview.presentation.workspacePath);
+}
+
+function imageExtensionForFile(file: File) {
+  const nameExt = path.extname(file.name).toLowerCase();
+  if ([".png", ".gif", ".jpg", ".jpeg", ".svg"].includes(nameExt)) return nameExt;
+  if (file.type === "image/png") return ".png";
+  if (file.type === "image/gif") return ".gif";
+  if (file.type === "image/jpeg") return ".jpg";
+  if (file.type === "image/svg+xml") return ".svg";
+  return null;
 }
 
 export async function applyPresentationInspectStylesAction(input: {
@@ -185,8 +244,10 @@ export async function organizePresentationElementAction(input: {
 }
 
 export async function deletePresentationElementAction(input: {
+  path?: string;
   presentationId: string;
   slide: number;
+  tag?: string;
   text: string;
 }) {
   const overview = await getPresentationService().findPresentationOverview(input.presentationId);
@@ -206,7 +267,7 @@ export async function deletePresentationElementAction(input: {
   const slideIndex = Math.min(Math.max(input.slide, 1), slides.length) - 1;
   const slideMarkdown = slides[slideIndex] ?? "";
 
-  let cleaned = removeMarpSlideElement(slideMarkdown, input.text);
+  let cleaned = removeMarpSlideElement(slideMarkdown, input.text, { path: input.path, tag: input.tag });
 
   if (!cleaned) cleaned = "";
 
@@ -241,7 +302,7 @@ export async function convertPresentationElementToListAction(input: {
   presentationId: string;
   slide: number;
   text: string;
-  kind: "ordered" | "checklist";
+  kind: "ordered" | "unordered" | "checklist";
 }) {
   const overview = await getPresentationService().findPresentationOverview(input.presentationId);
   if (!overview || overview.presentation.status === "deleted") {
@@ -324,7 +385,10 @@ export async function replacePresentationElementTextAction(input: {
 
   const nextSlides = [...slides];
   nextSlides[slideIndex] = nextSlide;
-  const nextMarkdown = [frontMatter, "", nextSlides.join("\n\n---\n\n"), ""].join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+  const { repairManagedStyleBlock } = await import("@/lib/presentations/inspect-styles");
+  const nextMarkdown = repairManagedStyleBlock(
+    [frontMatter, "", nextSlides.join("\n\n---\n\n"), ""].join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n",
+  );
 
   await writePresentationMarkdown(
     overview.presentation.workspacePath,

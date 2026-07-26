@@ -6,8 +6,15 @@ import { findMarkdownBlockRange } from "@/lib/presentations/marp-utils";
 export const PresentationElementStyleSchema = z.object({
   background: z.string().optional(),
   color: z.string().optional(),
+  fill: z.string().optional(),
+  fillOpacity: z.string().optional(),
+  stroke: z.string().optional(),
+  strokeLinecap: z.string().optional(),
+  strokeLinejoin: z.string().optional(),
+  strokeWidth: z.string().optional(),
   width: z.string().optional(),
   height: z.string().optional(),
+  boxSizing: z.string().optional(),
   padding: z.string().optional(),
   paddingLeft: z.string().optional(),
   margin: z.string().optional(),
@@ -16,8 +23,11 @@ export const PresentationElementStyleSchema = z.object({
   borderCollapse: z.string().optional(),
   borderSpacing: z.string().optional(),
   tableLayout: z.string().optional(),
+  maxWidth: z.string().optional(),
   listStyleType: z.string().optional(),
   opacity: z.string().optional(),
+  visibility: z.string().optional(),
+  pointerEvents: z.string().optional(),
   fontSize: z.string().optional(),
   fontStyle: z.string().optional(),
   fontWeight: z.string().optional(),
@@ -58,6 +68,7 @@ const STYLE_BLOCK_START = "/* @apploop-inspect-styles */";
 const STYLE_BLOCK_END = "/* @apploop-inspect-styles-end */";
 const CLASS_PREFIX = "apploop-el-";
 const HEADING_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
+const SVG_SHAPE_TAGS = new Set(["rect", "circle", "ellipse", "line", "path", "polygon", "polyline"]);
 
 const CSS_PROP_MAP: Array<[keyof PresentationElementStyle, string]> = [
   ["background", "background"],
@@ -66,8 +77,15 @@ const CSS_PROP_MAP: Array<[keyof PresentationElementStyle, string]> = [
   ["webkitBackgroundClip", "-webkit-background-clip"],
   ["webkitTextFillColor", "-webkit-text-fill-color"],
   ["color", "color"],
+  ["fill", "fill"],
+  ["fillOpacity", "fill-opacity"],
+  ["stroke", "stroke"],
+  ["strokeLinecap", "stroke-linecap"],
+  ["strokeLinejoin", "stroke-linejoin"],
+  ["strokeWidth", "stroke-width"],
   ["width", "width"],
   ["height", "height"],
+  ["boxSizing", "box-sizing"],
   ["padding", "padding"],
   ["paddingLeft", "padding-left"],
   ["margin", "margin"],
@@ -76,8 +94,11 @@ const CSS_PROP_MAP: Array<[keyof PresentationElementStyle, string]> = [
   ["borderCollapse", "border-collapse"],
   ["borderSpacing", "border-spacing"],
   ["tableLayout", "table-layout"],
+  ["maxWidth", "max-width"],
   ["listStyleType", "list-style-type"],
   ["opacity", "opacity"],
+  ["visibility", "visibility"],
+  ["pointerEvents", "pointer-events"],
   ["fontSize", "font-size"],
   ["fontStyle", "font-style"],
   ["fontWeight", "font-weight"],
@@ -105,7 +126,9 @@ const CSS_PROP_MAP: Array<[keyof PresentationElementStyle, string]> = [
  * (p → span.apploop-el-…), and would orphan saved styles.
  */
 export function buildElementClassName(target: Pick<PresentationStyleTarget, "slide" | "tag" | "text" | "path">) {
-  const normalizedText = normalizeText(target.text);
+  const normalizedText = SVG_SHAPE_TAGS.has(target.tag.toLowerCase())
+    ? normalizeSvgShapeIdentity(target.text)
+    : normalizeText(target.text);
   const hash = createHash("sha1")
     .update(`${target.slide}|${normalizedText}`)
     .digest("hex")
@@ -117,12 +140,24 @@ function normalizeText(text: string) {
   return text.replace(/\s+/g, " ").trim().slice(0, 160);
 }
 
+function normalizeSvgShapeIdentity(text: string) {
+  const marker = text.match(/\bdata-apploop-shape=["']([^"']+)["']/i)?.[1];
+  if (marker) return marker;
+  return normalizeText(
+    text
+      .replace(/\sclass=["'][^"']*["']/gi, "")
+      .replace(/\sstyle=["'][^"']*["']/gi, "")
+      .replace(/\s(?:fill|stroke|stroke-width|opacity)=["'][^"']*["']/gi, ""),
+  );
+}
+
 export function styleToCssDeclarations(style: PresentationElementStyle, options: { important?: boolean } = {}) {
   const lines: string[] = [];
   for (const [key, cssName] of CSS_PROP_MAP) {
     const value = style[key];
     if (typeof value === "string" && value.trim().length > 0) {
       const cleanValue = value.trim().replace(/\s*!important\s*$/i, "");
+      if (/(?:NaN|Infinity|undefined|null)/i.test(cleanValue)) continue;
       lines.push(`${cssName}: ${cleanValue}${options.important ? " !important" : ""};`);
     }
   }
@@ -141,7 +176,7 @@ export function styleToInlineAttribute(style: PresentationElementStyle) {
 }
 
 export function styleToCssRule(className: string, style: PresentationElementStyle, tag?: string) {
-  const declarations = styleToCssDeclarations(style, { important: tag === "table" || tag === "ul" || tag === "ol" || tag === "blockquote" || tag === "pre" });
+  const declarations = styleToCssDeclarations(style, { important: tag === "table" || tag === "ul" || tag === "ol" || tag === "blockquote" || tag === "pre" || tag === "img" || tag === "hr" || SVG_SHAPE_TAGS.has(tag ?? "") });
   if (declarations.length === 0) {
     return "";
   }
@@ -170,7 +205,18 @@ export function styleToCssRule(className: string, style: PresentationElementStyl
     }
     return rules.join("\n  ");
   }
-  if (tag === "ul" || tag === "ol" || tag === "blockquote" || tag === "pre") {
+  if (tag === "img") {
+    const imageDeclarations = declarations.filter((line) => {
+      const prop = line.split(":")[0]?.trim() ?? "";
+      return prop !== "max-width";
+    });
+    imageDeclarations.unshift("max-width: 100% !important;");
+    if (!imageDeclarations.some((line) => (line.split(":")[0]?.trim() ?? "") === "height")) {
+      imageDeclarations.push("height: auto !important;");
+    }
+    return `.${className} img {\n    ${imageDeclarations.join("\n    ")}\n  }`;
+  }
+  if (tag === "ul" || tag === "ol" || tag === "blockquote" || tag === "pre" || tag === "hr") {
     return `.${className} > ${tag} {\n    ${declarations.join("\n    ")}\n  }`;
   }
   // Class rules remain as a backup / batch-edit surface. Marpit scopes front-matter
@@ -240,7 +286,7 @@ export function parseManagedStyleEntries(markdown: string): Array<{ className: s
       }
     }
     if (!className || styleToCssDeclarations(style).length === 0) continue;
-    const tag = suffix.match(/^>\s*(table|ul|ol|blockquote|pre)$/)?.[1]
+    const tag = suffix.match(/^(?:>\s*)?(table|ul|ol|blockquote|pre|img|hr|rect|circle|ellipse|line|path|polygon|polyline)$/)?.[1]
       ?? (suffix.startsWith("th") || suffix.includes("td") ? "table" : undefined);
     const existing = merged.get(className);
     if (existing) {
@@ -278,18 +324,22 @@ export function upsertFrontMatterStyleBlock(frontMatter: string, cssBlock: strin
       new RegExp(`\\n\\s*${escapeRegExp(STYLE_BLOCK_START)}[\\s\\S]*?${escapeRegExp(STYLE_BLOCK_END)}\\s*`, "g"),
       "\n",
     );
-    const closing = withoutOld.lastIndexOf("\n---");
-    if (closing === -1) {
-      return `${withoutOld}\nstyle: |\n${blockIndented}\n---`;
+    const lines = withoutOld.split("\n");
+    const styleIndex = lines.findIndex((line) => /^style:\s*\|\s*$/.test(line));
+    if (styleIndex === -1) {
+      return withoutOld.replace(/\n---\s*$/, `\nstyle: |\n${blockIndented}\n---`);
     }
-    const head = withoutOld.slice(0, closing);
-    const ensureStyle = /^style:\s*\|/m.test(head)
-      ? head
-      : `${head.replace(/\n---\s*$/, "")}\nstyle: |\n`;
-    if (/^style:\s*\|/m.test(head)) {
-      return `${head.trimEnd()}\n${blockIndented}\n---`;
+
+    let insertIndex = lines.length;
+    for (let index = styleIndex + 1; index < lines.length; index += 1) {
+      const line = lines[index] ?? "";
+      if (/^---\s*$/.test(line) || (/^[A-Za-z_-][A-Za-z0-9_-]*:\s*/.test(line) && !/^\s/.test(line))) {
+        insertIndex = index;
+        break;
+      }
     }
-    return `${ensureStyle}${blockIndented}\n---`;
+    lines.splice(insertIndex, 0, ...blockIndented.split("\n"));
+    return lines.join("\n");
   }
 
   return fm.replace(/\n---\s*$/, `\nstyle: |\n${blockIndented}\n---`);
@@ -344,6 +394,40 @@ function upsertStyleAttribute(attrs: string, style: PresentationElementStyle) {
   const inline = styleToInlineAttribute(style);
   const withoutStyle = stripAttribute(attrs, "style");
   return inline ? `${withoutStyle} style="${inline}"` : withoutStyle;
+}
+
+function upsertSvgShapeClass(slideMarkdown: string, target: PresentationStyleTarget, className: string, style: PresentationElementStyle) {
+  const tag = target.tag.toLowerCase();
+  if (!SVG_SHAPE_TAGS.has(tag)) return slideMarkdown;
+  const text = target.text.trim();
+  const marker = text.match(/\bdata-apploop-shape=["']([^"']+)["']/i)?.[1];
+  const tagPattern = new RegExp(`<${tag}\\b[^>]*>`, "gi");
+  let replaced = false;
+  return slideMarkdown.replace(tagPattern, (match) => {
+    if (replaced) return match;
+    const candidateMarker = match.match(/\bdata-apploop-shape=["']([^"']+)["']/i)?.[1];
+    if (marker ? candidateMarker !== marker : normalizeSvgShapeIdentity(match) !== normalizeSvgShapeIdentity(text)) return match;
+    replaced = true;
+    const closing = /\/\s*>$/.test(match) ? " />" : ">";
+    const attrs = match.replace(new RegExp(`^<${tag}\\b`, "i"), "").replace(/\s*\/?>$/, "");
+    return `<${tag}${upsertStyleAttribute(upsertClassAttribute(attrs, className), style)}${closing}`;
+  });
+}
+
+function removeSvgShapeStyle(slideMarkdown: string, target: PresentationStyleTarget, className: string) {
+  const tag = target.tag.toLowerCase();
+  if (!SVG_SHAPE_TAGS.has(tag)) return slideMarkdown;
+  const tagPattern = new RegExp(`<${tag}\\b[^>]*>`, "gi");
+  return slideMarkdown.replace(tagPattern, (match) => {
+    if (!new RegExp(`\\b${escapeRegExp(className)}\\b`).test(match)) return match;
+    const closing = /\/\s*>$/.test(match) ? " />" : ">";
+    const attrs = match.replace(new RegExp(`^<${tag}\\b`, "i"), "").replace(/\s*\/?>$/, "");
+    const classMatch = attrs.match(/\sclass=(["'])(.*?)\1/i);
+    const quote = classMatch?.[1] ?? '"';
+    const classes = (classMatch?.[2] ?? "").split(/\s+/).filter((token) => token && token !== className);
+    const withoutClass = attrs.replace(/\sclass=(["'])(.*?)\1/i, classes.length ? ` class=${quote}${classes.join(" ")}${quote}` : "");
+    return `<${tag}${stripAttribute(withoutClass, "style")}${closing}`;
+  });
 }
 
 function removeManagedPillStyle(slideMarkdown: string, className: string) {
@@ -477,7 +561,7 @@ function collectReferencedClassNames(markdown: string) {
   return found;
 }
 
-const BLOCK_WRAP_TAGS = new Set(["table", "ul", "ol", "blockquote", "pre"]);
+const BLOCK_WRAP_TAGS = new Set(["table", "ul", "ol", "blockquote", "pre", "img", "hr"]);
 
 function stripExistingBlockWrapper(slideMarkdown: string, className: string) {
   return slideMarkdown.replace(
@@ -496,7 +580,9 @@ function wrapBlockInSlideMarkdown(
 ) {
   const withoutWrapper = stripExistingBlockWrapper(slideMarkdown, className);
   const lines = withoutWrapper.split("\n");
-  const range = findMarkdownBlockRange(lines, target.text, { groupLists: true });
+  const range = target.tag.toLowerCase() === "hr"
+    ? findDividerRange(lines, target.text)
+    : findMarkdownBlockRange(lines, target.text, { groupLists: true });
   if (!range) {
     return withoutWrapper;
   }
@@ -512,6 +598,26 @@ function wrapBlockInSlideMarkdown(
     "</div>",
     ...after,
   ].join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
+function findDividerRange(lines: string[], text: string) {
+  const trimmedText = text.trim();
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = (lines[index] ?? "").trim();
+    if (!line) continue;
+    if (/^<div\b[^>]*\bclass=["'][^"']*\bapploop-el-[a-z0-9_-]+\b[^"']*["'][^>]*>$/i.test(line)) {
+      let end = index + 1;
+      while (end < lines.length && !/^<\/div>$/i.test((lines[end] ?? "").trim())) end += 1;
+      if (end < lines.length) {
+        const block = lines.slice(index, end + 1).join("\n");
+        if (/<hr\b/i.test(block)) return { start: index, end: end + 1 };
+      }
+    }
+    if (line === trimmedText || /^<hr\b/i.test(line) || /^(?:-{3,}|\*{3,}|_{3,})$/.test(line)) {
+      return { start: index, end: index + 1 };
+    }
+  }
+  return null;
 }
 
 /**
@@ -538,6 +644,7 @@ export function applyPresentationElementStylesToMarkdown(
     const isBlockTarget = BLOCK_WRAP_TAGS.has(targetTag);
     const isHeadingTarget = HEADING_TAGS.has(targetTag);
     const isPillTarget = targetTag === "pill";
+    const isSvgShapeTarget = SVG_SHAPE_TAGS.has(targetTag);
     const incoming = PresentationElementStyleSchema.parse(target.style ?? {});
     // Merge onto any previously saved style for this stable class so partial updates
     // (drag-only, color-only) do not wipe earlier properties.
@@ -554,8 +661,10 @@ export function applyPresentationElementStylesToMarkdown(
     const hasStyles = styleToCssDeclarations(parsedStyle).length > 0;
 
     if (hasStyles) {
-      entryMap.set(className, { style: parsedStyle, tag: isBlockTarget ? targetTag : undefined });
-      nextSlides[slideIndex] = isBlockTarget
+      entryMap.set(className, { style: parsedStyle, tag: isBlockTarget || isSvgShapeTarget ? targetTag : undefined });
+      nextSlides[slideIndex] = isSvgShapeTarget
+        ? upsertSvgShapeClass(nextSlides[slideIndex] ?? "", target, className, parsedStyle)
+        : isBlockTarget
         ? wrapBlockInSlideMarkdown(nextSlides[slideIndex] ?? "", target, className)
         : isHeadingTarget
           ? wrapHeadingInSlideMarkdown(nextSlides[slideIndex] ?? "", target, className, parsedStyle)
@@ -564,7 +673,9 @@ export function applyPresentationElementStylesToMarkdown(
         : wrapTextInSlideMarkdown(nextSlides[slideIndex] ?? "", target, className, parsedStyle);
     } else {
       entryMap.delete(className);
-      nextSlides[slideIndex] = isBlockTarget
+      nextSlides[slideIndex] = isSvgShapeTarget
+        ? removeSvgShapeStyle(nextSlides[slideIndex] ?? "", target, className)
+        : isBlockTarget
         ? stripExistingBlockWrapper(nextSlides[slideIndex] ?? "", className)
         : isHeadingTarget
           ? stripExistingHeadingWrapper(nextSlides[slideIndex] ?? "", className)
@@ -598,6 +709,14 @@ export function mergeManagedStyleBlock(
 ) {
   const { frontMatter, slides } = splitMarpDocument(markdown);
   const cssBlock = stylesToCssBlock(keepEntries);
+  const nextFrontMatter = upsertFrontMatterStyleBlock(frontMatter, cssBlock);
+  return [nextFrontMatter, "", slides.join("\n\n---\n\n"), ""].join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+}
+
+export function repairManagedStyleBlock(markdown: string) {
+  if (!markdown.includes(STYLE_BLOCK_START)) return markdown;
+  const { frontMatter, slides } = splitMarpDocument(markdown);
+  const cssBlock = stylesToCssBlock(parseManagedStyleEntries(markdown));
   const nextFrontMatter = upsertFrontMatterStyleBlock(frontMatter, cssBlock);
   return [nextFrontMatter, "", slides.join("\n\n---\n\n"), ""].join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
 }

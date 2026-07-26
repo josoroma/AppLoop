@@ -4,6 +4,7 @@ import {
   applyPresentationElementStylesToMarkdown,
   buildElementClassName,
   parseManagedStyleEntries,
+  repairManagedStyleBlock,
   styleToCssRule,
   styleToInlineAttribute,
 } from "@/lib/presentations/inspect-styles";
@@ -133,6 +134,67 @@ describe("presentation inspect styles", () => {
     expect(result.markdown).toContain("table-layout: fixed !important;");
   });
 
+  it("persists image position and caps image width to the slide", () => {
+    const deck = `---\nmarp: true\n---\n\n# Image\n\n![Revenue chart](assets/revenue.png)\n`;
+    const target = {
+      slide: 1,
+      tag: "img",
+      text: "![Revenue chart](assets/revenue.png)",
+      path: "section > p > img",
+      style: { position: "absolute" as const, left: "12%", top: "24%", width: "640px", maxWidth: "100%" },
+    };
+
+    const result = applyPresentationElementStylesToMarkdown(deck, [target]);
+    const className = result.classNames[0]!;
+
+    expect(result.markdown).toContain(`<div class="${className}">`);
+    expect(result.markdown).toContain("![Revenue chart](assets/revenue.png)");
+    expect(result.markdown).toContain(`.${className} img {`);
+    expect(result.markdown).toContain("max-width: 100% !important;");
+    expect(result.markdown).toContain("position: absolute !important;");
+    expect(result.markdown).toContain("left: 12% !important;");
+    expect(result.markdown).toContain("top: 24% !important;");
+    expect(result.markdown).toContain("width: 640px !important;");
+    expect(result.markdown).toContain("height: auto !important;");
+    expect(parseManagedStyleEntries(result.markdown).find((entry) => entry.className === className)?.tag).toBe("img");
+  });
+
+  it("persists image styles when the selection is keyed by image source", () => {
+    const deck = `---\nmarp: true\n---\n\n# Image\n\n![Old alt](assets/revenue.png)\n`;
+    const result = applyPresentationElementStylesToMarkdown(deck, [
+      {
+        slide: 1,
+        tag: "img",
+        text: "assets/revenue.png",
+        path: "section > p > img",
+        style: { position: "absolute", left: "12%", top: "24%", opacity: "0.55" },
+      },
+    ]);
+    const className = result.classNames[0]!;
+
+    expect(result.markdown).toContain(`<div class="${className}">`);
+    expect(result.markdown).toContain("![Old alt](assets/revenue.png)");
+    expect(result.markdown).toContain(`.${className} img {`);
+    expect(result.markdown).toContain("opacity: 0.55 !important;");
+  });
+
+  it("persists layer order, visibility, and lock styles", () => {
+    const deck = `---\nmarp: true\n---\n\n# Title\n\nBody copy\n`;
+    const result = applyPresentationElementStylesToMarkdown(deck, [
+      {
+        slide: 1,
+        tag: "h1",
+        text: "# Title",
+        path: "section > h1",
+        style: { position: "relative", zIndex: "2", visibility: "hidden", pointerEvents: "none" },
+      },
+    ]);
+
+    expect(result.markdown).toContain("z-index: 2;");
+    expect(result.markdown).toContain("visibility: hidden;");
+    expect(result.markdown).toContain("pointer-events: none;");
+  });
+
   it("persists table padding without creating a border declaration", () => {
     const deck = `---\nmarp: true\n---\n\n# Metrics\n\n| Name | Value |\n| ---- | ----- |\n| A | 1 |\n| B | 2 |\n`;
     const target = {
@@ -172,6 +234,62 @@ describe("presentation inspect styles", () => {
     expect(markdown).toContain("- Second");
   });
 
+  it("persists divider styles on the inner hr element", () => {
+    const deck = `---\nmarp: true\n---\n\n# Plan\n\n<hr style="border: 0; height: 1px; background: rgba(255,255,255,0.65); width: 100%; margin: 24px 0;" />\n`;
+    const { markdown, classNames } = applyPresentationElementStylesToMarkdown(deck, [
+      {
+        slide: 1,
+        tag: "hr",
+        text: '<hr style="border: 0; height: 1px; background: rgba(255,255,255,0.65); width: 100%; margin: 24px 0;" />',
+        path: "section > hr",
+        style: { background: "#f8fafc", height: "3px", width: "420px", margin: "32px 0", border: "0" },
+      },
+    ]);
+    expect(markdown).toContain(`<div class="${classNames[0]}">`);
+    expect(markdown).toContain(`.${classNames[0]} > hr {`);
+    expect(markdown).toContain("background: #f8fafc !important;");
+    expect(markdown).toContain("height: 3px !important;");
+    expect(markdown).toContain("width: 420px !important;");
+    expect(parseManagedStyleEntries(markdown).find((entry) => entry.className === classNames[0])?.tag).toBe("hr");
+
+    const second = applyPresentationElementStylesToMarkdown(markdown, [
+      {
+        slide: 1,
+        tag: "hr",
+        text: '<hr style="border: 0; height: 1px; background: rgba(255,255,255,0.65); width: 100%; margin: 24px 0;" />',
+        path: `section > div.${classNames[0]} > hr`,
+        style: { background: "#f43f5e", height: "5px", border: "0" },
+      },
+    ]);
+    expect(second.markdown).toContain("<hr style=");
+    expect(second.markdown).toContain("background: #f43f5e !important;");
+    expect(second.markdown).toContain("height: 5px !important;");
+    expect(second.markdown.match(new RegExp(`<div class="${classNames[0]}">`, "g"))?.length).toBe(1);
+  });
+
+  it("persists SVG shape styles without wrapping the shape", () => {
+    const deck = `---\nmarp: true\n---\n\n<svg viewBox="0 0 100 100"><rect data-apploop-shape="card-a" x="0" y="0" width="100" height="100" /></svg>\n`;
+    const { markdown, classNames } = applyPresentationElementStylesToMarkdown(deck, [
+      {
+        slide: 1,
+        tag: "rect",
+        text: '<rect data-apploop-shape="card-a" x="0" y="0" width="100" height="100" />',
+        path: "section > svg > rect",
+        style: { fill: "#f7f7ff", fillOpacity: "0.35", stroke: "#0400ff", strokeLinecap: "round", strokeLinejoin: "bevel", strokeWidth: "3px", opacity: "0.7", transform: "translate(12px, -4px)" },
+      },
+    ]);
+    expect(markdown).toContain(`<rect data-apploop-shape="card-a" x="0" y="0" width="100" height="100" class="${classNames[0]}" style="`);
+    expect(markdown).toContain(`.${classNames[0]} {`);
+    expect(markdown).toContain("fill: #f7f7ff !important;");
+    expect(markdown).toContain("fill-opacity: 0.35 !important;");
+    expect(markdown).toContain("stroke: #0400ff !important;");
+    expect(markdown).toContain("stroke-linecap: round !important;");
+    expect(markdown).toContain("stroke-linejoin: bevel !important;");
+    expect(markdown).toContain("stroke-width: 3px !important;");
+    expect(markdown).toContain("transform: translate(12px, -4px) !important;");
+    expect(markdown).not.toContain(`<div class="${classNames[0]}">`);
+  });
+
   it("persists headings as heading elements with class + inline style", () => {
     const className = buildElementClassName({
       slide: 1,
@@ -192,6 +310,9 @@ describe("presentation inspect styles", () => {
           left: "50%",
           top: "20%",
           transform: "translate(-50%, 0)",
+          width: "640px",
+          height: "92px",
+          boxSizing: "border-box",
         },
       },
     ]);
@@ -202,10 +323,29 @@ describe("presentation inspect styles", () => {
     expect(markdown).toContain("left: 50%;");
     expect(markdown).toContain("top: 20%;");
     expect(markdown).toContain("position: absolute;");
+    expect(markdown).toContain("width: 640px;");
+    expect(markdown).toContain("height: 92px;");
+    expect(markdown).toContain("box-sizing: border-box;");
     expect(markdown).toContain("@apploop-inspect-styles");
     expect(markdown).toContain(`<h1 class="${className}" style="`);
     expect(markdown).not.toContain(`# <span class="${className}"`);
     expect(markdown).toContain("## Next");
+  });
+
+  it("does not persist invalid numeric CSS values", () => {
+    const { markdown } = applyPresentationElementStylesToMarkdown(SAMPLE, [
+      {
+        slide: 1,
+        tag: "h1",
+        text: "Provoke curiosity.",
+        path: "section > h1",
+        style: { width: "640px", height: "NaNpx", left: "12%" },
+      },
+    ]);
+
+    expect(markdown).toContain("width: 640px;");
+    expect(markdown).toContain("left: 12%;");
+    expect(markdown).not.toContain("NaNpx");
   });
 
   it("keeps gradient heading movement visible after reload", () => {
@@ -344,6 +484,32 @@ describe("presentation inspect styles", () => {
     expect(flatWhite.markdown).toContain("color: #ffffff;");
     expect(flatWhite.markdown).not.toContain("background-image: linear-gradient");
     expect(flatWhite.markdown).not.toContain("-webkit-text-fill-color: transparent;");
+  });
+
+  it("keeps managed CSS inside the style block when gradient preset metadata follows it", () => {
+    const deck = `---\nmarp: true\nstyle: |\n  section {\n    background: #000000;\n    color: #ffffff;\n  }\napploopGradientPresets: '[{"id":"emerald","label":"Emerald","from":"#34d399","to":"#38bdf8","angle":135}]'\n---\n\n# Title\n`;
+    const { markdown, classNames } = applyPresentationElementStylesToMarkdown(deck, [
+      { slide: 1, tag: "h1", text: "Title", path: "section > h1", style: { color: "#34d399" } },
+    ]);
+    const styleStart = markdown.indexOf("style: |");
+    const managedStart = markdown.indexOf("/* @apploop-inspect-styles */");
+    const presetKey = markdown.indexOf("apploopGradientPresets:");
+    expect(styleStart).toBeGreaterThanOrEqual(0);
+    expect(managedStart).toBeGreaterThan(styleStart);
+    expect(managedStart).toBeLessThan(presetKey);
+    expect(markdown).toContain("section {\n    background: #000000;");
+    expect(markdown).toContain(`.${classNames[0]} {`);
+  });
+
+  it("repairs existing managed CSS that was appended after gradient preset metadata", () => {
+    const broken = `---\nmarp: true\nstyle: |\n  section {\n    background: #000000;\n    color: #ffffff;\n  }\napploopGradientPresets: '[{"id":"emerald","label":"Emerald","from":"#34d399","to":"#38bdf8","angle":135}]'\n  /* @apploop-inspect-styles */\n    /* position context for dragged/absolute inspect nodes */\n    section {\n      position: relative;\n    }\n    .apploop-el-1234567890 {\n      color: #34d399;\n    }\n    /* @apploop-inspect-styles-end */\n---\n\n<span class="apploop-el-1234567890">Title</span>\n`;
+    const repaired = repairManagedStyleBlock(broken);
+    const managedStart = repaired.indexOf("/* @apploop-inspect-styles */");
+    const presetKey = repaired.indexOf("apploopGradientPresets:");
+    expect(managedStart).toBeGreaterThan(repaired.indexOf("style: |"));
+    expect(managedStart).toBeLessThan(presetKey);
+    expect(repaired).toContain("section {\n    background: #000000;");
+    expect(repaired).toContain(".apploop-el-1234567890 {");
   });
 
   it("keeps drag position across re-apply with different tag/path", () => {

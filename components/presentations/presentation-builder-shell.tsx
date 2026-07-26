@@ -7,26 +7,39 @@ import {
   AlignCenter,
   AlignLeft,
   AlignRight,
+  ArrowRight,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronsDown,
+  ChevronsUp,
   Copy,
   Download,
   Eye,
+  EyeOff,
+  GripVertical,
   House,
+  ImagePlus,
   ListChecks,
   ListOrdered,
   LoaderCircle,
+  Lock,
   MessageSquare,
   PanelLeftClose,
+  PenLine,
+  Plus,
   Presentation,
   Redo2,
   RefreshCw,
   Save,
   SendHorizontal,
+  Shapes,
   Sparkles,
   Trash2,
   Type,
   Undo2,
+  Unlock,
   Upload,
   X,
 } from "lucide-react";
@@ -51,6 +64,7 @@ import {
   linkDialogPlugin,
   codeBlockPlugin,
   codeMirrorPlugin,
+  imagePlugin,
   tablePlugin,
   markdownShortcutPlugin,
 } from "@mdxeditor/editor";
@@ -60,15 +74,18 @@ import "@mdxeditor/editor/style.css";
 import { Button } from "@/components/ui/button";
 import type { BuilderChatMessage } from "@/lib/chat/messages";
 import { getMessageText } from "@/lib/chat/messages";
-import { applyPresentationInspectStylesAction, convertPresentationElementToListAction, deletePresentationElementAction, replacePresentationElementTextAction, savePresentationMarkdownAction } from "@/lib/presentations/actions";
+import { applyPresentationInspectStylesAction, convertPresentationElementToListAction, deletePresentationElementAction, listPresentationImagesAction, replacePresentationElementTextAction, savePresentationMarkdownAction, uploadPresentationImageAction } from "@/lib/presentations/actions";
 import {
   splitMarpDocument,
   cloneMarpSlide,
   deleteMarpSlide,
+  readPresentationGradientPresets,
   getMarpSlideBody,
+  insertBlankMarpSlide,
   replaceMarpSlideBody,
   countMarpSlides,
   reorderMarpSlide,
+  upsertPresentationGradientPresets,
 } from "@/lib/presentations/marp-utils";
 
 // ---------------------------------------------------------------------------
@@ -79,6 +96,7 @@ const chatTransport = new DefaultChatTransport<BuilderChatMessage>({ api: "/api/
 
 type SlideSummary = { index: number; title: string; preview: string };
 type PresentationSelectionTarget = {
+  alt?: string;
   id: string;
   slide: number;
   totalSlides?: number;
@@ -87,17 +105,29 @@ type PresentationSelectionTarget = {
   path: string;
   style: Record<string, string | undefined>;
 };
+type PresentationLayerItem = PresentationSelectionTarget & {
+  domIndex?: number;
+  hidden?: boolean;
+  label?: string;
+  layerIndex?: number;
+  locked?: boolean;
+  zIndex?: number;
+};
 type SlideStyleSnapshot = { backgrounds: string[]; textColors: string[]; overrideSlides: number[] };
+type PresentationImageAsset = { name: string; path: string; alt: string; contentType: string };
 type SlideHistoryEntry =
   | { kind: "markdown"; before: string; after: string }
   | { kind: "slide-style"; before: SlideStyleSnapshot; after: SlideStyleSnapshot };
 type SlideHistory = Record<number, { undo: SlideHistoryEntry[]; redo: SlideHistoryEntry[] }>;
-type MarpInsertKind = "heading" | "paragraph" | "bullets" | "numbered" | "checklist" | "quote" | "code" | "table" | "callout" | "columns" | "divider";
+type ShapeInsertKind = "shape-rounded-rect" | "shape-rounded-square" | "shape-circle" | "shape-rounded-triangle" | "shape-diamond" | "shape-pill" | "shape-hexagon" | "shape-star" | "shape-line";
+type IconInsertKind = "icon-arrow-right" | "icon-arrow-left" | "icon-arrow-up" | "icon-arrow-down" | "icon-arrow-bend" | "icon-check" | "icon-x" | "icon-plus" | "icon-spark";
+type MarpInsertKind = "heading" | "paragraph" | "bullets" | "numbered" | "checklist" | "quote" | "code" | "table" | "pills" | "callout" | "columns" | "divider" | ShapeInsertKind | IconInsertKind;
 type BuilderProps = {
   presentationId: string;
   presentationName: string;
   sourceFile: string;
   initialActiveSlide?: number;
+  initialImageAssets: PresentationImageAsset[];
   initialSlideCount: number;
   initialSlides: SlideSummary[];
   initialMarkdown: string;
@@ -166,12 +196,6 @@ function summarizeSlidesFromMarkdown(markdown: string): SlideSummary[] {
     };
   });
 }
-const GRADIENT_PRESETS = [
-  { id: "emerald-sky", label: "Emerald sky", from: "#34d399", to: "#38bdf8", angle: 135 },
-  { id: "amber-rose", label: "Amber rose", from: "#f59e0b", to: "#f43f5e", angle: 135 },
-  { id: "violet-cyan", label: "Violet cyan", from: "#a78bfa", to: "#22d3ee", angle: 135 },
-  { id: "ink-silver", label: "Ink silver", from: "#f8fafc", to: "#94a3b8", angle: 180 },
-] as const;
 const TEXT_STYLE_PRESETS = [
   { id: "headline", label: "Headline", style: { display: "block", width: "100%", fontSize: "76px", fontWeight: "800", lineHeight: "0.95", letterSpacing: "0px" } },
   { id: "subtitle", label: "Subtitle", style: { display: "block", width: "100%", fontSize: "42px", fontWeight: "700", lineHeight: "1.05", letterSpacing: "0px" } },
@@ -189,10 +213,43 @@ const MARP_INSERTS: Array<{ id: MarpInsertKind; label: string }> = [
   { id: "quote", label: "Quote" },
   { id: "code", label: "Code block" },
   { id: "table", label: "Table" },
+  { id: "pills", label: "Pill block" },
   { id: "callout", label: "Callout" },
   { id: "columns", label: "Two columns" },
   { id: "divider", label: "Divider" },
 ];
+
+const SHAPE_INSERTS: Array<{ id: ShapeInsertKind; label: string }> = [
+  { id: "shape-rounded-rect", label: "Rounded rectangle" },
+  { id: "shape-rounded-square", label: "Rounded square" },
+  { id: "shape-circle", label: "Circle" },
+  { id: "shape-rounded-triangle", label: "Rounded triangle" },
+  { id: "shape-diamond", label: "Diamond" },
+  { id: "shape-pill", label: "Pill" },
+  { id: "shape-hexagon", label: "Hexagon" },
+  { id: "shape-star", label: "Star" },
+  { id: "shape-line", label: "Line" },
+];
+
+const ICON_INSERTS: Array<{ id: IconInsertKind; label: string }> = [
+  { id: "icon-arrow-right", label: "Arrow right" },
+  { id: "icon-arrow-left", label: "Arrow left" },
+  { id: "icon-arrow-up", label: "Arrow up" },
+  { id: "icon-arrow-down", label: "Arrow down" },
+  { id: "icon-arrow-bend", label: "Bend arrow" },
+  { id: "icon-check", label: "Check" },
+  { id: "icon-x", label: "X" },
+  { id: "icon-plus", label: "Plus" },
+  { id: "icon-spark", label: "Spark" },
+];
+
+function svgMarker(kind: MarpInsertKind) {
+  return `${kind}-${Date.now().toString(36)}`;
+}
+
+function svgBox(inner: string, width = 220, height = 140) {
+  return `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-label="Editable SVG element">${inner}</svg>`;
+}
 
 function PresentationSlideThumbnail({ bg, eager, src, textColor, title }: { bg: string; eager: boolean; src: string; textColor: string; title: string }) {
   const [shouldLoad, setShouldLoad] = useState(false);
@@ -230,6 +287,39 @@ function PresentationSlideThumbnail({ bg, eager, src, textColor, title }: { bg: 
 function deckFileName(name: string) {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
   return `${slug || "presentation"}.md`;
+}
+
+function presentationAssetSrc(presentationId: string, assetPath: string) {
+  const safePath = assetPath.split("/").map((part) => encodeURIComponent(part)).join("/");
+  return `/presentations/${encodeURIComponent(presentationId)}/${safePath}`;
+}
+
+function cleanMarkdownImageAlt(value: string) {
+  return value.replace(/[\]\n\r]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function updateImageAltInSlideMarkdown(slideMarkdown: string, imageSrc: string, alt: string) {
+  const safeAlt = cleanMarkdownImageAlt(alt);
+  const lines = slideMarkdown.split("\n");
+  let changed = false;
+  const nextLines = lines.map((line) => {
+    if (changed || !line.includes(imageSrc)) return line;
+    const markdownMatch = line.match(/^(\s*)!\[[^\]]*\]\(([^)]+)\)(\s*)$/);
+    if (markdownMatch && markdownMatch[2]?.startsWith(imageSrc)) {
+      changed = true;
+      return `${markdownMatch[1] ?? ""}![${safeAlt}](${markdownMatch[2]})${markdownMatch[3] ?? ""}`;
+    }
+    const htmlMatch = line.match(/<img\b[^>]*\bsrc=["'][^"']+["'][^>]*>/i);
+    if (!htmlMatch) return line;
+    changed = true;
+    const imageTag = htmlMatch[0];
+    const safeAttribute = safeAlt.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    const nextTag = /\balt=["'][^"']*["']/i.test(imageTag)
+      ? imageTag.replace(/\balt=["'][^"']*["']/i, `alt="${safeAttribute}"`)
+      : imageTag.replace(/\s*\/?>$/, ` alt="${safeAttribute}"$&`);
+    return line.replace(imageTag, nextTag);
+  });
+  return { changed, markdown: nextLines.join("\n") };
 }
 
 function getSlideValue(values: string[], slide: number, fallback: string) {
@@ -296,12 +386,50 @@ function buildMarpInsertBlock(kind: MarpInsertKind) {
       return "```ts\nconst message = \"Make it clear.\";\n```";
     case "table":
       return "| Metric | Status | Owner |\n| --- | --- | --- |\n| Adoption | On track | Team |\n| Risk | Watch | Team |";
+    case "pills":
+      return "<p class=\"apploop-pill-block\">\n<span class=\"pill pill-emerald\">Rules</span>\n<span class=\"pill pill-sky\">Skills</span>\n<span class=\"pill pill-amber\">Agents</span>\n<span class=\"pill pill-rose\">Hooks</span>\n</p>";
     case "callout":
       return "<div class=\"pill\">Important note</div>";
     case "columns":
       return "<div class=\"columns\">\n<div>\n\n### Left\n\n- First point\n- Second point\n\n</div>\n<div>\n\n### Right\n\n- First point\n- Second point\n\n</div>\n</div>";
     case "divider":
-      return "***";
+      return "<hr style=\"border: 0; height: 1px; background: rgba(255,255,255,0.65); width: 100%; margin: 24px 0;\" />";
+    case "shape-rounded-rect":
+      return svgBox(`<rect data-apploop-shape="${svgMarker(kind)}" x="4" y="4" width="212" height="132" rx="18" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-width="3" />`);
+    case "shape-rounded-square":
+      return svgBox(`<rect data-apploop-shape="${svgMarker(kind)}" x="22" y="2" width="136" height="136" rx="18" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-width="3" />`, 180, 140);
+    case "shape-circle":
+      return svgBox(`<circle data-apploop-shape="${svgMarker(kind)}" cx="90" cy="70" r="62" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-width="3" />`, 180, 140);
+    case "shape-rounded-triangle":
+      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M110 8 Q118 8 123 16 L207 124 Q213 134 200 134 H20 Q7 134 13 124 L97 16 Q102 8 110 8 Z" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-width="3" stroke-linejoin="round" />`);
+    case "shape-diamond":
+      return svgBox(`<polygon data-apploop-shape="${svgMarker(kind)}" points="110,4 216,70 110,136 4,70" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-width="3" stroke-linejoin="round" />`);
+    case "shape-pill":
+      return svgBox(`<rect data-apploop-shape="${svgMarker(kind)}" x="5" y="35" width="210" height="70" rx="35" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-width="3" />`);
+    case "shape-hexagon":
+      return svgBox(`<polygon data-apploop-shape="${svgMarker(kind)}" points="58,6 162,6 216,70 162,134 58,134 4,70" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-width="3" stroke-linejoin="round" />`);
+    case "shape-star":
+      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M110 7 L135 51 L186 61 L151 99 L157 150 L110 128 L63 150 L69 99 L34 61 L85 51 Z" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-width="3" stroke-linejoin="round" />`, 220, 156);
+    case "shape-line":
+      return svgBox(`<line data-apploop-shape="${svgMarker(kind)}" x1="8" y1="70" x2="212" y2="70" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />`, 220, 140);
+    case "icon-arrow-right":
+      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M16 70 H192 M154 32 L192 70 L154 108" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />`, 220, 140);
+    case "icon-arrow-left":
+      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M204 70 H28 M66 32 L28 70 L66 108" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />`, 220, 140);
+    case "icon-arrow-up":
+      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M90 126 V18 M52 56 L90 18 L128 56" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />`, 180, 140);
+    case "icon-arrow-down":
+      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M90 14 V122 M52 84 L90 122 L128 84" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />`, 180, 140);
+    case "icon-arrow-bend":
+      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M34 108 V66 Q34 34 66 34 H184 M150 6 L184 34 L150 62" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />`, 220, 140);
+    case "icon-check":
+      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M32 76 L78 118 L158 24" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />`, 180, 140);
+    case "icon-x":
+      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M42 34 L138 106 M138 34 L42 106" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" />`, 180, 140);
+    case "icon-plus":
+      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M90 28 V112 M48 70 H132" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" />`, 180, 140);
+    case "icon-spark":
+      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M90 10 L107 54 L154 70 L107 86 L90 130 L73 86 L26 70 L73 54 Z" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" />`, 180, 140);
   }
 }
 
@@ -530,7 +658,7 @@ function composeChatPrompt(raw: string, activeSlide: number, totalSlides: number
 // Component
 // ---------------------------------------------------------------------------
 
-export function PresentationBuilderShell({ presentationId, presentationName, sourceFile, initialActiveSlide = 1, initialSlideCount, initialSlides = [], initialMarkdown = "", initialMessages }: BuilderProps) {
+export function PresentationBuilderShell({ presentationId, presentationName, sourceFile, initialActiveSlide = 1, initialImageAssets = [], initialSlideCount, initialSlides = [], initialMarkdown = "", initialMessages }: BuilderProps) {
   const initialSlideStyles = useMemo(() => {
     if (!initialMarkdown) return { backgrounds: [DEFAULT_SLIDE_BG], textColors: [DEFAULT_SLIDE_TEXT], overrideSlides: [] };
     const parts = splitMarpDocument(initialMarkdown);
@@ -555,7 +683,10 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const [elementEditEnabled, setElementEditEnabled] = useState(true);
   const [elementEditModeSaving, setElementEditModeSaving] = useState(false);
   const [selectedTargets, setSelectedTargets] = useState<PresentationSelectionTarget[]>([]);
+  const [layerTargets, setLayerTargets] = useState<PresentationLayerItem[]>([]);
   const [activeTargetId, setActiveTargetId] = useState<string | null>(null);
+  const [activeToolbarGroup, setActiveToolbarGroup] = useState<"images" | "alignment" | "lists" | "shapes" | "icons" | null>(null);
+  const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
   const [slideHistory, setSlideHistory] = useState<SlideHistory>({});
   const [gradientFrom, setGradientFrom] = useState("#34d399");
   const [gradientTo, setGradientTo] = useState("#38bdf8");
@@ -564,6 +695,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const [dropSlide, setDropSlide] = useState<number | null>(null);
   const [iframeDragActive, setIframeDragActive] = useState(false);
   const [thumbKey, setThumbKey] = useState(0);
+  const [imageAssets, setImageAssets] = useState<PresentationImageAsset[]>(initialImageAssets);
   const editorMarkdownRef = useRef("");
   const slideStyleRef = useRef<SlideStyleSnapshot>(slideStyleSnapshot(initialSlideStyles.backgrounds, initialSlideStyles.textColors, initialSlideStyles.overrideSlides));
 
@@ -574,6 +706,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const currentSlideFrameRef = useRef<HTMLIFrameElement | null>(null);
   const fullMarkdownRef = useRef("");
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const imageFileInputRef = useRef<HTMLInputElement | null>(null);
   const selectAllPendingRef = useRef(false);
   const inspectFlushResolversRef = useRef<Map<string, () => void>>(new Map());
   const styleSaveTimerRef = useRef<number | null>(null);
@@ -582,6 +715,12 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
 
   useEffect(() => { fullMarkdownRef.current = fullMarkdown; }, [fullMarkdown]);
   const chat = useChat({ id: presentationId, messages: initialMessages, transport: chatTransport });
+
+  const loadImageAssets = useCallback(async () => {
+    try {
+      setImageAssets(await listPresentationImagesAction(presentationId));
+    } catch { /* noop */ }
+  }, [presentationId]);
 
   const syncSlideQuery = useCallback((slide: number) => {
     replaceSlideQuery(slide);
@@ -641,23 +780,46 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
 
   const useMarpCanvas = useMemo(() => (fullMarkdown ? deckUsesMarpCanvas(fullMarkdown) : false), [fullMarkdown]);
   const activeTarget = useMemo(() => selectedTargets.find((target) => target.id === activeTargetId) ?? selectedTargets.at(-1) ?? null, [activeTargetId, selectedTargets]);
+  const activeLayerIndex = activeTarget ? layerTargets.findIndex((target) => target.id === activeTarget.id) : -1;
+  const activeLayerCanMoveBack = activeLayerIndex > 0;
+  const activeLayerCanMoveForward = activeLayerIndex >= 0 && activeLayerIndex < layerTargets.length - 1;
+  const layerPanelTargets = useMemo(() => [...layerTargets].reverse(), [layerTargets]);
   const activeHistory = slideHistory[activeSlide] ?? { undo: [], redo: [] };
   const activeTargetFontSize = Math.round(parsePxValue(activeTarget?.style.fontSize, 64));
   const activeTargetLineHeight = Number.parseFloat(activeTarget?.style.lineHeight ?? "") || 1.2;
   const activeTargetLetterSpacing = parsePxValue(activeTarget?.style.letterSpacing, 0);
   const activeTargetColor = safeHexColor(activeTarget?.style.color, "#ffffff");
   const activeTargetKind = activeTarget?.tag.toLowerCase() ?? "";
+  const activeTargetIsImage = activeTargetKind === "img";
   const activeTargetIsTable = activeTargetKind === "table";
   const activeTargetIsList = activeTargetKind === "ul" || activeTargetKind === "ol";
+  const activeTargetIsDivider = activeTargetKind === "hr";
+  const activeTargetIsShape = ["rect", "circle", "ellipse", "line", "path", "polygon", "polyline"].includes(activeTargetKind);
   const activeTargetIsPill = activeTargetKind === "pill";
-  const activeTargetUsesTextToolbar = activeTarget ? !activeTargetIsTable && !activeTargetIsList : false;
+  const activeTargetUsesTextToolbar = activeTarget ? !activeTargetIsImage && !activeTargetIsTable && !activeTargetIsList && !activeTargetIsDivider && !activeTargetIsShape : false;
+  const canConvertActiveTargetToList = Boolean(activeTarget && !activeTargetIsImage && !activeTargetIsTable && !activeTargetIsDivider && !activeTargetIsShape);
   const activeTargetPadding = Math.round(parsePxValue(activeTarget?.style.padding, 0));
   const activeTargetMargin = Math.round(parsePxValue(activeTarget?.style.margin, 0));
   const activeTargetBorderWidth = Math.round(parsePxValue(activeTarget?.style.border, 1));
   const activeTargetBorderColor = safeHexColor(activeTarget?.style.border?.match(/#[0-9a-fA-F]{6}/)?.[0], "#94a3b8");
   const activeTargetBorderRadius = Math.round(parsePxValue(activeTarget?.style.borderRadius, 0));
   const activeTargetFillColor = safeHexColor(activeTarget?.style.background?.match(/#[0-9a-fA-F]{6}/)?.[0], "#111827");
+  const activeTargetShapeFillColor = safeHexColor(activeTarget?.style.fill, "#ffffff");
+  const activeTargetShapeStrokeColor = safeHexColor(activeTarget?.style.stroke, "#ffffff");
+  const activeTargetShapeStrokeWidth = Math.round(parsePxValue(activeTarget?.style.strokeWidth, 1));
+  const activeTargetShapeFillOpacity = Math.round(Math.min(1, Math.max(0, Number.parseFloat(activeTarget?.style.fillOpacity ?? "1") || 0)) * 100);
+  const activeTargetShapeStrokeLinecap = activeTarget?.style.strokeLinecap ?? "round";
+  const activeTargetShapeStrokeLinejoin = activeTarget?.style.strokeLinejoin ?? "round";
+  const activeTargetDividerColor = safeHexColor(activeTarget?.style.background?.match(/#[0-9a-fA-F]{6}/)?.[0], "#ffffff");
+  const activeTargetDividerThickness = Math.round(parsePxValue(activeTarget?.style.height, 1));
+  const activeTargetDividerWidth = Math.round(parsePxValue(activeTarget?.style.width, 100));
   const activeTargetListIndent = Math.round(parsePxValue(activeTarget?.style.paddingLeft, activeTargetKind === "ol" ? 36 : 28));
+  const activeTargetImageAlt = activeTarget?.alt ?? "";
+  const activeTargetImageWidth = Math.round(parsePxValue(activeTarget?.style.width, 480));
+  const activeTargetImageHeight = Math.round(parsePxValue(activeTarget?.style.height, 270));
+  const activeTargetOpacityValue = Number.parseFloat(activeTarget?.style.opacity ?? "1");
+  const activeTargetOpacity = Math.round((Number.isFinite(activeTargetOpacityValue) ? activeTargetOpacityValue : 1) * 100);
+  const gradientPresets = useMemo(() => readPresentationGradientPresets(fullMarkdown), [fullMarkdown]);
 
   const activeBackground = getSlideValue(slideBackgrounds, activeSlide, DEFAULT_SLIDE_BG);
   const activeTextColor = getSlideValue(slideTextColors, activeSlide, DEFAULT_SLIDE_TEXT);
@@ -806,6 +968,83 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     void loadSlides();
   }, [activeSlide, loadSlides, presentationId, preserveSlideQueryAfterMutation, recordSlideHistory]);
 
+  const normalizeLayerOrder = useCallback((orderedTargets: PresentationLayerItem[]) => orderedTargets.map((target, index) => {
+    const currentPosition = target.style.position;
+    const nextStyle = {
+      ...target.style,
+      position: currentPosition && currentPosition !== "static" ? currentPosition : "relative",
+      zIndex: String(index + 1),
+    };
+    return { ...target, slide: activeSlide, totalSlides, layerIndex: index, zIndex: index + 1, style: nextStyle };
+  }), [activeSlide, totalSlides]);
+
+  const applyLayerTargets = useCallback(async (targets: PresentationLayerItem[], successMessage: string) => {
+    if (targets.length === 0) return;
+    setLayerTargets((current) => current.map((item) => targets.find((target) => target.id === item.id) ?? item));
+    setSelectedTargets((current) => current.map((item) => targets.find((target) => target.id === item.id) ?? item));
+    currentSlideFrameRef.current?.contentWindow?.postMessage({ type: "apploop-presentation-apply-all-styles", targets }, "*");
+    await applyInspectTargets(targets, successMessage, { refreshPreview: false });
+  }, [applyInspectTargets]);
+
+  const applyLayerOrder = useCallback(async (orderedTargets: PresentationLayerItem[], successMessage: string) => {
+    const normalized = normalizeLayerOrder(orderedTargets);
+    setLayerTargets(normalized);
+    setSelectedTargets((current) => current.map((item) => normalized.find((target) => target.id === item.id) ?? item));
+    currentSlideFrameRef.current?.contentWindow?.postMessage({ type: "apploop-presentation-apply-all-styles", targets: normalized }, "*");
+    await applyInspectTargets(normalized, successMessage, { refreshPreview: false });
+  }, [applyInspectTargets, normalizeLayerOrder]);
+
+  const moveActiveLayer = useCallback((direction: "front" | "forward" | "backward" | "back") => {
+    if (!activeTarget || activeLayerIndex < 0) return;
+    const next = [...layerTargets];
+    const [target] = next.splice(activeLayerIndex, 1);
+    if (!target) return;
+    const insertIndex = direction === "front"
+      ? next.length
+      : direction === "forward"
+        ? Math.min(activeLayerIndex + 1, next.length)
+        : direction === "backward"
+          ? Math.max(activeLayerIndex - 1, 0)
+          : 0;
+    next.splice(insertIndex, 0, target);
+    const message = direction === "front"
+      ? "Element brought to front."
+      : direction === "forward"
+        ? "Element brought forward."
+        : direction === "backward"
+          ? "Element sent backward."
+          : "Element sent to back.";
+    void applyLayerOrder(next, message);
+  }, [activeLayerIndex, activeTarget, applyLayerOrder, layerTargets]);
+
+  const selectLayerTarget = useCallback((target: PresentationLayerItem) => {
+    setSelectedTargets([target]);
+    setActiveTargetId(target.id);
+    currentSlideFrameRef.current?.contentWindow?.postMessage({ type: "apploop-presentation-set-selections", targets: [target], activeId: target.id }, "*");
+  }, []);
+
+  const patchLayerTarget = useCallback((target: PresentationLayerItem, style: Record<string, string | undefined>, successMessage: string) => {
+    const nextTarget = {
+      ...target,
+      hidden: style.visibility === "hidden" ? true : style.visibility === "visible" ? false : target.hidden,
+      locked: style.pointerEvents === "none" ? true : style.pointerEvents === "auto" ? false : target.locked,
+      style: { ...target.style, ...style },
+    };
+    void applyLayerTargets([nextTarget], successMessage);
+  }, [applyLayerTargets]);
+
+  const reorderLayerFromPanel = useCallback((fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    const topFirst = [...layerTargets].reverse();
+    const fromIndex = topFirst.findIndex((target) => target.id === fromId);
+    const toIndex = topFirst.findIndex((target) => target.id === toId);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const [target] = topFirst.splice(fromIndex, 1);
+    if (!target) return;
+    topFirst.splice(toIndex, 0, target);
+    void applyLayerOrder(topFirst.reverse(), "Layer order saved.");
+  }, [applyLayerOrder, layerTargets]);
+
   const resolveInspectFlush = useCallback((requestId: string | null) => {
     if (!requestId) return;
     const resolver = inspectFlushResolversRef.current.get(requestId);
@@ -880,6 +1119,30 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     void patchActiveTarget(style, message);
   }, [patchActiveTarget]);
 
+  const saveActiveImageAlt = useCallback(async (alt: string) => {
+    if (!activeTarget || activeTarget.tag.toLowerCase() !== "img") return;
+    const before = fullMarkdownRef.current || fullMarkdown;
+    if (!before) return;
+    const { slides } = splitMarpDocument(before);
+    const slideIndex = Math.min(Math.max(activeSlide, 1), slides.length) - 1;
+    const currentSlide = slides[slideIndex] ?? "";
+    const updated = updateImageAltInSlideMarkdown(currentSlide, activeTarget.text, alt);
+    if (!updated.changed || updated.markdown === currentSlide) return;
+    const nextMarkdown = replaceMarpSlideBody(before, activeSlide, updated.markdown);
+    const form = new FormData();
+    form.set("presentationId", presentationId);
+    form.set("markdown", nextMarkdown);
+    setStatus("Saving image alt text...");
+    await savePresentationMarkdownAction(form);
+    recordSlideHistory(activeSlide, before, nextMarkdown);
+    setFullMarkdown(nextMarkdown);
+    setSelectedTargets([]);
+    setActiveTargetId(null);
+    setPreviewKey((value) => value + 1);
+    setStatus("Image alt text saved.");
+    void loadSlides();
+  }, [activeSlide, activeTarget, fullMarkdown, loadSlides, presentationId, recordSlideHistory]);
+
   const applyFlatTextColor = useCallback((color: string) => {
     patchSelectedTextStyle({
       color,
@@ -901,10 +1164,10 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     void patchActiveTarget(preset.style, `${preset.label} text style applied.`);
   }, [patchActiveTarget]);
 
-  const convertActiveTargetToList = useCallback((kind: "ordered" | "checklist") => {
+  const convertActiveTargetToList = useCallback((kind: "ordered" | "unordered") => {
     if (!activeTarget) return;
     void (async () => {
-      setStatus(kind === "checklist" ? "Converting to checklist..." : "Converting to ordered list...");
+      setStatus(kind === "unordered" ? "Converting to bulleted list..." : "Converting to numbered list...");
       const result = await convertPresentationElementToListAction({
         presentationId,
         slide: activeSlide,
@@ -921,15 +1184,14 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
       setSelectedTargets([]);
       setActiveTargetId(null);
       setPreviewKey((value) => value + 1);
-      setStatus(kind === "checklist" ? "Converted to checklist." : "Converted to ordered list.");
+      setStatus(kind === "unordered" ? "Converted to bulleted list." : "Converted to numbered list.");
       void loadSlides();
     })();
   }, [activeSlide, activeTarget, loadSlides, presentationId, recordSlideHistory]);
 
-  const insertMarpBlock = useCallback(async (kind: MarpInsertKind) => {
+  const insertMarpMarkdownBlock = useCallback(async (block: string, insertingMessage = "Inserting slide block...", insertedMessage = "Slide block inserted.") => {
     const before = fullMarkdownRef.current || fullMarkdown;
     if (!before) return;
-    const block = buildMarpInsertBlock(kind);
     const { slides: currentSlides } = splitMarpDocument(before);
     const index = Math.min(Math.max(activeSlide, 1), currentSlides.length) - 1;
     const currentSlide = currentSlides[index] ?? "";
@@ -938,16 +1200,39 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     const form = new FormData();
     form.set("presentationId", presentationId);
     form.set("markdown", nextMarkdown);
-    setStatus("Inserting slide block...");
+    setStatus(insertingMessage);
     await savePresentationMarkdownAction(form);
     recordSlideHistory(activeSlide, before, nextMarkdown);
     setFullMarkdown(nextMarkdown);
     setSelectedTargets([]);
     setActiveTargetId(null);
     setPreviewKey((value) => value + 1);
-    setStatus("Slide block inserted.");
+    setStatus(insertedMessage);
     void loadSlides();
   }, [activeSlide, fullMarkdown, loadSlides, presentationId, recordSlideHistory]);
+
+  const insertMarpBlock = useCallback(async (kind: MarpInsertKind) => {
+    await insertMarpMarkdownBlock(buildMarpInsertBlock(kind));
+  }, [insertMarpMarkdownBlock]);
+
+  const insertSlideImage = useCallback(async (asset: Pick<PresentationImageAsset, "alt" | "path">) => {
+    await insertMarpMarkdownBlock(`![${asset.alt}](${asset.path})`, "Inserting image...", "Image inserted.");
+  }, [insertMarpMarkdownBlock]);
+
+  const uploadSlideImage = useCallback(async (file: File | null) => {
+    if (!file) return;
+    const form = new FormData();
+    form.set("presentationId", presentationId);
+    form.set("image", file);
+    setStatus("Uploading image...");
+    const result = await uploadPresentationImageAction(form);
+    if (!result.ok) {
+      setStatus(result.error);
+      return;
+    }
+    await loadImageAssets();
+    await insertSlideImage(result);
+  }, [insertSlideImage, loadImageAssets, presentationId]);
 
   const reorderSlide = useCallback(async (fromSlide: number, toSlide: number) => {
     if (fromSlide === toSlide) return;
@@ -1005,6 +1290,31 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     void loadSlides();
   }, [fullMarkdown, loadSlides, presentationId, recordSlideHistory, syncSlideQuery]);
 
+  const insertBlankSlide = useCallback(async (afterSlide: number) => {
+    const before = fullMarkdownRef.current || fullMarkdown;
+    if (!before) return;
+    const nextMarkdown = insertBlankMarpSlide(before, afterSlide);
+    if (nextMarkdown === before) return;
+    const nextActiveSlide = Math.min(Math.max(afterSlide + 1, 1), countMarpSlides(nextMarkdown));
+    const form = new FormData();
+    form.set("presentationId", presentationId);
+    form.set("markdown", nextMarkdown);
+    setStatus(afterSlide <= 0 ? "Adding blank slide at top..." : `Adding blank slide after slide ${afterSlide}...`);
+    await savePresentationMarkdownAction(form);
+    recordSlideHistory(nextActiveSlide, before, nextMarkdown);
+    setFullMarkdown(nextMarkdown);
+    setSlides(summarizeSlidesFromMarkdown(nextMarkdown));
+    setTotalSlides(countMarpSlides(nextMarkdown));
+    setSelectedTargets([]);
+    setActiveTargetId(null);
+    syncSlideQuery(nextActiveSlide);
+    setActiveSlide(nextActiveSlide);
+    setPreviewKey((value) => value + 1);
+    setThumbKey((value) => value + 1);
+    setStatus("Blank slide added.");
+    void loadSlides();
+  }, [fullMarkdown, loadSlides, presentationId, recordSlideHistory, syncSlideQuery]);
+
   const deleteSlide = useCallback(async (slide: number) => {
     const before = fullMarkdownRef.current || fullMarkdown;
     if (!before || countMarpSlides(before) <= 1) {
@@ -1035,7 +1345,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
 
   const deleteSelectedTarget = useCallback(async (target: PresentationSelectionTarget) => {
     setStatus("Deleting selected element...");
-    const result = await deletePresentationElementAction({ presentationId, slide: target.slide, text: target.text });
+    const result = await deletePresentationElementAction({ presentationId, slide: target.slide, tag: target.tag, text: target.text, path: target.path });
     recordSlideHistory(target.slide, result.previousMarkdown, result.markdown);
     setFullMarkdown(result.markdown);
     setStatus("Selected element deleted.");
@@ -1166,6 +1476,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset selection when the active slide changes
     setSelectedTargets([]);
+    setLayerTargets([]);
     setActiveTargetId(null);
     setIframeDragActive(false);
   }, [activeSlide]);
@@ -1208,7 +1519,9 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
 
       if (data.type === "apploop-presentation-selection-state") {
         const targets = Array.isArray(data.targets) ? data.targets as PresentationSelectionTarget[] : [];
+        const layers = Array.isArray(data.layers) ? data.layers as PresentationLayerItem[] : [];
         if (targets.length > 0) selectAllPendingRef.current = false;
+        setLayerTargets(layers.filter((target) => target.slide === activeSlide));
         setSelectedTargets(targets.filter((target) => target.slide === activeSlide));
         setActiveTargetId(typeof data.activeId === "string" ? data.activeId : targets.at(-1)?.id ?? null);
         return;
@@ -1392,6 +1705,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     editorMarkdownRef.current = "";
     setActiveSlide(slide);
     setSelectedTargets([]);
+    setLayerTargets([]);
     setActiveTargetId(null);
     setShowPreview(false);
     setStatus(null);
@@ -1404,7 +1718,8 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
       setStatus("Nothing to export yet.");
       return;
     }
-    const url = URL.createObjectURL(new Blob([markdown], { type: "text/markdown;charset=utf-8" }));
+    const exportMarkdown = upsertPresentationGradientPresets(markdown, gradientPresets);
+    const url = URL.createObjectURL(new Blob([exportMarkdown], { type: "text/markdown;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = deckFileName(presentationName);
@@ -1427,17 +1742,20 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
       setStatus("Imported file is empty.");
       return;
     }
+    const importedPresets = readPresentationGradientPresets(markdown);
+    const markdownWithPresets = upsertPresentationGradientPresets(markdown, importedPresets);
     const form = new FormData();
     form.set("presentationId", presentationId);
-    form.set("markdown", markdown);
+    form.set("markdown", markdownWithPresets);
     setStatus("Importing Markdown and replacing slides...");
     await savePresentationMarkdownAction(form);
-    if (previousMarkdown && previousMarkdown !== markdown) {
-      recordSlideHistory(1, previousMarkdown, markdown);
+    if (previousMarkdown && previousMarkdown !== markdownWithPresets) {
+      recordSlideHistory(1, previousMarkdown, markdownWithPresets);
     }
-    setFullMarkdown(markdown);
+    setFullMarkdown(markdownWithPresets);
     setActiveSlide(1);
     setSelectedTargets([]);
+    setLayerTargets([]);
     setActiveTargetId(null);
     setPreviewKey((value) => value + 1);
     setStatus(`Imported ${file.name} and replaced current slides.`);
@@ -1506,70 +1824,78 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
         <section className="flex h-full min-h-0 w-full flex-col border-r bg-black">
           <div className="border-b border-white/10 px-3 py-3 text-xs font-medium text-white/80">Slides · {totalSlides}</div>
           <div ref={filmstripRef} className="min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-scroll px-3 py-3" style={{ scrollbarGutter: "stable", scrollbarColor: "#a1a1aa #18181b" }}>
+            <button type="button" className="flex h-8 w-full items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/[0.03] text-white/55 transition hover:border-sky-400 hover:bg-sky-400/10 hover:text-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-400" title="Insert blank slide at top" onClick={() => void insertBlankSlide(0)}>
+              <Plus className="size-4" />
+            </button>
             {slides.map((s) => {
               const selected = s.index === activeSlide;
               const bg = getSlideValue(slideBackgrounds, s.index, DEFAULT_SLIDE_BG);
               const textColor = getSlideValue(slideTextColors, s.index, DEFAULT_SLIDE_TEXT);
               return (
-                <div key={s.index} className={`presentation-slide-card group block w-full max-w-full rounded-xl border p-2 text-left transition ${selected ? "border-sky-400 bg-white/5 shadow-[0_0_0_1px_rgba(96,165,250,0.45)]" : "border-white/10 bg-black/40 hover:border-white/25 hover:bg-white/5"} ${dropSlide === s.index && draggedSlide !== s.index ? "ring-2 ring-emerald-400 ring-offset-2 ring-offset-black" : ""} ${draggedSlide === s.index ? "cursor-grabbing opacity-55" : "cursor-grab"}`}
-                  data-slide-card={s.index}
-                  draggable
-                  onClick={() => selectSlide(s.index)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
+                <div key={s.index} className="space-y-2">
+                  <div className={`presentation-slide-card group block w-full max-w-full rounded-xl border p-2 text-left transition ${selected ? "border-sky-400 bg-white/5 shadow-[0_0_0_1px_rgba(96,165,250,0.45)]" : "border-white/10 bg-black/40 hover:border-white/25 hover:bg-white/5"} ${dropSlide === s.index && draggedSlide !== s.index ? "ring-2 ring-emerald-400 ring-offset-2 ring-offset-black" : ""} ${draggedSlide === s.index ? "cursor-grabbing opacity-55" : "cursor-grab"}`}
+                    data-slide-card={s.index}
+                    draggable
+                    onClick={() => selectSlide(s.index)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        selectSlide(s.index);
+                      }
+                    }}
+                    onDragStart={(event) => {
+                      setDraggedSlide(s.index);
+                      setDropSlide(s.index);
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", String(s.index));
+                    }}
+                    onDragEnter={(event) => {
                       event.preventDefault();
-                      selectSlide(s.index);
-                    }
-                  }}
-                  onDragStart={(event) => {
-                    setDraggedSlide(s.index);
-                    setDropSlide(s.index);
-                    event.dataTransfer.effectAllowed = "move";
-                    event.dataTransfer.setData("text/plain", String(s.index));
-                  }}
-                  onDragEnter={(event) => {
-                    event.preventDefault();
-                    setDropSlide(s.index);
-                  }}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                    setDropSlide(s.index);
-                  }}
-                  onDragEnd={() => {
-                    setDraggedSlide(null);
-                    setDropSlide(null);
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    const from = Number(event.dataTransfer.getData("text/plain")) || draggedSlide;
-                    setDraggedSlide(null);
-                    setDropSlide(null);
-                    if (from) void reorderSlide(from, s.index);
-                  }}
-                  role="button"
-                  tabIndex={0}>
-                  <div className="mb-2 flex min-w-0 items-center gap-2">
-                    <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${selected ? "bg-sky-500 text-black" : "bg-white/10 text-white/80"}`}>{s.index}</span>
-                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-white/85">{s.title}</span>
-                    {selected && (
-                      <span className="ml-auto flex shrink-0 items-center gap-1">
-                        <Button size="icon" variant="ghost" className="size-7 text-white/75 hover:bg-white/10 hover:text-white" onClick={(event) => { event.stopPropagation(); void cloneSlide(s.index); }} title="Clone slide">
-                          <Copy className="size-3.5" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="size-7 text-rose-200/80 hover:bg-rose-500/15 hover:text-rose-100" disabled={totalSlides <= 1} onClick={(event) => { event.stopPropagation(); void deleteSlide(s.index); }} title="Delete slide">
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </span>
-                    )}
+                      setDropSlide(s.index);
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                      setDropSlide(s.index);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedSlide(null);
+                      setDropSlide(null);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const from = Number(event.dataTransfer.getData("text/plain")) || draggedSlide;
+                      setDraggedSlide(null);
+                      setDropSlide(null);
+                      if (from) void reorderSlide(from, s.index);
+                    }}
+                    role="button"
+                    tabIndex={0}>
+                    <div className="mb-2 flex min-w-0 items-center gap-2">
+                      <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${selected ? "bg-sky-500 text-black" : "bg-white/10 text-white/80"}`}>{s.index}</span>
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium text-white/85">{s.title}</span>
+                      {selected && (
+                        <span className="ml-auto flex shrink-0 items-center gap-1">
+                          <Button size="icon" variant="ghost" className="size-7 text-white/75 hover:bg-white/10 hover:text-white" onClick={(event) => { event.stopPropagation(); void cloneSlide(s.index); }} title="Clone slide">
+                            <Copy className="size-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="size-7 text-rose-200/80 hover:bg-rose-500/15 hover:text-rose-100" disabled={totalSlides <= 1} onClick={(event) => { event.stopPropagation(); void deleteSlide(s.index); }} title="Delete slide">
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </span>
+                      )}
+                    </div>
+                    <PresentationSlideThumbnail
+                      bg={bg}
+                      eager={selected || Math.abs(s.index - activeSlide) <= 1}
+                      src={`/api/presentations/${presentationId}/preview?slide=${s.index}&_t=${previewKey}.${thumbKey}&hidePagination=1`}
+                      textColor={textColor}
+                      title={`thumb ${s.index}`}
+                    />
                   </div>
-                  <PresentationSlideThumbnail
-                    bg={bg}
-                    eager={selected || Math.abs(s.index - activeSlide) <= 1}
-                    src={`/api/presentations/${presentationId}/preview?slide=${s.index}&_t=${previewKey}.${thumbKey}&hidePagination=1`}
-                    textColor={textColor}
-                    title={`thumb ${s.index}`}
-                  />
+                  <button type="button" className="flex h-8 w-full items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/[0.03] text-white/55 transition hover:border-sky-400 hover:bg-sky-400/10 hover:text-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-400" title={`Insert blank slide after slide ${s.index}`} onClick={() => void insertBlankSlide(s.index)}>
+                    <Plus className="size-4" />
+                  </button>
                 </div>
               );
             })}
@@ -1598,24 +1924,94 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                     <Button aria-pressed={elementEditEnabled} size="sm" onClick={toggleElementEditMode} disabled={elementEditModeSaving} variant={elementEditEnabled ? "default" : "outline"}>
                       {elementEditModeSaving ? "Saving..." : "Edit elements"}
                     </Button>
-                    <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1" title={activeTarget ? `Selected: ${activeTarget.tag}` : "Select an element on the slide"}>
-                      <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => alignActiveTarget("left")} title="Align selected element left">
-                        <AlignLeft className="size-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => alignActiveTarget("center")} title="Align selected element center">
-                        <AlignCenter className="size-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => alignActiveTarget("right")} title="Align selected element right">
-                        <AlignRight className="size-4" />
-                      </Button>
-                    </div>
-                    <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1" title="Convert selected element">
-                      <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => convertActiveTargetToList("ordered")} title="Convert selected element to ordered list">
-                        <ListOrdered className="size-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => convertActiveTargetToList("checklist")} title="Convert selected element to checklist">
-                        <ListChecks className="size-4" />
-                      </Button>
+                    <input ref={imageFileInputRef} type="file" accept="image/png,image/gif,image/jpeg,image/svg+xml,.png,.gif,.jpg,.jpeg,.svg" className="hidden" onChange={(event) => {
+                      const file = event.currentTarget.files?.[0] ?? null;
+                      event.currentTarget.value = "";
+                      void uploadSlideImage(file);
+                    }} />
+                    <div className="relative" title="Option groups">
+                      <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1">
+                        <Button size="sm" variant={activeToolbarGroup === "images" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "images" ? null : "images")} title="Show image options">
+                          <ImagePlus className="size-4" />Images
+                        </Button>
+                        <Button size="sm" variant={activeToolbarGroup === "alignment" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "alignment" ? null : "alignment")} title="Show alignment options">
+                          <AlignLeft className="size-4" />Alignment
+                        </Button>
+                        <Button size="sm" variant={activeToolbarGroup === "lists" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "lists" ? null : "lists")} title="Show list options">
+                          <ListChecks className="size-4" />Lists
+                        </Button>
+                        <Button size="sm" variant={activeToolbarGroup === "shapes" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "shapes" ? null : "shapes")} title="Insert SVG shapes">
+                          <Shapes className="size-4" />Shapes
+                        </Button>
+                        <Button size="sm" variant={activeToolbarGroup === "icons" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "icons" ? null : "icons")} title="Insert SVG icons">
+                          <ArrowRight className="size-4" />Icons
+                        </Button>
+                      </div>
+                      {activeToolbarGroup && <div className="absolute right-0 top-full z-30 mt-2 rounded-lg border border-white/10 bg-[#101014] p-2 text-xs text-zinc-300 shadow-2xl">
+                        {activeToolbarGroup === "images" && (
+                          <div className="flex items-center gap-1" title="Image options">
+                            <Button size="icon" variant="ghost" className="size-7" onClick={() => { setActiveToolbarGroup(null); imageFileInputRef.current?.click(); }} title="Upload an image into this presentation and insert it on this slide">
+                              <ImagePlus className="size-4" />
+                            </Button>
+                            <select className="h-7 max-w-40 rounded border border-white/10 bg-zinc-950 px-2 text-xs text-zinc-100 outline-none" value="" disabled={imageAssets.length === 0} title="Insert an uploaded image into this slide" onChange={(event) => {
+                              const asset = imageAssets.find((item) => item.path === event.target.value);
+                              setActiveToolbarGroup(null);
+                              if (asset) void insertSlideImage(asset);
+                              event.currentTarget.value = "";
+                            }}>
+                              <option value="" disabled>{imageAssets.length === 0 ? "No images" : "Pick image..."}</option>
+                              {imageAssets.map((asset) => <option key={asset.path} value={asset.path}>{asset.name}</option>)}
+                            </select>
+                            {imageAssets.slice(0, 3).map((asset) => (
+                              <button key={asset.path} type="button" className="h-7 w-9 shrink-0 overflow-hidden rounded border border-white/15 bg-zinc-950 hover:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400" title={`Insert ${asset.name}`} onClick={() => { setActiveToolbarGroup(null); void insertSlideImage(asset); }}>
+                                {/* eslint-disable-next-line @next/next/no-img-element -- Uploaded thumbnails can be SVG/GIF and should render directly. */}
+                                <img src={presentationAssetSrc(presentationId, asset.path)} alt={asset.alt} className="h-full w-full object-cover" draggable={false} />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {activeToolbarGroup === "alignment" && (
+                          <div className="flex items-center gap-1" title={activeTarget ? `Selected: ${activeTarget.tag}` : "Select an element on the slide"}>
+                            <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => { setActiveToolbarGroup(null); alignActiveTarget("left"); }} title="Align selected element left">
+                              <AlignLeft className="size-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => { setActiveToolbarGroup(null); alignActiveTarget("center"); }} title="Align selected element center">
+                              <AlignCenter className="size-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => { setActiveToolbarGroup(null); alignActiveTarget("right"); }} title="Align selected element right">
+                              <AlignRight className="size-4" />
+                            </Button>
+                          </div>
+                        )}
+                        {activeToolbarGroup === "lists" && (
+                          <div className="grid min-w-36 gap-1" title="Convert selected element">
+                            <Button size="sm" variant="ghost" className="h-8 justify-start px-2 text-xs" disabled={!canConvertActiveTargetToList} onClick={() => { setActiveToolbarGroup(null); convertActiveTargetToList("ordered"); }} title="Convert selected element to numbered list">
+                              <ListOrdered className="size-4" />Numbered list
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-8 justify-start px-2 text-xs" disabled={!canConvertActiveTargetToList} onClick={() => { setActiveToolbarGroup(null); convertActiveTargetToList("unordered"); }} title="Convert selected element to bulleted list">
+                              <ListChecks className="size-4" />Bulleted list
+                            </Button>
+                          </div>
+                        )}
+                        {activeToolbarGroup === "shapes" && (
+                          <div className="grid min-w-52 grid-cols-2 gap-1" title="Insert SVG shape">
+                            {SHAPE_INSERTS.map((item) => (
+                              <Button key={item.id} size="sm" variant="ghost" className="h-8 justify-start px-2 text-xs" onClick={() => { setActiveToolbarGroup(null); void insertMarpBlock(item.id); }} title={`Insert ${item.label}`}>
+                                <Shapes className="size-4" />{item.label}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                        {activeToolbarGroup === "icons" && (
+                          <div className="grid min-w-44 grid-cols-2 gap-1" title="Insert SVG icon">
+                            {ICON_INSERTS.map((item) => (
+                              <Button key={item.id} size="sm" variant="ghost" className="h-8 justify-start px-2 text-xs" onClick={() => { setActiveToolbarGroup(null); void insertMarpBlock(item.id); }} title={`Insert ${item.label}`}>
+                                <PenLine className="size-4" />{item.label}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                      </div>}
                     </div>
                   </>
                 )}
@@ -1653,6 +2049,43 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                     <Type className="size-4 text-zinc-400" />
                     <span className="max-w-36 truncate text-zinc-200">{activeTarget.text || activeTarget.tag}</span>
                   </div>
+                  <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1" title="Layer order">
+                    <Button size="icon" variant="ghost" className="size-7" disabled={!activeLayerCanMoveForward} onClick={() => moveActiveLayer("front")} title="Bring to Front"><ChevronsUp className="size-4" /></Button>
+                    <Button size="icon" variant="ghost" className="size-7" disabled={!activeLayerCanMoveForward} onClick={() => moveActiveLayer("forward")} title="Bring Forward"><ChevronUp className="size-4" /></Button>
+                    <Button size="icon" variant="ghost" className="size-7" disabled={!activeLayerCanMoveBack} onClick={() => moveActiveLayer("backward")} title="Send Backward"><ChevronDown className="size-4" /></Button>
+                    <Button size="icon" variant="ghost" className="size-7" disabled={!activeLayerCanMoveBack} onClick={() => moveActiveLayer("back")} title="Send to Back"><ChevronsDown className="size-4" /></Button>
+                  </div>
+                  {activeTargetIsImage && (
+                    <>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Image alt text">
+                        <span>Alt</span>
+                        <input key={activeTarget.id} className="h-7 w-40 rounded border border-white/10 bg-zinc-950 px-2 text-xs text-zinc-100 outline-none" defaultValue={activeTargetImageAlt} onBlur={(event) => void saveActiveImageAlt(event.currentTarget.value)} onKeyDown={(event) => {
+                          if (event.key === "Enter") event.currentTarget.blur();
+                        }} />
+                      </label>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Image width">
+                        <span>Width {activeTargetImageWidth}px</span>
+                        <input type="range" min="80" max="1400" step="10" value={activeTargetImageWidth} onChange={(event) => patchSelectedTextStyle({ width: `${event.target.value}px`, maxWidth: "100%" }, "Image width applied.")} className="w-24" />
+                      </label>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Image height">
+                        <span>Height {activeTargetImageHeight}px</span>
+                        <input type="range" min="40" max="900" step="10" value={activeTargetImageHeight} onChange={(event) => patchSelectedTextStyle({ height: `${event.target.value}px` }, "Image height applied.")} className="w-24" />
+                      </label>
+                      <Button size="sm" variant="outline" onClick={() => patchSelectedTextStyle({ height: "auto" }, "Image height set to auto.")}>Auto height</Button>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Image border width">
+                        <span>Border {activeTargetBorderWidth}px</span>
+                        <input type="range" min="0" max="16" step="1" value={activeTargetBorderWidth} onChange={(event) => patchSelectedTextStyle({ border: `${event.target.value}px solid ${activeTargetBorderColor}` }, "Image border applied.")} className="w-20" />
+                      </label>
+                      <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Image border color">
+                        <span>Border</span>
+                        <input type="color" value={activeTargetBorderColor} onInput={(event) => patchSelectedTextStyle({ border: `${activeTargetBorderWidth}px solid ${event.currentTarget.value}` }, "Image border color applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0" />
+                      </label>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Image opacity">
+                        <span>Opacity {activeTargetOpacity}%</span>
+                        <input type="range" min="0" max="100" step="5" value={activeTargetOpacity} onChange={(event) => patchSelectedTextStyle({ opacity: String(Number(event.target.value) / 100) }, "Image transparency applied.")} className="w-24" />
+                      </label>
+                    </>
+                  )}
                   {activeTargetIsTable && (
                     <>
                       <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Table outer margin">
@@ -1706,6 +2139,67 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                       </label>
                     </>
                   )}
+                  {activeTargetIsDivider && (
+                    <>
+                      <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Divider color">
+                        <span>Color</span>
+                        <input type="color" value={activeTargetDividerColor} onInput={(event) => patchSelectedTextStyle({ background: event.currentTarget.value, border: "0" }, "Divider color applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0" />
+                      </label>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Divider thickness">
+                        <span>{activeTargetDividerThickness}px</span>
+                        <input type="range" min="1" max="16" step="1" value={activeTargetDividerThickness} onChange={(event) => patchSelectedTextStyle({ height: `${event.target.value}px`, border: "0" }, "Divider thickness applied.")} className="w-20" />
+                      </label>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Divider width">
+                        <span>Width {activeTargetDividerWidth}px</span>
+                        <input type="range" min="80" max="900" step="10" value={activeTargetDividerWidth} onChange={(event) => patchSelectedTextStyle({ width: `${event.target.value}px`, border: "0" }, "Divider width applied.")} className="w-24" />
+                      </label>
+                      <Button size="sm" variant="outline" onClick={() => patchSelectedTextStyle({ width: "100%", border: "0" }, "Divider width applied.")}>Full width</Button>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Divider vertical margin">
+                        <span>Margin {activeTargetMargin}px</span>
+                        <input type="range" min="0" max="96" step="2" value={activeTargetMargin} onChange={(event) => patchSelectedTextStyle({ margin: `${event.target.value}px 0`, border: "0" }, "Divider margin applied.")} className="w-20" />
+                      </label>
+                    </>
+                  )}
+                  {activeTargetIsShape && (
+                    <>
+                      <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Shape fill color">
+                        <span>Fill</span>
+                        <input type="color" value={activeTargetShapeFillColor} onInput={(event) => patchSelectedTextStyle({ fill: event.currentTarget.value }, "Shape fill applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0" />
+                      </label>
+                      <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Shape stroke color">
+                        <span>Stroke</span>
+                        <input type="color" value={activeTargetShapeStrokeColor} onInput={(event) => patchSelectedTextStyle({ stroke: event.currentTarget.value }, "Shape stroke applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0" />
+                      </label>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Shape stroke width">
+                        <span>Stroke {activeTargetShapeStrokeWidth}px</span>
+                        <input type="range" min="0" max="12" step="1" value={activeTargetShapeStrokeWidth} onChange={(event) => patchSelectedTextStyle({ strokeWidth: `${event.target.value}px` }, "Shape stroke width applied.")} className="w-20" />
+                      </label>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Shape fill opacity">
+                        <span>Fill {activeTargetShapeFillOpacity}%</span>
+                        <input type="range" min="0" max="100" step="5" value={activeTargetShapeFillOpacity} onChange={(event) => patchSelectedTextStyle({ fillOpacity: String(Number(event.target.value) / 100) }, "Shape fill opacity applied.")} className="w-20" />
+                      </label>
+                      <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Shape line cap">
+                        <span>Cap</span>
+                        <select className="h-7 rounded border border-white/10 bg-zinc-950 px-2 text-xs text-zinc-100 outline-none" value={activeTargetShapeStrokeLinecap} onChange={(event) => patchSelectedTextStyle({ strokeLinecap: event.target.value }, "Shape line cap applied.")}>
+                          <option value="butt">Butt</option>
+                          <option value="round">Round</option>
+                          <option value="square">Square</option>
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Shape line join">
+                        <span>Join</span>
+                        <select className="h-7 rounded border border-white/10 bg-zinc-950 px-2 text-xs text-zinc-100 outline-none" value={activeTargetShapeStrokeLinejoin} onChange={(event) => patchSelectedTextStyle({ strokeLinejoin: event.target.value }, "Shape line join applied.")}>
+                          <option value="miter">Miter</option>
+                          <option value="round">Round</option>
+                          <option value="bevel">Bevel</option>
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Shape opacity">
+                        <span>Opacity {activeTargetOpacity}%</span>
+                        <input type="range" min="0" max="100" step="5" value={activeTargetOpacity} onChange={(event) => patchSelectedTextStyle({ opacity: String(Number(event.target.value) / 100) }, "Shape opacity applied.")} className="w-20" />
+                      </label>
+                    </>
+                  )}
                   {activeTargetIsPill && (
                     <>
                       <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Pill text color">
@@ -1731,7 +2225,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                       </label>
                       <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1" title="Pill background gradient presets">
                         <Sparkles className="mx-1 size-4 text-zinc-400" />
-                        {GRADIENT_PRESETS.map((preset) => (
+                        {gradientPresets.map((preset) => (
                           <button key={preset.id} type="button" className="h-6 w-10 rounded border border-white/15" style={{ backgroundImage: `linear-gradient(${preset.angle}deg, ${preset.from}, ${preset.to})` }} title={preset.label}
                             onClick={() => {
                               setGradientFrom(preset.from);
@@ -1766,7 +2260,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                   </label>
                   <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1" title="Gradient presets">
                     <Sparkles className="mx-1 size-4 text-zinc-400" />
-                    {GRADIENT_PRESETS.map((preset) => (
+                    {gradientPresets.map((preset) => (
                       <button key={preset.id} type="button" className="h-6 w-10 rounded border border-white/15" style={{ backgroundImage: `linear-gradient(${preset.angle}deg, ${preset.from}, ${preset.to})` }} title={preset.label}
                         onClick={() => {
                           setGradientFrom(preset.from);
@@ -1830,8 +2324,8 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
             <div className="min-h-0 flex-1 overflow-y-auto bg-[#111113]">
               {editorMarkdown || fullMarkdown ? (
                 useMarpCanvas ? (
-                  <div className="flex h-full min-h-full items-start justify-center p-6">
-                    <div className="relative aspect-video w-full max-w-5xl overflow-hidden rounded-md border border-white/10 bg-black" style={{ backgroundColor: activeBackground }}>
+                  <div className="flex h-full min-h-full items-start justify-center gap-4 p-6">
+                    <div className="relative aspect-video w-full min-w-0 max-w-5xl overflow-hidden rounded-md border border-white/10 bg-black" style={{ backgroundColor: activeBackground }}>
                       <iframe ref={currentSlideFrameRef} className="absolute inset-0 h-full w-full border-0" sandbox={elementEditEnabled ? "allow-same-origin allow-scripts" : "allow-same-origin"} src={currentSlideSrc} tabIndex={-1} title={`current slide ${activeSlide}`} />
                       {iframeDragActive && (
                         <div
@@ -1844,6 +2338,68 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                         />
                       )}
                     </div>
+                    {elementEditEnabled && (
+                      <aside className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-md border border-white/10 bg-[#101014] text-xs text-zinc-300 shadow-2xl" aria-label="Layers panel">
+                        <div className="border-b border-white/10 px-3 py-2">
+                          <p className="font-medium text-zinc-100">Layers</p>
+                          <p className="text-[11px] text-zinc-500">Top layer first</p>
+                        </div>
+                        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                          {layerPanelTargets.length === 0 ? (
+                            <div className="rounded-md border border-dashed border-white/10 px-3 py-6 text-center text-zinc-500">No elements on this slide.</div>
+                          ) : (
+                            <div className="space-y-1">
+                              {layerPanelTargets.map((layer) => {
+                                const selected = activeTargetId === layer.id;
+                                const layerLabel = layer.label ?? layer.text ?? layer.tag;
+                                return (
+                                  <div
+                                    key={layer.id}
+                                    className={`group flex items-center gap-2 rounded-md border px-2 py-1.5 transition ${selected ? "border-sky-400 bg-sky-400/10 text-zinc-50" : "border-white/10 bg-black/20 hover:border-white/25 hover:bg-white/5"} ${draggedLayerId === layer.id ? "opacity-50" : ""}`}
+                                    draggable
+                                    onClick={() => selectLayerTarget(layer)}
+                                    onDragStart={(event) => {
+                                      setDraggedLayerId(layer.id);
+                                      event.dataTransfer.effectAllowed = "move";
+                                      event.dataTransfer.setData("text/plain", layer.id);
+                                    }}
+                                    onDragOver={(event) => {
+                                      event.preventDefault();
+                                      event.dataTransfer.dropEffect = "move";
+                                    }}
+                                    onDragEnd={() => setDraggedLayerId(null)}
+                                    onDrop={(event) => {
+                                      event.preventDefault();
+                                      const fromId = event.dataTransfer.getData("text/plain") || draggedLayerId;
+                                      setDraggedLayerId(null);
+                                      if (fromId) reorderLayerFromPanel(fromId, layer.id);
+                                    }}
+                                  >
+                                    <GripVertical className="size-4 shrink-0 cursor-grab text-zinc-500" />
+                                    <button type="button" className="min-w-0 flex-1 truncate text-left" onClick={() => selectLayerTarget(layer)} title={layerLabel}>
+                                      <span className="block truncate">{layerLabel}</span>
+                                      <span className="block truncate text-[10px] text-zinc-500">z {layer.style.zIndex ?? layer.zIndex ?? 0}{layer.locked ? " · locked" : ""}{layer.hidden ? " · hidden" : ""}</span>
+                                    </button>
+                                    <Button size="icon" variant="ghost" className="size-7 shrink-0" title={layer.hidden ? "Show layer" : "Hide layer"} onClick={(event) => {
+                                      event.stopPropagation();
+                                      patchLayerTarget(layer, { visibility: layer.hidden ? "visible" : "hidden" }, layer.hidden ? "Layer shown." : "Layer hidden.");
+                                    }}>
+                                      {layer.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="size-7 shrink-0" title={layer.locked ? "Unlock layer" : "Lock layer"} onClick={(event) => {
+                                      event.stopPropagation();
+                                      patchLayerTarget(layer, { pointerEvents: layer.locked ? "auto" : "none" }, layer.locked ? "Layer unlocked." : "Layer locked.");
+                                    }}>
+                                      {layer.locked ? <Lock className="size-4" /> : <Unlock className="size-4" />}
+                                    </Button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </aside>
+                    )}
                   </div>
                 ) : (
                   <div className="presentation-mdx-editor h-full min-h-full">
@@ -1860,6 +2416,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                           linkPlugin(), linkDialogPlugin(),
                           codeBlockPlugin({ defaultCodeBlockLanguage: "" }),
                           codeMirrorPlugin({ codeBlockLanguages: { "": "Plain Text", js: "JavaScript", ts: "TypeScript", json: "JSON", md: "Markdown", py: "Python", sql: "SQL", bash: "Bash" } }),
+                          imagePlugin(),
                           tablePlugin(),
                         ]}
                       />

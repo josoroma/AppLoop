@@ -8,6 +8,119 @@ export type MarpDocumentParts = {
   slides: string[];
 };
 
+export type PresentationGradientPreset = {
+  id: string;
+  label: string;
+  from: string;
+  to: string;
+  angle: number;
+};
+
+export const DEFAULT_PRESENTATION_GRADIENT_PRESETS: PresentationGradientPreset[] = [
+  { id: "emerald-sky", label: "Emerald sky", from: "#34d399", to: "#38bdf8", angle: 135 },
+  { id: "amber-rose", label: "Amber rose", from: "#f59e0b", to: "#f43f5e", angle: 135 },
+  { id: "violet-cyan", label: "Violet cyan", from: "#a78bfa", to: "#22d3ee", angle: 135 },
+  { id: "ink-silver", label: "Ink silver", from: "#f8fafc", to: "#94a3b8", angle: 180 },
+];
+
+const GRADIENT_PRESETS_FRONT_MATTER_KEY = "apploopGradientPresets";
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+function defaultGradientPresets() {
+  return DEFAULT_PRESENTATION_GRADIENT_PRESETS.map((preset) => ({ ...preset }));
+}
+
+function sanitizeGradientPreset(value: unknown, index: number): PresentationGradientPreset | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const from = typeof record.from === "string" && HEX_COLOR.test(record.from.trim()) ? record.from.trim() : "";
+  const to = typeof record.to === "string" && HEX_COLOR.test(record.to.trim()) ? record.to.trim() : "";
+  const rawAngle = typeof record.angle === "number" ? record.angle : Number(record.angle);
+  if (!from || !to || !Number.isFinite(rawAngle)) return null;
+  const rawId = typeof record.id === "string" ? record.id.trim() : "";
+  const rawLabel = typeof record.label === "string" ? record.label.trim() : "";
+  const label = rawLabel || `Gradient ${index + 1}`;
+  const id = (rawId || label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `gradient-${index + 1}`).slice(0, 80);
+  return {
+    id,
+    label: label.slice(0, 80),
+    from,
+    to,
+    angle: Math.min(360, Math.max(0, Math.round(rawAngle))),
+  };
+}
+
+function normalizeGradientPresets(presets: unknown) {
+  if (!Array.isArray(presets)) return defaultGradientPresets();
+  const normalized = presets
+    .map((preset, index) => sanitizeGradientPreset(preset, index))
+    .filter((preset): preset is PresentationGradientPreset => Boolean(preset));
+  return normalized.length > 0 ? normalized : defaultGradientPresets();
+}
+
+function readFrontMatterScalar(frontMatter: string, key: string) {
+  const lines = frontMatter.replace(/\r\n/g, "\n").split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (!line.startsWith(`${key}:`)) continue;
+    const value = line.slice(key.length + 1).trim();
+    if (value === "|" || value === ">") {
+      const blockLines: string[] = [];
+      for (let blockIndex = index + 1; blockIndex < lines.length; blockIndex += 1) {
+        const blockLine = lines[blockIndex] ?? "";
+        if (blockLine.trim() && !/^\s/.test(blockLine)) break;
+        blockLines.push(blockLine.replace(/^ {2}/, ""));
+      }
+      return blockLines.join("\n").trim();
+    }
+    if (value.startsWith("'") && value.endsWith("'")) return value.slice(1, -1).replace(/''/g, "'");
+    if (value.startsWith('"') && value.endsWith('"')) return value.slice(1, -1).replace(/\\"/g, '"');
+    return value;
+  }
+  return "";
+}
+
+function removeFrontMatterKey(frontMatter: string, key: string) {
+  const lines = frontMatter.replace(/\r\n/g, "\n").split("\n");
+  const nextLines: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (!line.startsWith(`${key}:`)) {
+      nextLines.push(line);
+      continue;
+    }
+    const value = line.slice(key.length + 1).trim();
+    if (value === "|" || value === ">") {
+      while (index + 1 < lines.length) {
+        const nextLine = lines[index + 1] ?? "";
+        if (nextLine.trim() && !/^\s/.test(nextLine)) break;
+        index += 1;
+      }
+    }
+  }
+  return nextLines.join("\n");
+}
+
+export function readPresentationGradientPresets(markdown: string) {
+  const { frontMatter } = splitMarpDocument(markdown);
+  const raw = readFrontMatterScalar(frontMatter, GRADIENT_PRESETS_FRONT_MATTER_KEY);
+  if (!raw) return defaultGradientPresets();
+  try {
+    return normalizeGradientPresets(JSON.parse(raw));
+  } catch {
+    return defaultGradientPresets();
+  }
+}
+
+export function upsertPresentationGradientPresets(markdown: string, presets: unknown) {
+  const { frontMatter, slides } = splitMarpDocument(markdown);
+  const normalized = normalizeGradientPresets(presets);
+  const json = JSON.stringify(normalized).replace(/'/g, "''");
+  const withoutOld = removeFrontMatterKey(frontMatter, GRADIENT_PRESETS_FRONT_MATTER_KEY).trimEnd();
+  const nextFrontMatter = withoutOld.replace(/\n---\s*$/, `\n${GRADIENT_PRESETS_FRONT_MATTER_KEY}: '${json}'\n---`);
+  return `${nextFrontMatter}\n\n${slides.join("\n\n---\n\n")}\n`;
+}
+
 export function splitMarpDocument(markdown: string): MarpDocumentParts {
   const normalized = markdown.replace(/\r\n/g, "\n").trimEnd();
 
@@ -101,6 +214,14 @@ export function cloneMarpSlide(markdown: string, slideIndex1Based: number) {
   return `${frontMatter}\n\n${nextSlides.join("\n\n---\n\n")}\n`;
 }
 
+export function insertBlankMarpSlide(markdown: string, afterSlideIndex1Based: number) {
+  const { frontMatter, slides } = splitMarpDocument(markdown);
+  const nextSlides = slides.length > 0 ? [...slides] : [""];
+  const insertIndex = Math.min(Math.max(afterSlideIndex1Based, 0), nextSlides.length);
+  nextSlides.splice(insertIndex, 0, "<!-- apploop-blank-slide -->");
+  return `${frontMatter}\n\n${nextSlides.join("\n\n---\n\n")}\n`;
+}
+
 export function deleteMarpSlide(markdown: string, slideIndex1Based: number) {
   const { frontMatter, slides } = splitMarpDocument(markdown);
   if (slides.length <= 1) return markdown;
@@ -112,8 +233,10 @@ export function deleteMarpSlide(markdown: string, slideIndex1Based: number) {
 function normalizeBlockText(value: string) {
   return value
     .replace(/<[^>]+>/g, " ")
+    .replace(/[•◦▪‣]\s*(?:\[[ xX]\]\s*)?/g, " ")
+    .replace(/[☐☑☒✓✔✗✕]/g, " ")
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
-    .replace(/^\s*(?:[-*+] |\d+\. |[-*+] \[[ xX]\] )/gm, "")
+    .replace(/^\s*(?:[-*+] \[[ xX]\] |[-*+] |\d+\. )/gm, "")
     .replace(/^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*$/gm, "")
     .replace(/[`*_~>|]/g, " ")
     .replace(/\s+/g, " ")
@@ -250,7 +373,9 @@ function listItemContent(line: string) {
   return normalizeBlockText(line.replace(/^\s*(?:[-*+]\s+(?:\[[ xX]\]\s+)?|\d+\.\s+)/, ""));
 }
 
-function linesToListItems(lines: string[], fallbackText: string, kind: "ordered" | "checklist") {
+export type MarpListConversionKind = "ordered" | "unordered" | "checklist";
+
+function linesToListItems(lines: string[], fallbackText: string, kind: MarpListConversionKind) {
   const items = lines
     .map((line) => listItemContent(line))
     .filter(Boolean);
@@ -258,7 +383,11 @@ function linesToListItems(lines: string[], fallbackText: string, kind: "ordered"
     const fallback = normalizeBlockText(fallbackText);
     if (fallback) items.push(fallback);
   }
-  return items.map((item, index) => kind === "checklist" ? `- [ ] ${item}` : `${index + 1}. ${item}`);
+  return items.map((item, index) => {
+    if (kind === "checklist") return `- [ ] ${item}`;
+    if (kind === "ordered") return `${index + 1}. ${item}`;
+    return `- ${item}`;
+  });
 }
 
 function removeEmptyMarkdownMarkers(markdown: string) {
@@ -269,9 +398,57 @@ function removeEmptyMarkdownMarkers(markdown: string) {
     .trim();
 }
 
-export function removeMarpSlideElement(slideMarkdown: string, text: string) {
+type RemoveMarpSlideElementOptions = {
+  path?: string;
+  tag?: string;
+};
+
+function removeHtmlElementByTagAndText(slideMarkdown: string, text: string, tag: string) {
+  const normalizedText = normalizeBlockText(text);
+  if (!normalizedText || !/^(?:p|h[1-6]|blockquote|li|span)$/i.test(tag)) return null;
+  const elementPattern = new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`, "gi");
+  let match: RegExpExecArray | null;
+  while ((match = elementPattern.exec(slideMarkdown)) !== null) {
+    const html = match[0] ?? "";
+    const normalizedHtml = normalizeBlockText(html.replace(/<[^>]+>/g, " "));
+    if (normalizedHtml === normalizedText || normalizedHtml.includes(normalizedText) || normalizedText.includes(normalizedHtml)) {
+      return removeEmptyMarkdownMarkers(`${slideMarkdown.slice(0, match.index)}${slideMarkdown.slice(match.index + html.length)}`);
+    }
+  }
+  return null;
+}
+
+function removeSvgShapeByMarker(slideMarkdown: string, text: string, tag: string) {
+  if (!/^(?:rect|circle|ellipse|line|path|polygon|polyline)$/i.test(tag)) return null;
+  const marker = text.match(/\bdata-apploop-shape=["']([^"']+)["']/i)?.[1];
+  if (!marker) return null;
+  const escapedMarker = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const svgWrapperPattern = new RegExp(
+    `<svg\\b[^>]*>\\s*<${tag}\\b(?=[^>]*\\bdata-apploop-shape=["']${escapedMarker}["'])[^>]*(?:\\/>|>\\s*<\\/${tag}>)\\s*<\\/svg>`,
+    "i",
+  );
+  if (svgWrapperPattern.test(slideMarkdown)) {
+    return removeEmptyMarkdownMarkers(slideMarkdown.replace(svgWrapperPattern, ""));
+  }
+  const shapePattern = new RegExp(
+    `<${tag}\\b(?=[^>]*\\bdata-apploop-shape=["']${escapedMarker}["'])[^>]*(?:\\/>|>\\s*<\\/${tag}>)`,
+    "i",
+  );
+  if (shapePattern.test(slideMarkdown)) {
+    return removeEmptyMarkdownMarkers(slideMarkdown.replace(shapePattern, ""));
+  }
+  return null;
+}
+
+export function removeMarpSlideElement(slideMarkdown: string, text: string, options: RemoveMarpSlideElementOptions = {}) {
   const normalizedText = normalizeBlockText(text);
   if (!normalizedText) return slideMarkdown;
+
+  const tag = options.tag?.toLowerCase().trim() ?? "";
+  const svgShapeRemoval = removeSvgShapeByMarker(slideMarkdown, text, tag);
+  if (svgShapeRemoval !== null) return svgShapeRemoval;
+  const targetedHtmlRemoval = removeHtmlElementByTagAndText(slideMarkdown, text, tag);
+  if (targetedHtmlRemoval !== null) return targetedHtmlRemoval;
 
   const lines = slideMarkdown.split("\n");
   const rangeMatch = findMarkdownBlockRange(lines, text, { groupLists: true });
@@ -314,7 +491,7 @@ export function convertMarpSlideElementToList(
   markdown: string,
   slideIndex1Based: number,
   sourceText: string,
-  kind: "ordered" | "checklist",
+  kind: MarpListConversionKind,
 ) {
   const { frontMatter, slides } = splitMarpDocument(markdown);
   const slideIndex = Math.min(Math.max(slideIndex1Based, 1), slides.length) - 1;

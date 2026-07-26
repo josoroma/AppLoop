@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { PresentationBuilderShell } from "@/components/presentations/presentation-builder-shell";
 import { toBuilderChatMessages } from "@/lib/chat/messages";
-import { readPresentationMarkdown } from "@/lib/presentations/files";
+import { listPresentationImageAssets, readPresentationMarkdown } from "@/lib/presentations/files";
 import { getMarpSlideSummaries } from "@/lib/presentations/marp";
 import { getPresentationRepository, getPresentationService } from "@/lib/presentations/store";
 
@@ -32,11 +32,12 @@ export default async function PresentationPage({ params, searchParams }: Present
     notFound();
   }
 
-  const [markdown, persistedMessages] = await Promise.all([
+  const [markdown, persistedMessages, imageAssets] = await Promise.all([
     readPresentationMarkdown(overview.presentation.workspacePath, overview.presentation.sourceFile),
     overview.conversation
       ? getPresentationRepository().listConversationMessages(overview.conversation.id, { limit: 50 })
       : Promise.resolve([]),
+    listPresentationImageAssets(overview.presentation.workspacePath),
   ]);
 
   const initialSlides = getMarpSlideSummaries(markdown);
@@ -54,6 +55,7 @@ export default async function PresentationPage({ params, searchParams }: Present
         })),
       )}
       initialMarkdown={markdown}
+      initialImageAssets={imageAssets}
       initialSlideCount={initialSlides.length}
       initialSlides={initialSlides}
       presentationId={overview.presentation.id}

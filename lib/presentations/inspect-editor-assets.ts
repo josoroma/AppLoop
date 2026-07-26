@@ -16,6 +16,10 @@ export function buildPresentationInspectAssets(options: {
       body[data-inspect="true"] {
         cursor: pointer;
       }
+      body[data-inspect="true"] section img {
+        max-width: 100% !important;
+        height: auto;
+      }
       body[data-inspect="true"] section,
       body[data-inspect="true"] h1,
       body[data-inspect="true"] h2,
@@ -143,6 +147,14 @@ export function buildPresentationInspectAssets(options: {
               background: #dc2626;
               color: #fff;
             }
+            #apploop-inspect-box[data-table-cell="true"] .drag,
+            #apploop-inspect-box[data-table-cell="true"] .drag-del {
+              display: none;
+            }
+            #apploop-inspect-box[data-list-item="true"] .drag,
+            #apploop-inspect-box[data-list-item="true"] .handle {
+              display: none;
+            }
             #apploop-inspect-box .handle {
               position: absolute;
               width: 10px;
@@ -189,7 +201,8 @@ export function buildPresentationInspectAssets(options: {
           var suppressNextMouseDown = false;
           var suppressNextClick = false;
           var lastDragEvent = null;
-          var selectableSelector = 'h1,h2,h3,h4,h5,h6,p,ul,ol,li,blockquote,pre,table,img,span[class*="apploop-el-"],.pill';
+          var selectableSelector = 'h1,h2,h3,h4,h5,h6,p,ul,ol,li,blockquote,pre,table,img,hr,rect,circle,ellipse,line,path,polygon,polyline,span[class*="apploop-el-"],.pill';
+          var svgShapeSelector = 'rect,circle,ellipse,line,path,polygon,polyline';
 
           document.body.setAttribute('data-inspect', 'true');
 
@@ -211,12 +224,28 @@ export function buildPresentationInspectAssets(options: {
             var tag = el && el.tagName ? el.tagName.toLowerCase() : '';
             if (el && el.classList && el.classList.contains('pill')) return 'pill';
             if (tag === 'li') return 'li';
+            if (/^(rect|circle|ellipse|line|path|polygon|polyline)$/.test(tag)) return tag;
             if (tag === 'span' || (el && el.classList && el.classList.contains('pill'))) {
-              var block = el.closest ? el.closest('h1,h2,h3,h4,h5,h6,p,ul,ol,blockquote,pre,table') : null;
+              var block = el.closest ? el.closest('h1,h2,h3,h4,h5,h6,p,ul,ol,blockquote,pre,table,hr') : null;
               if (block && block !== el) tag = block.tagName.toLowerCase();
             }
-            if (/^h[1-6]$/.test(tag) || /^(table|ul|ol|blockquote|pre|img)$/.test(tag)) return tag;
+            if (/^h[1-6]$/.test(tag) || /^(table|ul|ol|blockquote|pre|img|hr|rect|circle|ellipse|line|path|polygon|polyline)$/.test(tag)) return tag;
             return 'p';
+          }
+
+          function shapeText(el) {
+            if (!el) return '';
+            var marker = el.getAttribute && el.getAttribute('data-apploop-shape');
+            if (marker) return 'data-apploop-shape="' + marker + '"';
+            return el.outerHTML || (el.tagName ? el.tagName.toLowerCase() : 'shape');
+          }
+
+          function imageText(el) {
+            return blockText((el && el.getAttribute && el.getAttribute('src')) || 'image');
+          }
+
+          function imageAltText(el) {
+            return blockText((el && el.getAttribute && el.getAttribute('alt')) || '');
           }
 
           function sourceTextForElement(el) {
@@ -228,9 +257,9 @@ export function buildPresentationInspectAssets(options: {
                 return canonicalSourceTag(candidate) === tag;
               });
             var index = candidates.indexOf(el);
-            if (index < 0) return blockText(el.textContent || (el.getAttribute && el.getAttribute('alt')) || '');
+            if (index < 0) return tag === 'img' ? imageText(el) : (/^(rect|circle|ellipse|line|path|polygon|polyline)$/.test(tag) ? shapeText(el) : blockText(el.textContent || (el.getAttribute && el.getAttribute('alt')) || ''));
             var matchingBlocks = sourceBlocks.filter(function (block) { return block.tag === tag; });
-            return matchingBlocks[index] && matchingBlocks[index].text ? matchingBlocks[index].text : blockText(el.textContent || (el.getAttribute && el.getAttribute('alt')) || '');
+            return matchingBlocks[index] && matchingBlocks[index].text ? matchingBlocks[index].text : (tag === 'img' ? imageText(el) : (/^(rect|circle|ellipse|line|path|polygon|polyline)$/.test(tag) ? shapeText(el) : blockText(el.textContent || (el.getAttribute && el.getAttribute('alt')) || '')));
           }
 
           function cssPath(el) {
@@ -240,7 +269,7 @@ export function buildPresentationInspectAssets(options: {
             var depth = 0;
             while (node && node.nodeType === 1 && depth < 6) {
               var tag = node.tagName.toLowerCase();
-              if (tag === 'svg' || tag === 'foreignobject' || (tag === 'div' && node.classList.contains('marpit'))) break;
+              if (tag === 'foreignobject' || (tag === 'div' && node.classList.contains('marpit'))) break;
               var parent = node.parentElement;
               if (parent) {
                 var siblings = Array.prototype.filter.call(parent.children, function (child) {
@@ -291,6 +320,7 @@ export function buildPresentationInspectAssets(options: {
               var section = document.querySelector('section');
               if (section) target = section;
             }
+            if (target.matches && target.matches(svgShapeSelector)) return target;
             var table = target.closest ? target.closest('table') : null;
             if (table) return table;
             var list = target.closest ? target.closest('ul,ol') : null;
@@ -299,6 +329,8 @@ export function buildPresentationInspectAssets(options: {
             if (quote) return quote;
             var fence = target.closest ? target.closest('pre') : null;
             if (fence) return fence;
+            var divider = target.closest ? target.closest('hr') : null;
+            if (divider) return divider;
             var wrapped = target.closest ? target.closest('span[class*="apploop-el-"]') : null;
             if (wrapped) return wrapped;
             var pill = target.closest ? target.closest('.pill') : null;
@@ -315,6 +347,15 @@ export function buildPresentationInspectAssets(options: {
           function pathToElement(path) {
             if (!path) return null;
             try { return document.querySelector(path); } catch (e) { return null; }
+          }
+
+          function resolveTargetElement(item) {
+            if (!item) return null;
+            var el = pathToElement(item.path);
+            if (item.tag === 'hr' && el && el.tagName && el.tagName.toLowerCase() !== 'hr' && el.querySelector) {
+              return el.querySelector('hr') || el;
+            }
+            return el;
           }
 
           function apploopClassForElement(el) {
@@ -334,12 +375,14 @@ export function buildPresentationInspectAssets(options: {
             if (!className) return {};
             var map = {
               background: 'background', backgroundImage: 'background-image', color: 'color',
-              width: 'width', height: 'height', padding: 'padding', margin: 'margin',
+              width: 'width', maxWidth: 'max-width', height: 'height', boxSizing: 'box-sizing', padding: 'padding', margin: 'margin',
               paddingLeft: 'padding-left', border: 'border', borderRadius: 'border-radius',
               borderCollapse: 'border-collapse', borderSpacing: 'border-spacing', tableLayout: 'table-layout', listStyleType: 'list-style-type', opacity: 'opacity',
+              visibility: 'visibility', pointerEvents: 'pointer-events',
               fontSize: 'font-size', fontStyle: 'font-style', fontWeight: 'font-weight', lineHeight: 'line-height',
               letterSpacing: 'letter-spacing', textTransform: 'text-transform', textAlign: 'text-align',
               boxShadow: 'box-shadow', textShadow: 'text-shadow',
+              fill: 'fill', fillOpacity: 'fill-opacity', stroke: 'stroke', strokeLinecap: 'stroke-linecap', strokeLinejoin: 'stroke-linejoin', strokeWidth: 'stroke-width',
               backgroundClip: 'background-clip', webkitBackgroundClip: '-webkit-background-clip', webkitTextFillColor: '-webkit-text-fill-color',
               left: 'left', top: 'top', right: 'right', bottom: 'bottom',
               transform: 'transform', position: 'position', zIndex: 'z-index',
@@ -361,9 +404,35 @@ export function buildPresentationInspectAssets(options: {
             return style;
           }
 
+          function inlineStyleForElement(el) {
+            var map = {
+              background: 'background', backgroundImage: 'background-image', color: 'color',
+              width: 'width', maxWidth: 'max-width', height: 'height', boxSizing: 'box-sizing', padding: 'padding', margin: 'margin',
+              paddingLeft: 'padding-left', border: 'border', borderRadius: 'border-radius',
+              borderCollapse: 'border-collapse', borderSpacing: 'border-spacing', tableLayout: 'table-layout', listStyleType: 'list-style-type', opacity: 'opacity',
+              visibility: 'visibility', pointerEvents: 'pointer-events',
+              fontSize: 'font-size', fontStyle: 'font-style', fontWeight: 'font-weight', lineHeight: 'line-height',
+              letterSpacing: 'letter-spacing', textTransform: 'text-transform', textAlign: 'text-align',
+              boxShadow: 'box-shadow', textShadow: 'text-shadow',
+              fill: 'fill', fillOpacity: 'fill-opacity', stroke: 'stroke', strokeLinecap: 'stroke-linecap', strokeLinejoin: 'stroke-linejoin', strokeWidth: 'stroke-width',
+              backgroundClip: 'background-clip', webkitBackgroundClip: '-webkit-background-clip', webkitTextFillColor: '-webkit-text-fill-color',
+              left: 'left', top: 'top', right: 'right', bottom: 'bottom',
+              transform: 'transform', position: 'position', zIndex: 'z-index',
+              alignSelf: 'align-self', justifySelf: 'justify-self', display: 'display',
+            };
+            var style = {};
+            if (!el || !el.style) return style;
+            Object.keys(map).forEach(function (key) {
+              var value = el.style.getPropertyValue(map[key]);
+              if (value && value.trim()) style[key] = value.trim().replace(/\s*!important\s*$/i, '');
+            });
+            return style;
+          }
+
           function selectionStyleForElement(el) {
             var saved = savedStyleForElement(el);
-            return Object.keys(saved).length ? saved : {};
+            var inline = inlineStyleForElement(el);
+            return Object.assign({}, saved, inline);
           }
 
           function promoteSavedManagedStyles() {
@@ -403,10 +472,10 @@ export function buildPresentationInspectAssets(options: {
             var nodes = Array.prototype.slice.call(document.querySelectorAll(selectableSelector));
             var paths = [];
             return nodes.filter(function (el) {
-              if (!el || !el.textContent && el.tagName.toLowerCase() !== 'img') return false;
+              if (!el || !el.textContent && el.tagName.toLowerCase() !== 'img' && el.tagName.toLowerCase() !== 'hr' && !el.matches(svgShapeSelector)) return false;
               if (el.closest && el.closest('#apploop-inspect-box')) return false;
               if (el.classList && el.classList.contains('apploop-empty-managed-host')) return false;
-              if (cleanText(el.textContent || '').length === 0 && el.tagName.toLowerCase() !== 'img') return false;
+              if (cleanText(el.textContent || '').length === 0 && el.tagName.toLowerCase() !== 'img' && el.tagName.toLowerCase() !== 'hr' && !el.matches(svgShapeSelector)) return false;
               var tag = el.tagName.toLowerCase();
               var atomicParent = el.closest ? el.closest('blockquote,pre,table') : null;
               if (atomicParent && atomicParent !== el) return false;
@@ -415,7 +484,7 @@ export function buildPresentationInspectAssets(options: {
               if (tag === 'li' && el.closest('ul,ol')) return false;
               if (isEmptyManagedTextHost(el)) return false;
               var rect = el.getBoundingClientRect();
-              if (rect.width <= 0 && rect.height <= 0 && tag !== 'img') return false;
+              if (rect.width <= 0 && rect.height <= 0 && tag !== 'img' && tag !== 'hr' && !el.matches(svgShapeSelector)) return false;
               var path = cssPath(el);
               if (!path || paths.indexOf(path) !== -1) return false;
               paths.push(path);
@@ -427,12 +496,14 @@ export function buildPresentationInspectAssets(options: {
             if (!el || !style) return;
             var map = {
               background: 'background', backgroundImage: 'background-image', color: 'color',
-              width: 'width', height: 'height', padding: 'padding', margin: 'margin',
+              width: 'width', maxWidth: 'max-width', height: 'height', boxSizing: 'box-sizing', padding: 'padding', margin: 'margin',
               paddingLeft: 'padding-left', border: 'border', borderRadius: 'border-radius',
               borderCollapse: 'border-collapse', borderSpacing: 'border-spacing', tableLayout: 'table-layout', listStyleType: 'list-style-type', opacity: 'opacity',
+              visibility: 'visibility', pointerEvents: 'pointer-events',
               fontSize: 'font-size', fontStyle: 'font-style', fontWeight: 'font-weight', lineHeight: 'line-height',
               letterSpacing: 'letter-spacing', textTransform: 'text-transform', textAlign: 'text-align',
               boxShadow: 'box-shadow', textShadow: 'text-shadow',
+              fill: 'fill', fillOpacity: 'fill-opacity', stroke: 'stroke', strokeLinecap: 'stroke-linecap', strokeLinejoin: 'stroke-linejoin', strokeWidth: 'stroke-width',
               backgroundClip: 'background-clip', webkitBackgroundClip: '-webkit-background-clip', webkitTextFillColor: '-webkit-text-fill-color',
               left: 'left', top: 'top', right: 'right', bottom: 'bottom',
               transform: 'transform', position: 'position', zIndex: 'z-index',
@@ -448,6 +519,7 @@ export function buildPresentationInspectAssets(options: {
               }
             }
             var isTable = el.tagName && el.tagName.toLowerCase() === 'table';
+            var isImage = el.tagName && el.tagName.toLowerCase() === 'img';
             Object.keys(style).forEach(function (key) {
               if (isTable && (key === 'padding' || key === 'border')) return;
               if (isTable && (key === 'display' || key === 'tableLayout')) return;
@@ -457,6 +529,10 @@ export function buildPresentationInspectAssets(options: {
               setStyleProp(el, 'display', 'table');
               setStyleProp(el, 'width', style.width && String(style.width).trim() ? style.width : '100%');
               setStyleProp(el, 'tableLayout', 'fixed');
+            }
+            if (isImage) {
+              setStyleProp(el, 'maxWidth', '100%');
+              if (!style.height || String(style.height).trim() === '') setStyleProp(el, 'height', 'auto');
             }
             var textPaintKeys = ['backgroundImage', 'backgroundClip', 'webkitBackgroundClip', 'webkitTextFillColor', 'color'];
             var shouldPatchPaintChildren = textPaintKeys.some(function (key) {
@@ -476,6 +552,55 @@ export function buildPresentationInspectAssets(options: {
                 if (style.border !== undefined) setStyleProp(cell, 'border', style.border);
               });
             }
+          }
+
+          function layerLabelForItem(item) {
+            var text = cleanText(item.alt || item.text || item.tag || '');
+            var label = item.tag ? item.tag.toUpperCase() : 'Element';
+            return text ? label + ' · ' + text.slice(0, 48) : label;
+          }
+
+          function itemFromElement(el, domIndex) {
+            if (!el) return null;
+            var path = cssPath(el);
+            if (!path) return null;
+            var tag = el.classList && el.classList.contains('pill') ? 'pill' : el.tagName.toLowerCase();
+            var text = String(sourceTextForElement(el) || el.textContent || (el.getAttribute && (el.getAttribute('alt') || el.getAttribute('src'))) || (/^(rect|circle|ellipse|line|path|polygon|polyline)$/.test(tag) ? shapeText(el) : (tag === 'hr' ? '<hr />' : tag))).trim();
+            var style = selectionStyleForElement(el);
+            var computed = window.getComputedStyle ? window.getComputedStyle(el) : null;
+            var rawZ = style.zIndex || (computed ? computed.zIndex : '');
+            var parsedZ = Number.parseInt(rawZ || '', 10);
+            var item = {
+              id: targetId(path, tag, cleanText(text)),
+              slide: slide,
+              totalSlides: totalSlides,
+              path: path,
+              tag: tag,
+              text: text,
+              alt: tag === 'img' ? imageAltText(el) : undefined,
+              style: style,
+              baselineStyle: {},
+              domIndex: domIndex,
+              zIndex: Number.isFinite(parsedZ) ? parsedZ : 0,
+              hidden: style.visibility === 'hidden' || Boolean(computed && computed.visibility === 'hidden'),
+              locked: style.pointerEvents === 'none' || Boolean(computed && computed.pointerEvents === 'none'),
+            };
+            item.label = layerLabelForItem(item);
+            return item;
+          }
+
+          function layerItems() {
+            return inspectableElements()
+              .map(function (el, index) { return itemFromElement(el, index); })
+              .filter(Boolean)
+              .sort(function (a, b) {
+                if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex;
+                return a.domIndex - b.domIndex;
+              })
+              .map(function (item, index) {
+                item.layerIndex = index;
+                return item;
+              });
           }
 
           function applySelectedOutlines() {
@@ -541,6 +666,18 @@ export function buildPresentationInspectAssets(options: {
             box.setAttribute('data-open', open ? 'true' : 'false');
           }
 
+          function isTableCellSelection(item, el) {
+            var tag = item && item.tag ? String(item.tag).toLowerCase() : '';
+            var elementTag = el && el.tagName ? el.tagName.toLowerCase() : '';
+            return tag === 'td' || tag === 'th' || elementTag === 'td' || elementTag === 'th';
+          }
+
+          function isListItemSelection(item, el) {
+            var tag = item && item.tag ? String(item.tag).toLowerCase() : '';
+            var elementTag = el && el.tagName ? el.tagName.toLowerCase() : '';
+            return tag === 'li' || elementTag === 'li';
+          }
+
           function updatePositionBox() {
             var item = getActive();
             if (!item) {
@@ -562,6 +699,8 @@ export function buildPresentationInspectAssets(options: {
             box.style.top = rect.top + 'px';
             box.style.width = Math.max(8, rect.width) + 'px';
             box.style.height = Math.max(8, rect.height) + 'px';
+            box.setAttribute('data-table-cell', isTableCellSelection(item, el) ? 'true' : 'false');
+            box.setAttribute('data-list-item', isListItemSelection(item, el) ? 'true' : 'false');
             setBoxOpen(true);
           }
 
@@ -632,6 +771,64 @@ export function buildPresentationInspectAssets(options: {
             return Boolean(width && !/^100%\s*(?:!important)?$/i.test(width));
           }
 
+          function isSvgShapeElement(el) {
+            return Boolean(el && el.matches && el.matches(svgShapeSelector));
+          }
+
+          function parseTranslatePx(transform) {
+            var value = String(transform || '');
+            var match = value.match(/translate\(\s*(-?\d+(?:\.\d+)?)px(?:\s*,\s*|\s+)(-?\d+(?:\.\d+)?)px\s*\)/i)
+              || value.match(/translate3d\(\s*(-?\d+(?:\.\d+)?)px\s*,\s*(-?\d+(?:\.\d+)?)px\s*,\s*0(?:px)?\s*\)/i);
+            return { x: match ? Number(match[1]) || 0 : 0, y: match ? Number(match[2]) || 0 : 0 };
+          }
+
+          function translateStyleFrom(start, dx, dy) {
+            return 'translate(' + Math.round((start && start.x ? start.x : 0) + dx) + 'px, ' + Math.round((start && start.y ? start.y : 0) + dy) + 'px)';
+          }
+
+          function slideBoundedWidthPx(width, srect) {
+            return Math.round(Math.min(Math.max(24, width), Math.max(24, srect.width))) + 'px';
+          }
+
+          function renderedToSlideCssSize(width, height) {
+            var section = document.querySelector('section');
+            var srect = section ? section.getBoundingClientRect() : null;
+            var cssWidth = section && section.offsetWidth ? section.offsetWidth : (srect ? srect.width : 0);
+            var cssHeight = section && section.offsetHeight ? section.offsetHeight : (srect ? srect.height : 0);
+            var scaleX = srect && cssWidth ? srect.width / cssWidth : 1;
+            var scaleY = srect && cssHeight ? srect.height / cssHeight : 1;
+            var nextWidth = Number(width) / (scaleX > 0 ? scaleX : 1);
+            var nextHeight = Number(height) / (scaleY > 0 ? scaleY : 1);
+            return {
+              width: Number.isFinite(nextWidth) && nextWidth > 0 ? Math.round(nextWidth) + 'px' : null,
+              height: Number.isFinite(nextHeight) && nextHeight > 0 ? Math.round(nextHeight) + 'px' : null,
+            };
+          }
+
+          function preserveElementDimensions(style, item, width, height) {
+            var size = renderedToSlideCssSize(width, height);
+            style.boxSizing = 'border-box';
+            if (size.width) style.width = size.width;
+            if (size.height) style.height = size.height;
+          }
+
+          function isTextLikeElement(el) {
+            var tag = el && el.tagName ? el.tagName.toLowerCase() : '';
+            return /^(h1|h2|h3|h4|h5|h6|p|li|blockquote|span)$/.test(tag) || Boolean(el && el.classList && el.classList.contains('pill'));
+          }
+
+          function setTemporaryDragBox(el, width, height) {
+            if (!el || !el.style || !isTextLikeElement(el)) return;
+            el.style.setProperty('width', Math.round(width) + 'px', 'important');
+            el.style.setProperty('height', Math.round(height) + 'px', 'important');
+          }
+
+          function clearTemporaryDragBox(el, item) {
+            if (!el || !el.style || !isTextLikeElement(el)) return;
+            if (!(item && item.style && item.style.width)) el.style.removeProperty('width');
+            if (!(item && item.style && item.style.height)) el.style.removeProperty('height');
+          }
+
           function moveSelectedBy(dxPx, dyPx) {
             if (!selected.length) return;
             var srect = sectionBox();
@@ -639,7 +836,18 @@ export function buildPresentationInspectAssets(options: {
             selected.forEach(function (item) {
               var el = syncItemToVisibleElement(item, pathToElement(item.path));
               if (!el) return;
-              if (!elementCanPosition(el)) return;
+              if (!elementCanPosition(el, item)) return;
+              if (isSvgShapeElement(el)) {
+                var currentTransform = parseTranslatePx(item.style && item.style.transform);
+                patchItemStyle(item, {
+                  transform: translateStyleFrom(currentTransform, dxPx, dyPx),
+                  zIndex: item.style.zIndex || '3',
+                });
+                updateAlignmentGuidesForElement(el);
+                moved = true;
+                return;
+              }
+              var movingImage = el.tagName && el.tagName.toLowerCase() === 'img';
               var rect = el.getBoundingClientRect();
               var currentLeftPct = ((rect.left - srect.left) / srect.width) * 100;
               var currentTopPct = ((rect.top - srect.top) / srect.height) * 100;
@@ -647,19 +855,23 @@ export function buildPresentationInspectAssets(options: {
               var nextTopPct = Math.max(0, Math.min(95, currentTopPct + (dyPx / srect.height) * 100));
               var movingTable = el.tagName && el.tagName.toLowerCase() === 'table';
               var movingTableHasExplicitWidth = movingTable && hasExplicitTableWidth(item.style);
-              var movingTableWidth = movingTableHasExplicitWidth ? item.style.width : '100%';
-              patchItemStyle(item, {
+              var moveStyle = {
                 display: movingTable ? 'table' : 'inline-block',
                 position: 'absolute',
-                left: movingTable && !movingTableHasExplicitWidth ? '0%' : nextLeftPct.toFixed(2) + '%',
+                left: nextLeftPct.toFixed(2) + '%',
                 top: nextTopPct.toFixed(2) + '%',
                 right: 'auto',
                 bottom: 'auto',
                 transform: 'none',
-                width: movingTable ? movingTableWidth : undefined,
-                tableLayout: movingTable ? 'fixed' : undefined,
-                zIndex: '3',
-              });
+                zIndex: item.style.zIndex || '3',
+              };
+              preserveElementDimensions(moveStyle, item, rect.width, rect.height);
+              if (movingTable) {
+                if (movingTableHasExplicitWidth) moveStyle.width = item.style.width;
+                moveStyle.tableLayout = 'fixed';
+              }
+              if (movingImage) moveStyle.maxWidth = '100%';
+              patchItemStyle(item, moveStyle);
               updateAlignmentGuidesForElement(el);
               moved = true;
             });
@@ -682,6 +894,7 @@ export function buildPresentationInspectAssets(options: {
                   totalSlides: totalSlides,
                   tag: item.tag,
                   text: item.text,
+                  alt: item.alt,
                   path: item.path,
                   style: item.style || {},
                 };
@@ -706,6 +919,7 @@ export function buildPresentationInspectAssets(options: {
               slide: slide,
               totalSlides: totalSlides,
               activeId: activeId,
+              layers: layerItems(),
               targets: selected.map(function (item) {
                 return {
                   id: item.id,
@@ -713,6 +927,7 @@ export function buildPresentationInspectAssets(options: {
                   totalSlides: totalSlides,
                   tag: item.tag,
                   text: item.text,
+                  alt: item.alt,
                   path: item.path,
                   style: item.style || {},
                 };
@@ -721,10 +936,9 @@ export function buildPresentationInspectAssets(options: {
           }
 
           function toggleSelect(el, additive) {
-            var path = cssPath(el);
-            var tag = el.classList && el.classList.contains('pill') ? 'pill' : el.tagName.toLowerCase();
-            var text = cleanText(el.textContent || '');
-            var id = targetId(path, tag, text);
+            var item = itemFromElement(el, 0);
+            if (!item) return;
+            var id = item.id;
             var existing = selected.find(function (item) { return item.id === id; });
             if (existing && additive) {
               selected = selected.filter(function (item) { return item.id !== id; });
@@ -740,16 +954,6 @@ export function buildPresentationInspectAssets(options: {
               emitSelectionState();
               return;
             }
-            var baseline = {};
-            var style = selectionStyleForElement(el);
-            var item = {
-              id: id,
-              path: path,
-              tag: tag,
-              text: text,
-              style: style,
-              baselineStyle: baseline,
-            };
             selected = additive ? selected.concat(item) : [item];
             activeId = id;
             applySelectedOutlines();
@@ -758,18 +962,8 @@ export function buildPresentationInspectAssets(options: {
 
           function selectAllElements() {
             selected = inspectableElements().map(function (el) {
-              var path = cssPath(el);
-              var tag = el.classList && el.classList.contains('pill') ? 'pill' : el.tagName.toLowerCase();
-              var text = cleanText(el.textContent || el.getAttribute('alt') || tag);
-              return {
-                id: targetId(path, tag, text),
-                path: path,
-                tag: tag,
-                text: text,
-                style: selectionStyleForElement(el),
-                baselineStyle: {},
-              };
-            });
+              return itemFromElement(el, 0);
+            }).filter(Boolean);
             activeId = selected.length ? selected[selected.length - 1].id : null;
             applySelectedOutlines();
             emitSelectionState();
@@ -803,6 +997,7 @@ export function buildPresentationInspectAssets(options: {
               event.stopPropagation();
               var item = getActive();
               if (!item) return;
+              if (isTableCellSelection(item, pathToElement(item.path))) return;
               window.parent.postMessage({
                 type: 'apploop-presentation-delete-element',
                 slide: slide,
@@ -837,33 +1032,91 @@ export function buildPresentationInspectAssets(options: {
               emitSelectionState();
             }
             var previousText = target.textContent || '';
-            var previousContentEditable = target.getAttribute('contenteditable');
+            var listContext = target.tagName && target.tagName.toLowerCase() === 'li' && target.closest ? target.closest('ul,ol') : null;
+            var previousListText = listContext ? sourceTextForElement(listContext) : '';
+            var editingNodes = [];
             document.body.setAttribute('data-apploop-editing-active', 'true');
-            target.setAttribute('contenteditable', 'true');
-            target.setAttribute('data-apploop-editing', 'true');
-            target.focus();
-            var range = document.createRange();
-            range.selectNodeContents(target);
-            var selection = window.getSelection();
-            if (selection) {
-              selection.removeAllRanges();
-              selection.addRange(range);
+
+            function markdownListTextFromElement(list, previousSource) {
+              if (!list) return '';
+              var ordered = list.tagName && list.tagName.toLowerCase() === 'ol';
+              var sourceLines = String(previousSource || '').split(/\\n/).filter(function (line) {
+                return /^\\s*(?:[-*+]|\\d+[.)])\\s+/.test(line);
+              });
+              var firstBullet = sourceLines[0] && sourceLines[0].match(/^\\s*([-*+])\\s+/);
+              var bullet = firstBullet ? firstBullet[1] : '-';
+              return Array.prototype.slice.call(list.children || []).filter(function (node) {
+                return node && node.tagName && node.tagName.toLowerCase() === 'li';
+              }).map(function (node, index) {
+                var text = blockText(node.textContent || '');
+                if (ordered) return (index + 1) + '. ' + text;
+                var checkbox = sourceLines[index] && sourceLines[index].match(/^\\s*[-*+]\\s+(\\[[ xX]\\]\\s*)/);
+                return bullet + ' ' + (checkbox ? checkbox[1] : '') + text;
+              }).join('\\n');
             }
+
+            function placeCaretIn(node, selectContents) {
+              node.focus();
+              var range = document.createRange();
+              range.selectNodeContents(node);
+              if (!selectContents) range.collapse(false);
+              var selection = window.getSelection();
+              if (selection) {
+                selection.removeAllRanges();
+                selection.addRange(range);
+              }
+            }
+
+            function unmarkEditing(node) {
+              if (!node) return;
+              var record = editingNodes.find(function (entry) { return entry.node === node; });
+              if (record) {
+                if (record.previousContentEditable === null) node.removeAttribute('contenteditable');
+                else node.setAttribute('contenteditable', record.previousContentEditable);
+              }
+              node.removeAttribute('data-apploop-editing');
+              node.removeEventListener('blur', commit);
+              node.removeEventListener('keydown', handleEditKeyDown);
+            }
+
+            function markEditing(node, selectContents) {
+              if (!node) return;
+              if (target && target !== node) unmarkEditing(target);
+              target = node;
+              if (!editingNodes.some(function (entry) { return entry.node === node; })) {
+                editingNodes.push({ node: node, previousContentEditable: node.getAttribute('contenteditable') });
+              }
+              node.setAttribute('contenteditable', 'true');
+              node.setAttribute('data-apploop-editing', 'true');
+              node.addEventListener('blur', commit);
+              node.addEventListener('keydown', handleEditKeyDown);
+              placeCaretIn(node, selectContents);
+              if (listContext && node.tagName && node.tagName.toLowerCase() === 'li') {
+                var path = cssPath(node);
+                var text = cleanText(node.textContent || '');
+                item.path = path;
+                item.tag = 'li';
+                item.text = text;
+                item.id = targetId(path, 'li', text);
+                selected = [item];
+                activeId = item.id;
+                applySelectedOutlines();
+                updatePositionBox();
+                emitSelectionState();
+              }
+            }
+            markEditing(target, true);
             var committed = false;
             function cleanup() {
-              if (previousContentEditable === null) target.removeAttribute('contenteditable');
-              else target.setAttribute('contenteditable', previousContentEditable);
-              target.removeAttribute('data-apploop-editing');
               document.body.removeAttribute('data-apploop-editing-active');
-              target.removeEventListener('blur', commit);
-              target.removeEventListener('keydown', handleEditKeyDown);
+              editingNodes.forEach(function (entry) { unmarkEditing(entry.node); });
               applySelectedOutlines();
             }
             function commit() {
               if (committed) return;
               committed = true;
-              var newText = blockText(target.textContent || '');
-              var previousBlockText = blockText(previousText);
+              var newText = listContext ? markdownListTextFromElement(listContext, previousListText) : blockText(target.textContent || '');
+              var previousBlockText = listContext ? previousListText : blockText(previousText);
               if (newText && newText !== previousBlockText) {
                 var shortText = cleanText(target.textContent || '');
                 var oldText = item.text;
@@ -884,15 +1137,28 @@ export function buildPresentationInspectAssets(options: {
             }
             function cancel() {
               committed = true;
-              target.textContent = previousText;
+              if (listContext) {
+                var insertedItems = Array.prototype.slice.call(listContext.querySelectorAll('li[data-apploop-inserted="true"]'));
+                insertedItems.forEach(function (node) { node.remove(); });
+              } else {
+                target.textContent = previousText;
+              }
               cleanup();
             }
             function handleEditKeyDown(e) {
+              if (e.key === 'Enter' && listContext) {
+                e.preventDefault();
+                var newItem = document.createElement('li');
+                newItem.setAttribute('data-apploop-inserted', 'true');
+                newItem.innerHTML = '<br>';
+                if (target.nextSibling) listContext.insertBefore(newItem, target.nextSibling);
+                else listContext.appendChild(newItem);
+                markEditing(newItem, false);
+                return;
+              }
               if (e.key === 'Enter') { e.preventDefault(); target.blur(); }
               if (e.key === 'Escape') { e.preventDefault(); cancel(); }
             }
-            target.addEventListener('blur', commit);
-            target.addEventListener('keydown', handleEditKeyDown);
           }, true);
 
           document.addEventListener('mousemove', function (event) {
@@ -920,7 +1186,8 @@ export function buildPresentationInspectAssets(options: {
             return Boolean(el.closest && el.closest('li,tr,td,th,thead,tbody,tfoot,col,colgroup'));
           }
 
-          function elementCanPosition(el) {
+          function elementCanPosition(el, item) {
+            if (item && item.style && item.style.pointerEvents === 'none') return false;
             return Boolean(el && !isTableOrListPart(el));
           }
 
@@ -929,7 +1196,7 @@ export function buildPresentationInspectAssets(options: {
             if (!item) return;
             var el = syncItemToVisibleElement(item, pathToElement(item.path));
             if (!el) return;
-            if (!elementCanPosition(el)) return;
+            if (!elementCanPosition(el, item)) return;
             var handle = event.target && event.target.getAttribute ? event.target.getAttribute('data-handle') : null;
             var rect = el.getBoundingClientRect();
             var srect = sectionBox();
@@ -946,6 +1213,7 @@ export function buildPresentationInspectAssets(options: {
                 srect: srect,
                 el: el,
                 item: item,
+                startTransform: isSvgShapeElement(el) ? parseTranslatePx(item.style && item.style.transform) : null,
               };
             } else {
               lastGestureKind = 'drag';
@@ -987,39 +1255,55 @@ export function buildPresentationInspectAssets(options: {
               var dx = event.clientX - dragging.startX;
               var dy = event.clientY - dragging.startY;
               var draggingTable = dragging.el && dragging.el.tagName && dragging.el.tagName.toLowerCase() === 'table';
+              var draggingImage = dragging.el && dragging.el.tagName && dragging.el.tagName.toLowerCase() === 'img';
               var leftPx = dragging.startLeft + dx;
               var topPx = dragging.startTop + dy;
               var leftPct = Math.max(0, Math.min(95, (leftPx / dragging.srect.width) * 100));
               var topPct = Math.max(0, Math.min(95, (topPx / dragging.srect.height) * 100));
               var draggingTableHasExplicitWidth = draggingTable && dragging.item && hasExplicitTableWidth(dragging.item.style);
-              var draggingTableWidth = draggingTableHasExplicitWidth ? dragging.item.style.width : '100%';
-              patchActiveStyle({
-                display: draggingTable ? 'table' : 'inline-block',
-                position: 'absolute',
-                left: draggingTable && !draggingTableHasExplicitWidth ? '0%' : leftPct.toFixed(2) + '%',
-                top: topPct.toFixed(2) + '%',
-                right: 'auto',
-                bottom: 'auto',
-                transform: 'none',
-                width: draggingTable ? draggingTableWidth : Math.round(dragging.startW) + 'px',
-                tableLayout: draggingTable ? 'fixed' : undefined,
-                zIndex: '3',
-              });
+              if (isSvgShapeElement(dragging.el)) {
+                patchActiveStyle({
+                  transform: translateStyleFrom(dragging.startTransform, dx, dy),
+                  zIndex: dragging.item.style.zIndex || '3',
+                });
+              } else {
+                setTemporaryDragBox(dragging.el, dragging.startW, dragging.startH);
+                var dragStyle = {
+                  display: draggingTable ? 'table' : 'inline-block',
+                  position: 'absolute',
+                  left: leftPct.toFixed(2) + '%',
+                  top: topPct.toFixed(2) + '%',
+                  right: 'auto',
+                  bottom: 'auto',
+                  transform: 'none',
+                  zIndex: dragging.item.style.zIndex || '3',
+                };
+                preserveElementDimensions(dragStyle, dragging.item, dragging.startW, dragging.startH);
+                if (draggingTable) {
+                  if (draggingTableHasExplicitWidth) dragStyle.width = dragging.item.style.width;
+                  dragStyle.tableLayout = 'fixed';
+                }
+                if (draggingImage) dragStyle.maxWidth = '100%';
+                patchActiveStyle(dragStyle);
+              }
               updateAlignmentGuidesForElement(dragging.el, { keepOpen: true });
             }
             if (resizing) {
               var rdx = event.clientX - resizing.startX;
               var rdy = event.clientY - resizing.startY;
               var resizingTable = resizing.el && resizing.el.tagName && resizing.el.tagName.toLowerCase() === 'table';
+              var resizingImage = resizing.el && resizing.el.tagName && resizing.el.tagName.toLowerCase() === 'img';
               var w = Math.max(24, resizing.startW + (resizing.handle === 'bm' ? 0 : rdx));
               var h = Math.max(16, resizing.startH + (resizing.handle === 'mr' ? 0 : rdy));
               patchActiveStyle({
                 display: resizingTable ? 'table' : 'inline-block',
                 position: 'absolute',
-                width: Math.round(w) + 'px',
+                boxSizing: 'border-box',
+                width: resizingImage ? slideBoundedWidthPx(w, resizing.srect) : Math.round(w) + 'px',
+                maxWidth: resizingImage ? '100%' : undefined,
                 tableLayout: resizingTable ? 'fixed' : undefined,
                 height: Math.round(h) + 'px',
-                zIndex: '3',
+                zIndex: resizing.item.style.zIndex || '3',
               });
               updateAlignmentGuidesForElement(resizing.el, { keepOpen: true });
             }
@@ -1034,6 +1318,7 @@ export function buildPresentationInspectAssets(options: {
             event = event && event.clientX !== undefined ? event : lastDragEvent || event;
             var didGesture = Boolean(dragging || resizing);
             var gestureKind = lastGestureKind;
+            if (dragging) clearTemporaryDragBox(dragging.el, dragging.item);
             dragging = null;
             resizing = null;
             lastGestureKind = null;
@@ -1106,9 +1391,13 @@ export function buildPresentationInspectAssets(options: {
               selected = incoming.map(function (t) {
                 var path = t.path;
                 var resolved = pathToElement(path);
+                if (t.tag === 'hr' && resolved && resolved.tagName && resolved.tagName.toLowerCase() !== 'hr' && resolved.querySelector) {
+                  resolved = resolved.querySelector('hr') || resolved;
+                  path = cssPath(resolved);
+                }
                 if (!resolved || cleanText(resolved.textContent || '') !== t.text) {
                   var replacement = inspectableElements().find(function (candidate) {
-                    return candidate.tagName.toLowerCase() === t.tag && cleanText(candidate.textContent || '') === t.text;
+                      return candidate.tagName.toLowerCase() === t.tag && (t.tag === 'hr' || cleanText(candidate.textContent || '') === t.text);
                   });
                   if (replacement) path = cssPath(replacement);
                 }
@@ -1117,6 +1406,7 @@ export function buildPresentationInspectAssets(options: {
                   path: path,
                   tag: t.tag,
                   text: t.text,
+                  alt: t.alt,
                   style: t.style || {},
                   baselineStyle: {},
                 };
@@ -1158,6 +1448,7 @@ export function buildPresentationInspectAssets(options: {
             if (data.type === 'apploop-presentation-request-delete-active') {
               var item = getActive();
               if (!item) return;
+              if (isTableCellSelection(item, pathToElement(item.path))) return;
               window.parent.postMessage({
                 type: 'apploop-presentation-delete-element',
                 slide: slide,
@@ -1171,7 +1462,7 @@ export function buildPresentationInspectAssets(options: {
               var target = selected.find(function (item) { return item.id === data.id; });
               if (!target) return;
               target.style = Object.assign({}, target.style || {}, data.style || {});
-              var el = pathToElement(target.path);
+              var el = resolveTargetElement(target);
               if (el) applyStyleToElement(el, data.style || {});
               updatePositionBox();
               emitSelectionState();
@@ -1179,10 +1470,11 @@ export function buildPresentationInspectAssets(options: {
             if (data.type === 'apploop-presentation-apply-all-styles') {
               data.targets.forEach(function (patchTarget) {
                 var target = selected.find(function (item) { return item.id === patchTarget.id; });
-                if (!target) return;
-                target.style = Object.assign({}, patchTarget.style || {});
-                var el = pathToElement(target.path);
-                if (el) applyStyleToElement(el, target.style);
+                var el = resolveTargetElement(target || patchTarget);
+                if (!el) return;
+                var nextStyle = Object.assign({}, patchTarget.style || {});
+                if (target) target.style = nextStyle;
+                applyStyleToElement(el, nextStyle);
               });
               updatePositionBox();
               emitSelectionState();
@@ -1192,6 +1484,7 @@ export function buildPresentationInspectAssets(options: {
           window.addEventListener('resize', updatePositionBox);
           window.addEventListener('resize', hideAlignmentGuides);
 
+          emitSelectionState();
           window.parent.postMessage({
             type: 'apploop-presentation-slide-ready',
             slide: slide,
@@ -1211,6 +1504,19 @@ function extractSourceBlocks(markdown: string) {
     const line = lines[index] ?? "";
     const trimmed = line.trim();
     if (!trimmed || /^<!--\s*_/.test(trimmed)) continue;
+    if (/^!\[[^\]]*\]\([^)]*\)\s*$/.test(trimmed) || /^<img\b/i.test(trimmed)) {
+      blocks.push({ tag: "img", text: imageSourceFromMarkdown(trimmed) || trimmed });
+      continue;
+    }
+    if (/^<hr\b/i.test(trimmed) || /^(?:-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      blocks.push({ tag: "hr", text: trimmed });
+      continue;
+    }
+    const svgShape = trimmed.match(/^<(rect|circle|ellipse|line|path|polygon|polyline)\b/i);
+    if (svgShape) {
+      blocks.push({ tag: svgShape[1]!.toLowerCase(), text: trimmed });
+      continue;
+    }
     if (/^</.test(trimmed) && trimmed.replace(/<[^>]+>/g, "").trim().length === 0) continue;
     const heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
     if (heading) {
@@ -1255,6 +1561,13 @@ function extractSourceBlocks(markdown: string) {
     blocks.push({ tag: "p", text: lines.slice(start, index + 1).join("\n") });
   }
   return blocks;
+}
+
+function imageSourceFromMarkdown(line: string) {
+  const markdown = line.match(/^!\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)\s*$/);
+  if (markdown?.[1]) return markdown[1];
+  const html = line.match(/\bsrc=["']([^"']+)["']/i);
+  return html?.[1] ?? "";
 }
 
 function isMarkdownTableLine(line: string) {

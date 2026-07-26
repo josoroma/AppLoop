@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { createPresentationAction } from "@/lib/presentations/actions";
@@ -41,18 +41,20 @@ export function PresentationCreateForm({ templates }: { templates: PresentationT
           <div>
             <legend className="text-sm font-medium">Template</legend>
             <p className="mt-1 text-sm text-muted-foreground">
-              Starter decks are plain Marp Markdown. The Simple 3 slides starter stays short on purpose.
+              Starter decks are plain Marp Markdown. Simple 3 Slides is selected by default; choose another template to start from a different deck.
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             {templates.map((template) => {
               const selected = template.id === selectedTemplateId;
+              const isDefault = template.id === DEFAULT_PRESENTATION_TEMPLATE_ID;
 
               return (
                 <label
                   key={template.id}
-                  className={`luma-select-card grid min-h-32 cursor-pointer gap-3 rounded-2xl border bg-background/70 p-5 text-sm transition ${
-                    selected ? "border-primary ring-2 ring-ring" : "hover:border-primary/40"
+                  aria-label={`${template.name}${isDefault ? " default template" : ""}${selected ? " selected" : ""}`}
+                  className={`luma-select-card grid min-h-32 cursor-pointer gap-3 rounded-2xl border p-5 text-sm transition ${
+                    selected ? "border-primary bg-primary/10 shadow-sm ring-2 ring-primary/45" : "bg-background/70 hover:border-primary/40"
                   }`}
                 >
                   <input
@@ -62,7 +64,22 @@ export function PresentationCreateForm({ templates }: { templates: PresentationT
                     type="radio"
                     value={template.id}
                   />
-                  <span className="text-lg font-medium">{template.name}</span>
+                  <span className="flex items-start justify-between gap-3">
+                    <span className="text-lg font-medium">{template.name}</span>
+                    <span className="flex shrink-0 flex-wrap justify-end gap-1">
+                      {isDefault ? (
+                        <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                          Default
+                        </span>
+                      ) : null}
+                      {selected ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.12em] text-primary-foreground">
+                          <CheckCircle2 className="size-3" />
+                          Selected
+                        </span>
+                      ) : null}
+                    </span>
+                  </span>
                   <span className="text-sm leading-6 text-muted-foreground">{template.description}</span>
                   <span className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                     source · {template.sourceFile}

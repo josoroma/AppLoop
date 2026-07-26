@@ -8,6 +8,20 @@ export const BUILT_IN_PRESENTATION_TEMPLATES = [
     templatePath: "simple-3-slides",
     sourceFile: "deck.md",
   },
+  {
+    id: "claude-code-harness",
+    name: "Claude Code Harness",
+    description: "Spec-driven agent harness deck for Claude Code workflows, rules, skills, agents, hooks, and delivery gates.",
+    templatePath: "claude-code-harness",
+    sourceFile: "deck.md",
+  },
+  {
+    id: "hermes-agent-harness",
+    name: "Hermes Agent Harness",
+    description: "Hermes Agent inspired cobalt deck explaining Hermes, AppLoop's custom local harness, bundles, isolation, and edit flow.",
+    templatePath: "hermes-agent-harness",
+    sourceFile: "deck.md",
+  },
 ] as const;
 
 export type PresentationTemplateId = (typeof BUILT_IN_PRESENTATION_TEMPLATES)[number]["id"];

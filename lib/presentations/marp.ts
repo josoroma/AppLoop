@@ -76,6 +76,7 @@ export function wrapMarpDocument(html: string, css: string, options: WrapMarpDoc
       html, body { margin: 0; width: 100%; height: 100%; background: ${previewBackground}; }
       body { overflow: hidden; }
       div.marpit { width: 100%; height: 100%; background: ${previewBackground}; }
+      div.marpit section img { max-width: 100% !important; height: auto; }
     `;
   const listMarkerCss = `
       div.marpit section li::marker { color: currentColor !important; }
