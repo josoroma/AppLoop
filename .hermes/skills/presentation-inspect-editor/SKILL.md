@@ -34,7 +34,19 @@ Class names hash `sha1(slide | normalized_text)` only. **Do not include tag or p
 
 ## Drag/resize pitfall
 
-Inline elements (`<li>`, `<a>`, `<span>`, `<em>`, `<strong>`) ignore `width`/`height` even with `position: absolute`. **Always set `display: inline-block`** alongside `position: absolute` in drag/resize style patches.
+Inline elements (`<li>`, `<a>`, `<span>`, `<em>`, `<strong>`) ignore `width`/`height` and `transform` as plain inline boxes. **Always set `display: inline-block`** alongside `position: absolute` (resize) or `transform` (movement) style patches.
+
+## Movement is transform-only and flow-preserving (multi-select group drag)
+
+Element movement (mouse drag and arrow keys) in `inspect-editor-assets.ts` applies **only a `transform: translate(...)`** patch — never `position: absolute`/`left`/`top`. The element keeps its slot in normal flow, so moving one or many elements can never reflow, shift, or resize any other slide element; moved elements simply overlap freely.
+
+Rules that keep this correct:
+
+1. **Snapshot before mutating**: `beginBoxGesture` builds one `dragSnapshotForItem` per selected item (rect + `currentElementTranslate`) BEFORE any style patch, and `moveSelectedBy` computes all move styles in a first pass before applying them in a second pass.
+2. **Group-wide clamp**: `groupBoundedDelta` clamps the shared drag delta once for the whole group, so relative positions stay rigid at slide edges (never clamp per element — that distorts the group).
+3. **Scale correction**: mouse deltas are rendered px; divide by `sectionRenderScale()` to get slide CSS px before writing `transform`.
+4. **Inline elements**: transforms do not apply to non-replaced inline boxes — `moveStyleForElement` adds `display: inline-block` when the computed display is `inline`.
+5. **Group persistence**: `emitStyleApply` sends all `selected` items, so every group member's transform persists to `deck.md`.
 
 ## Undo architecture
 

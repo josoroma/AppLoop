@@ -917,11 +917,6 @@ export function buildPresentationInspectAssets(options: {
             if (el) applyStyleToElement(el, item.style);
           }
 
-          function hasExplicitTableWidth(style) {
-            var width = style && style.width ? String(style.width).trim() : '';
-            return Boolean(width && !/^100%\s*(?:!important)?$/i.test(width));
-          }
-
           function isSvgShapeElement(el) {
             return Boolean(el && el.tagName && el.tagName.toLowerCase() === 'svg' && svgShapeMarkerElement(el));
           }
@@ -952,95 +947,71 @@ export function buildPresentationInspectAssets(options: {
           }
 
           function renderedToSlideCssSize(width, height) {
-            var section = document.querySelector('section');
-            var srect = section ? section.getBoundingClientRect() : null;
-            var cssWidth = section && section.offsetWidth ? section.offsetWidth : (srect ? srect.width : 0);
-            var cssHeight = section && section.offsetHeight ? section.offsetHeight : (srect ? srect.height : 0);
-            var scaleX = srect && cssWidth ? srect.width / cssWidth : 1;
-            var scaleY = srect && cssHeight ? srect.height / cssHeight : 1;
-            var nextWidth = Number(width) / (scaleX > 0 ? scaleX : 1);
-            var nextHeight = Number(height) / (scaleY > 0 ? scaleY : 1);
+            var scale = sectionRenderScale();
+            var nextWidth = Number(width) / (scale.x > 0 ? scale.x : 1);
+            var nextHeight = Number(height) / (scale.y > 0 ? scale.y : 1);
             return {
               width: Number.isFinite(nextWidth) && nextWidth > 0 ? Math.round(nextWidth) + 'px' : null,
               height: Number.isFinite(nextHeight) && nextHeight > 0 ? Math.round(nextHeight) + 'px' : null,
             };
           }
 
-          function preserveElementDimensions(style, item, width, height) {
-            var size = renderedToSlideCssSize(width, height);
-            style.boxSizing = 'border-box';
-            if (size.width) style.width = size.width;
-            if (size.height) style.height = size.height;
+          function sectionRenderScale() {
+            var section = document.querySelector('section');
+            var srect = section ? section.getBoundingClientRect() : null;
+            var cssWidth = section && section.offsetWidth ? section.offsetWidth : (srect ? srect.width : 0);
+            var cssHeight = section && section.offsetHeight ? section.offsetHeight : (srect ? srect.height : 0);
+            return {
+              x: srect && cssWidth ? srect.width / cssWidth : 1,
+              y: srect && cssHeight ? srect.height / cssHeight : 1,
+            };
           }
 
-          function isTextLikeElement(el) {
-            var tag = el && el.tagName ? el.tagName.toLowerCase() : '';
-            return /^(h1|h2|h3|h4|h5|h6|p|li|blockquote|span)$/.test(tag) || Boolean(el && el.classList && el.classList.contains('pill'));
-          }
-
-          function setTemporaryDragBox(el, width, height) {
-            if (!el || !el.style || !isTextLikeElement(el)) return;
-            el.style.setProperty('width', Math.round(width) + 'px', 'important');
-            el.style.setProperty('height', Math.round(height) + 'px', 'important');
-          }
-
-          function clearTemporaryDragBox(el, item) {
-            if (!el || !el.style || !isTextLikeElement(el)) return;
-            if (!(item && item.style && item.style.width)) el.style.removeProperty('width');
-            if (!(item && item.style && item.style.height)) el.style.removeProperty('height');
+          function moveStyleForElement(el, item, cssDx, cssDy, startTransform) {
+            // Flow-preserving movement: only translate the element. It keeps
+            // its original slot in normal flow, so no sibling ever reflows,
+            // resizes, or shifts — moved elements simply overlap freely.
+            var startFrom = startTransform || currentElementTranslate(el, item.style && item.style.transform);
+            var moveStyle = {
+              transform: translateStyleFrom(startFrom, cssDx, cssDy),
+              zIndex: item.style.zIndex || '3',
+            };
+            if (isSvgShapeElement(el)) {
+              var rect = el.getBoundingClientRect();
+              var svgSize = renderedToSlideCssSize(rect.width, rect.height);
+              moveStyle.width = item.style.width || svgSize.width || undefined;
+              moveStyle.height = item.style.height || svgSize.height || undefined;
+            } else if (window.getComputedStyle && window.getComputedStyle(el).display === 'inline') {
+              // Transforms do not apply to non-replaced inline boxes.
+              moveStyle.display = 'inline-block';
+            }
+            return moveStyle;
           }
 
           function moveSelectedBy(dxPx, dyPx) {
             if (!selected.length) return;
-            var srect = sectionBox();
-            var moved = false;
-            selected.forEach(function (item) {
+            // Snapshot all move styles BEFORE mutating any element styles so
+            // no element's style change can corrupt another's measurement.
+            // Movement is transform-only: elements keep their flow slot, so
+            // other elements never shift, resize, or reflow.
+            var moves = [];
+            for (var i = 0; i < selected.length; i += 1) {
+              var item = selected[i];
               var el = syncItemToVisibleElement(item, pathToElement(item.path));
-              if (!el) return;
-              if (!elementCanPosition(el, item)) return;
-              if (isSvgShapeElement(el)) {
-                var currentTransform = parseTranslatePx(item.style && item.style.transform);
-                var svgRect = el.getBoundingClientRect();
-                var svgSize = renderedToSlideCssSize(svgRect.width, svgRect.height);
-                patchItemStyle(item, {
-                  transform: translateStyleFrom(currentTransform, dxPx, dyPx),
-                  width: item.style.width || svgSize.width || undefined,
-                  height: item.style.height || svgSize.height || undefined,
-                  zIndex: item.style.zIndex || '3',
-                });
-                updateAlignmentGuidesForElement(el);
-                moved = true;
-                return;
-              }
-              var movingImage = el.tagName && el.tagName.toLowerCase() === 'img';
-              var rect = el.getBoundingClientRect();
-              var currentLeftPct = ((rect.left - srect.left) / srect.width) * 100;
-              var currentTopPct = ((rect.top - srect.top) / srect.height) * 100;
-              var nextLeftPct = Math.max(0, Math.min(95, currentLeftPct + (dxPx / srect.width) * 100));
-              var nextTopPct = Math.max(0, Math.min(95, currentTopPct + (dyPx / srect.height) * 100));
-              var movingTable = el.tagName && el.tagName.toLowerCase() === 'table';
-              var movingTableHasExplicitWidth = movingTable && hasExplicitTableWidth(item.style);
-              var moveStyle = {
-                display: movingTable ? 'table' : 'inline-block',
-                position: 'absolute',
-                left: nextLeftPct.toFixed(2) + '%',
-                top: nextTopPct.toFixed(2) + '%',
-                right: 'auto',
-                bottom: 'auto',
-                transform: 'none',
-                zIndex: item.style.zIndex || '3',
-              };
-              preserveElementDimensions(moveStyle, item, rect.width, rect.height);
-              if (movingTable) {
-                if (movingTableHasExplicitWidth) moveStyle.width = item.style.width;
-                moveStyle.tableLayout = 'fixed';
-              }
-              if (movingImage) moveStyle.maxWidth = '100%';
-              patchItemStyle(item, moveStyle);
-              updateAlignmentGuidesForElement(el);
-              moved = true;
-            });
-            if (!moved) return;
+              if (!el) continue;
+              if (!elementCanPosition(el, item)) continue;
+              moves.push({
+                item: item,
+                el: el,
+                moveStyle: moveStyleForElement(el, item, dxPx, dyPx, null),
+              });
+            }
+            if (!moves.length) return;
+            for (var j = 0; j < moves.length; j += 1) {
+              var m = moves[j];
+              patchItemStyle(m.item, m.moveStyle);
+              updateAlignmentGuidesForElement(m.el);
+            }
             scheduleKeyboardMoveSave();
             updatePositionBox();
             emitSelectionState();
@@ -1372,6 +1343,20 @@ export function buildPresentationInspectAssets(options: {
             var handle = event.target && event.target.getAttribute ? event.target.getAttribute('data-handle') : null;
             var rect = el.getBoundingClientRect();
             var srect = sectionBox();
+            function dragSnapshotForItem(snapshotItem) {
+              var snapshotEl = syncItemToVisibleElement(snapshotItem, pathToElement(snapshotItem.path));
+              if (!snapshotEl || !elementCanPosition(snapshotEl, snapshotItem)) return null;
+              var snapshotRect = snapshotEl.getBoundingClientRect();
+              return {
+                el: snapshotEl,
+                item: snapshotItem,
+                startW: snapshotRect.width,
+                startH: snapshotRect.height,
+                startLeft: snapshotRect.left - srect.left,
+                startTop: snapshotRect.top - srect.top,
+                startTransform: currentElementTranslate(snapshotEl, snapshotItem.style && snapshotItem.style.transform),
+              };
+            }
             if (handle) {
               lastGestureKind = 'resize';
               resizing = {
@@ -1389,17 +1374,25 @@ export function buildPresentationInspectAssets(options: {
               };
             } else {
               lastGestureKind = 'drag';
+              // Snapshot every selected element BEFORE any style mutation so
+              // one element leaving normal flow cannot shift the measured
+              // rects of the others. Only selected items are ever patched.
+              var dragItems = selected.map(function (selectedItem) {
+                return dragSnapshotForItem(selectedItem);
+              }).filter(Boolean);
+              var hasActiveSnapshot = dragItems.some(function (snapshot) { return snapshot.item.id === item.id; });
+              if (!hasActiveSnapshot) {
+                var activeSnapshot = dragSnapshotForItem(item);
+                if (activeSnapshot) dragItems.push(activeSnapshot);
+              }
               dragging = {
                 startX: event.clientX,
                 startY: event.clientY,
-                startW: rect.width,
-                startH: rect.height,
-                startLeft: rect.left - srect.left,
-                startTop: rect.top - srect.top,
                 srect: srect,
+                scale: sectionRenderScale(),
                 el: el,
                 item: item,
-                startTransform: isSvgShapeElement(el) ? currentElementTranslate(el, item.style && item.style.transform) : null,
+                items: dragItems,
               };
             }
             if (dragging || resizing) window.parent.postMessage({ type: 'apploop-presentation-drag-start' }, '*');
@@ -1423,46 +1416,36 @@ export function buildPresentationInspectAssets(options: {
             beginBoxGesture(event);
           }, true);
 
+          function moveDragSnapshot(snapshot, dx, dy, scale) {
+            if (!snapshot || !snapshot.el || !snapshot.item) return;
+            // Mouse deltas are in rendered px; transforms apply in slide CSS px.
+            var cssDx = dx / (scale && scale.x > 0 ? scale.x : 1);
+            var cssDy = dy / (scale && scale.y > 0 ? scale.y : 1);
+            patchItemStyle(snapshot.item, moveStyleForElement(snapshot.el, snapshot.item, cssDx, cssDy, snapshot.startTransform));
+          }
+
+          function groupBoundedDelta(snapshots, dx, dy, srect) {
+            // Clamp the shared delta so no element's top-left leaves the
+            // slide box. Clamping once for the whole group keeps relative
+            // positions rigid at slide edges.
+            var boundedDx = dx;
+            var boundedDy = dy;
+            for (var i = 0; i < snapshots.length; i += 1) {
+              var s = snapshots[i];
+              boundedDx = Math.max(-s.startLeft, Math.min(srect.width * 0.95 - s.startLeft, boundedDx));
+              boundedDy = Math.max(-s.startTop, Math.min(srect.height * 0.95 - s.startTop, boundedDy));
+            }
+            return { dx: boundedDx, dy: boundedDy };
+          }
+
           function handleDragMove(event) {
             if (dragging || resizing) lastDragEvent = event;
             if (dragging) {
-              var dx = event.clientX - dragging.startX;
-              var dy = event.clientY - dragging.startY;
-              var draggingTable = dragging.el && dragging.el.tagName && dragging.el.tagName.toLowerCase() === 'table';
-              var draggingImage = dragging.el && dragging.el.tagName && dragging.el.tagName.toLowerCase() === 'img';
-              var leftPx = dragging.startLeft + dx;
-              var topPx = dragging.startTop + dy;
-              var leftPct = Math.max(0, Math.min(95, (leftPx / dragging.srect.width) * 100));
-              var topPct = Math.max(0, Math.min(95, (topPx / dragging.srect.height) * 100));
-              var draggingTableHasExplicitWidth = draggingTable && dragging.item && hasExplicitTableWidth(dragging.item.style);
-              if (isSvgShapeElement(dragging.el)) {
-                var svgDragSize = renderedToSlideCssSize(dragging.startW, dragging.startH);
-                patchActiveStyle({
-                  transform: translateStyleFrom(dragging.startTransform, dx, dy),
-                  width: dragging.item.style.width || svgDragSize.width || undefined,
-                  height: dragging.item.style.height || svgDragSize.height || undefined,
-                  zIndex: dragging.item.style.zIndex || '3',
-                });
-              } else {
-                setTemporaryDragBox(dragging.el, dragging.startW, dragging.startH);
-                var dragStyle = {
-                  display: draggingTable ? 'table' : 'inline-block',
-                  position: 'absolute',
-                  left: leftPct.toFixed(2) + '%',
-                  top: topPct.toFixed(2) + '%',
-                  right: 'auto',
-                  bottom: 'auto',
-                  transform: 'none',
-                  zIndex: dragging.item.style.zIndex || '3',
-                };
-                preserveElementDimensions(dragStyle, dragging.item, dragging.startW, dragging.startH);
-                if (draggingTable) {
-                  if (draggingTableHasExplicitWidth) dragStyle.width = dragging.item.style.width;
-                  dragStyle.tableLayout = 'fixed';
-                }
-                if (draggingImage) dragStyle.maxWidth = '100%';
-                patchActiveStyle(dragStyle);
-              }
+              var delta = groupBoundedDelta(dragging.items || [], event.clientX - dragging.startX, event.clientY - dragging.startY, dragging.srect);
+              (dragging.items || []).forEach(function (snapshot) {
+                moveDragSnapshot(snapshot, delta.dx, delta.dy, dragging.scale);
+              });
+              updatePositionBox();
               updateAlignmentGuidesForElement(dragging.el, { keepOpen: true });
             }
             if (resizing) {
@@ -1495,7 +1478,6 @@ export function buildPresentationInspectAssets(options: {
             event = event && event.clientX !== undefined ? event : lastDragEvent || event;
             var didGesture = Boolean(dragging || resizing);
             var gestureKind = lastGestureKind;
-            if (dragging) clearTemporaryDragBox(dragging.el, dragging.item);
             dragging = null;
             resizing = null;
             lastGestureKind = null;

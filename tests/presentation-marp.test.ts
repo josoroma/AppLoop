@@ -453,20 +453,24 @@ describe("marp rendering", () => {
     expect(assets.script).toContain("lastGestureKind = 'drag'");
     expect(assets.script).toContain("lastGestureKind = 'resize'");
     expect(assets.script).toContain("startW: rect.width");
-    expect(assets.script).toContain("function hasExplicitTableWidth(style)");
     expect(assets.script).toContain("function renderedToSlideCssSize(width, height)");
-    expect(assets.script).toContain("function preserveElementDimensions(style, item, width, height)");
+    expect(assets.script).toContain("function sectionRenderScale()");
     expect(assets.script).toContain("srect.width / cssWidth");
-    expect(assets.script).toContain("style.boxSizing = 'border-box';");
     expect(assets.script).not.toContain("item && item.style && item.style.width ? item.style.width");
     expect(assets.script).not.toContain("item && item.style && item.style.height ? item.style.height");
     expect(assets.script).not.toContain("draggingImage ? slideBoundedWidthPx(dragging.startW, dragging.srect) : Math.round(dragging.startW) + 'px'");
     expect(assets.script).not.toContain("dragStyle.width = slideBoundedWidthPx(dragging.startW, dragging.srect);");
-    expect(assets.script).toContain("preserveElementDimensions(dragStyle, dragging.item, dragging.startW, dragging.startH);");
-    expect(assets.script).toContain("preserveElementDimensions(moveStyle, item, rect.width, rect.height);");
-    expect(assets.script).toContain("left: leftPct.toFixed(2) + '%'");
-    expect(assets.script).toContain("draggingTable ? 'table' : 'inline-block'");
-    expect(assets.script).toContain("dragStyle.tableLayout = 'fixed';");
+    // Movement is transform-only so dragged elements keep their flow slot
+    // and never reflow, resize, or shift other slide elements.
+    expect(assets.script).toContain("function moveStyleForElement(el, item, cssDx, cssDy, startTransform)");
+    expect(assets.script).toContain("transform: translateStyleFrom(startFrom, cssDx, cssDy)");
+    expect(assets.script).not.toContain("position: 'absolute',\n              left: leftPct.toFixed(2)");
+    expect(assets.script).toContain("function dragSnapshotForItem(snapshotItem)");
+    expect(assets.script).toContain("function moveDragSnapshot(snapshot, dx, dy, scale)");
+    expect(assets.script).toContain("function groupBoundedDelta(snapshots, dx, dy, srect)");
+    expect(assets.script).toContain("var dragItems = selected.map(function (selectedItem)");
+    expect(assets.script).toContain("(dragging.items || []).forEach(function (snapshot)");
+    expect(assets.script).toContain("moveStyle: moveStyleForElement(el, item, dxPx, dyPx, null)");
     expect(assets.script).toContain("resizingImage ? slideBoundedWidthPx(w, resizing.srect) : Math.round(w) + 'px'");
     expect(assets.script).toContain("boxSizing: 'border-box'");
     expect(assets.script).toContain("resizingTable ? 'table' : 'inline-block'");
