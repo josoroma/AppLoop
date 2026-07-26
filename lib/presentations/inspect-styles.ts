@@ -288,7 +288,7 @@ export function parseManagedStyleEntries(markdown: string): Array<{ className: s
       }
     }
     if (!className || styleToCssDeclarations(style).length === 0) continue;
-    const tag = suffix.match(/^(?:>\s*)?(table|ul|ol|blockquote|pre|img|hr|rect|circle|ellipse|line|path|polygon|polyline)$/)?.[1]
+    const tag = suffix.match(/^(?:>\s*)?(table|ul|ol|blockquote|pre|img|hr|svg|rect|circle|ellipse|line|path|polygon|polyline)$/)?.[1]
       ?? (suffix.startsWith("th") || suffix.includes("td") ? "table" : undefined);
     const existing = merged.get(className);
     if (existing) {
@@ -434,9 +434,10 @@ function upsertSvgShapeClass(slideMarkdown: string, target: PresentationStyleTar
         const openTag = match.match(/^<svg\b[^>]*>/i)?.[0];
         if (!openTag) return match;
         const openAttrs = openTag.replace(/^<svg\b/i, "").replace(/>$/, "");
-        const nextOpenTag = `<svg${upsertStyleAttribute(upsertClassAttribute(openAttrs, className), hostStyle)}>`;
+        const markerIsOnSvg = openTag.match(/\bdata-apploop-shape=["']([^"']+)["']/i)?.[1] === marker;
+        const nextOpenTag = `<svg${upsertStyleAttribute(upsertClassAttribute(openAttrs, className), markerIsOnSvg ? style : hostStyle)}>`;
         let nextMatch = `${nextOpenTag}${match.slice(openTag.length)}`;
-        if (styleToCssDeclarations(paintStyle).length === 0) return nextMatch;
+        if (markerIsOnSvg || styleToCssDeclarations(paintStyle).length === 0) return nextMatch;
         const primitivePattern = /<(rect|circle|ellipse|line|path|polygon|polyline)\b[^>]*\bdata-apploop-shape=["'][^"']+["'][^>]*>/i;
         nextMatch = nextMatch.replace(primitivePattern, (primitive) => {
           const primitiveTag = primitive.match(/^<(rect|circle|ellipse|line|path|polygon|polyline)\b/i)?.[1] ?? "path";

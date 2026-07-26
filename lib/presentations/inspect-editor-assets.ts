@@ -73,7 +73,7 @@ export function buildPresentationInspectAssets(options: {
       body[data-inspect="true"] .apploop-empty-managed-host .pill {
         pointer-events: auto !important;
       }
-      #apploop-inspect-box {
+      .apploop-inspect-box {
         position: absolute;
         z-index: 2147483645;
         border: 1px solid rgba(251, 191, 36, 0.9);
@@ -85,7 +85,7 @@ export function buildPresentationInspectAssets(options: {
         box-sizing: border-box;
         display: none;
       }
-      #apploop-inspect-box[data-open="true"] { display: block; }
+      .apploop-inspect-box[data-open="true"] { display: block; }
       #apploop-inspect-hover-box {
         position: absolute;
         z-index: 2147483643;
@@ -97,7 +97,7 @@ export function buildPresentationInspectAssets(options: {
         display: none;
       }
       #apploop-inspect-hover-box[data-open="true"] { display: block; }
-      #apploop-inspect-box .handle {
+      .apploop-inspect-box .handle {
         position: absolute;
         width: 10px;
         height: 10px;
@@ -106,9 +106,9 @@ export function buildPresentationInspectAssets(options: {
         border-radius: 2px;
         pointer-events: auto;
       }
-      #apploop-inspect-box .handle.br { right: -5px; bottom: -5px; cursor: nwse-resize; }
-      #apploop-inspect-box .handle.bm { left: 50%; bottom: -5px; margin-left: -5px; cursor: ns-resize; }
-      #apploop-inspect-box .handle.mr { right: -5px; top: 50%; margin-top: -5px; cursor: ew-resize; }
+      .apploop-inspect-box .handle.br { right: -5px; bottom: -5px; cursor: nwse-resize; }
+      .apploop-inspect-box .handle.bm { left: 50%; bottom: -5px; margin-left: -5px; cursor: ns-resize; }
+      .apploop-inspect-box .handle.mr { right: -5px; top: 50%; margin-top: -5px; cursor: ew-resize; }
       #apploop-alignment-guides {
         position: fixed;
         inset: 0;
@@ -126,7 +126,7 @@ export function buildPresentationInspectAssets(options: {
       #apploop-alignment-guides .guide[data-open="true"] { display: block; }
       #apploop-alignment-guides .guide.vertical { width: 1px; }
       #apploop-alignment-guides .guide.horizontal { height: 1px; }
-      #apploop-inspect-box .drag {
+      .apploop-inspect-box .drag {
               position: absolute;
               left: 0; right: 0; top: -22px;
               height: 20px;
@@ -146,10 +146,10 @@ export function buildPresentationInspectAssets(options: {
               letter-spacing: 0.04em;
               text-transform: uppercase;
             }
-            #apploop-inspect-box .drag:active {
+            .apploop-inspect-box .drag:active {
               cursor: grabbing;
             }
-            #apploop-inspect-box .drag-del {
+            .apploop-inspect-box .drag-del {
               position: absolute;
               right: 2px; top: 2px;
               width: 16px; height: 16px;
@@ -164,19 +164,23 @@ export function buildPresentationInspectAssets(options: {
               justify-content: center;
               pointer-events: auto;
             }
-            #apploop-inspect-box .drag-del:hover {
+            .apploop-inspect-box .drag-del:hover {
               background: #dc2626;
               color: #fff;
             }
-            #apploop-inspect-box[data-table-cell="true"] .drag,
-            #apploop-inspect-box[data-table-cell="true"] .drag-del {
+            .apploop-inspect-box[data-table-cell="true"] .drag,
+            .apploop-inspect-box[data-table-cell="true"] .drag-del {
               display: none;
             }
-            #apploop-inspect-box[data-list-item="true"] .drag,
-            #apploop-inspect-box[data-list-item="true"] .handle {
+            .apploop-inspect-box[data-list-item="true"] .drag,
+            .apploop-inspect-box[data-list-item="true"] .handle {
               display: none;
             }
-            #apploop-inspect-box .handle {
+            .apploop-inspect-box[data-group="true"] .handle,
+            .apploop-inspect-box[data-group="true"] .drag-del {
+              display: none;
+            }
+            .apploop-inspect-box .handle {
               position: absolute;
               width: 10px;
               height: 10px;
@@ -185,9 +189,9 @@ export function buildPresentationInspectAssets(options: {
               border-radius: 2px;
               pointer-events: auto;
             }
-            #apploop-inspect-box .handle.br { right: -5px; bottom: -5px; cursor: nwse-resize; }
-            #apploop-inspect-box .handle.bm { left: 50%; bottom: -5px; margin-left: -5px; cursor: ns-resize; }
-            #apploop-inspect-box .handle.mr { right: -5px; top: 50%; margin-top: -5px; cursor: ew-resize; }
+            .apploop-inspect-box .handle.br { right: -5px; bottom: -5px; cursor: nwse-resize; }
+            .apploop-inspect-box .handle.bm { left: 50%; bottom: -5px; margin-left: -5px; cursor: ns-resize; }
+            .apploop-inspect-box .handle.mr { right: -5px; top: 50%; margin-top: -5px; cursor: ew-resize; }
 
             .apploop-inspect-edit-input {
               position: absolute;
@@ -229,7 +233,7 @@ export function buildPresentationInspectAssets(options: {
           document.body.setAttribute('data-inspect', 'true');
 
           document.addEventListener('dragstart', function (event) {
-            if (event.target && event.target.closest && event.target.closest('#apploop-inspect-box')) {
+            if (event.target && event.target.closest && event.target.closest('.apploop-inspect-box')) {
               event.preventDefault();
             }
           }, true);
@@ -246,6 +250,7 @@ export function buildPresentationInspectAssets(options: {
             if (!el) return null;
             if (el.matches && el.matches(svgPrimitiveSelector) && el.getAttribute('data-apploop-shape')) return el;
             if (el.tagName && el.tagName.toLowerCase() === 'svg') {
+              if (el.getAttribute && el.getAttribute('data-apploop-shape')) return el;
               if (el.hasAttribute && el.hasAttribute('data-marpit-svg')) return null;
               if (!el.querySelectorAll) return null;
               var markers = Array.prototype.slice.call(el.querySelectorAll('[data-apploop-shape]'));
@@ -365,7 +370,7 @@ export function buildPresentationInspectAssets(options: {
 
           function resolveClickTarget(raw) {
             if (!(raw instanceof Element)) return null;
-            if (raw.closest && raw.closest('#apploop-inspect-box')) return null;
+            if (raw.closest && raw.closest('.apploop-inspect-box')) return null;
             var target = raw;
             var tag = target.tagName.toLowerCase();
             if (tag === 'svg' || tag === 'foreignobject') {
@@ -489,12 +494,12 @@ export function buildPresentationInspectAssets(options: {
 
           function svgShapeInlineStyleForElement(el) {
             var marker = svgShapeMarkerElement(el);
-            return marker && marker !== el ? inlineStyleForElement(marker) : {};
+            return marker ? inlineStyleForElement(marker) : {};
           }
 
           function svgShapeAttributeStyleForElement(el) {
             var marker = svgShapeMarkerElement(el);
-            if (!marker || marker === el || !marker.getAttribute) return {};
+            if (!marker || !marker.getAttribute) return {};
             var map = {
               fill: 'fill',
               fillOpacity: 'fill-opacity',
@@ -587,7 +592,7 @@ export function buildPresentationInspectAssets(options: {
             var paths = [];
             return nodes.filter(function (el) {
               if (!el || !el.textContent && el.tagName.toLowerCase() !== 'img' && el.tagName.toLowerCase() !== 'hr' && !el.matches(svgShapeSelector)) return false;
-              if (el.closest && el.closest('#apploop-inspect-box')) return false;
+              if (el.closest && el.closest('.apploop-inspect-box')) return false;
               if (el.classList && el.classList.contains('apploop-empty-managed-host')) return false;
               if (cleanText(el.textContent || '').length === 0 && el.tagName.toLowerCase() !== 'img' && el.tagName.toLowerCase() !== 'hr' && !el.matches(svgShapeSelector)) return false;
               var tag = el.tagName.toLowerCase();
@@ -778,8 +783,10 @@ export function buildPresentationInspectAssets(options: {
           // --- selection box chrome ---
           var box = document.createElement('div');
           box.id = 'apploop-inspect-box';
+          box.className = 'apploop-inspect-box';
           box.innerHTML = '<div class="drag">drag</div><button class="drag-del" title="Delete element">&times;</button><div class="handle br" data-handle="br"></div><div class="handle bm" data-handle="bm"></div><div class="handle mr" data-handle="mr"></div>';
           document.body.appendChild(box);
+          var selectionBoxes = [box];
 
           var hoverBox = document.createElement('div');
           hoverBox.id = 'apploop-inspect-hover-box';
@@ -792,8 +799,26 @@ export function buildPresentationInspectAssets(options: {
           var verticalGuide = guides.querySelector('.vertical');
           var horizontalGuide = guides.querySelector('.horizontal');
 
-          function setBoxOpen(open) {
-            box.setAttribute('data-open', open ? 'true' : 'false');
+          function inspectBoxTemplate() {
+            return '<div class="drag">drag</div><button class="drag-del" title="Delete element">&times;</button><div class="handle br" data-handle="br"></div><div class="handle bm" data-handle="bm"></div><div class="handle mr" data-handle="mr"></div>';
+          }
+
+          function ensureSelectionBox(index) {
+            if (selectionBoxes[index]) return selectionBoxes[index];
+            var nextBox = document.createElement('div');
+            nextBox.className = 'apploop-inspect-box';
+            nextBox.innerHTML = inspectBoxTemplate();
+            document.body.appendChild(nextBox);
+            selectionBoxes[index] = nextBox;
+            bindInspectBoxGestures(nextBox);
+            return nextBox;
+          }
+
+          function hideUnusedSelectionBoxes(startIndex) {
+            for (var i = startIndex; i < selectionBoxes.length; i += 1) {
+              selectionBoxes[i].setAttribute('data-open', 'false');
+              selectionBoxes[i].removeAttribute('data-target-id');
+            }
           }
 
           function setHoverBoxOpen(open) {
@@ -829,30 +854,38 @@ export function buildPresentationInspectAssets(options: {
           }
 
           function updatePositionBox() {
-            var item = getActive();
-            if (!item) {
-              setBoxOpen(false);
+            if (!selected.length) {
+              hideUnusedSelectionBoxes(0);
               return;
             }
-            var el = pathToElement(item.path);
-            if (!el) {
-              setBoxOpen(false);
-              return;
-            }
-            el = syncItemToVisibleElement(item, el);
-            if (!el) {
-              setBoxOpen(false);
-              return;
-            }
-            var isSvgSelection = isSvgShapeElement(el);
-            var rect = visualRectForElement(el);
-            box.style.left = rect.left + 'px';
-            box.style.top = rect.top + 'px';
-            box.style.width = (isSvgSelection ? rect.width : Math.max(8, rect.width)) + 'px';
-            box.style.height = (isSvgSelection ? rect.height : Math.max(8, rect.height)) + 'px';
-            box.setAttribute('data-table-cell', isTableCellSelection(item, el) ? 'true' : 'false');
-            box.setAttribute('data-list-item', isListItemSelection(item, el) ? 'true' : 'false');
-            setBoxOpen(true);
+            var activeItem = getActive();
+            var ordered = selected.slice().sort(function (a, b) {
+              if (a.id === activeItem.id) return -1;
+              if (b.id === activeItem.id) return 1;
+              return 0;
+            });
+            var visibleCount = 0;
+            ordered.forEach(function (item) {
+              var el = pathToElement(item.path);
+              if (!el) return;
+              el = syncItemToVisibleElement(item, el);
+              if (!el) return;
+              var currentBox = ensureSelectionBox(visibleCount);
+              var isSvgSelection = isSvgShapeElement(el);
+              var rect = visualRectForElement(el);
+              currentBox.style.left = rect.left + 'px';
+              currentBox.style.top = rect.top + 'px';
+              currentBox.style.width = (isSvgSelection ? rect.width : Math.max(8, rect.width)) + 'px';
+              currentBox.style.height = (isSvgSelection ? rect.height : Math.max(8, rect.height)) + 'px';
+              currentBox.setAttribute('data-target-id', item.id);
+              currentBox.setAttribute('data-table-cell', isTableCellSelection(item, el) ? 'true' : 'false');
+              currentBox.setAttribute('data-list-item', isListItemSelection(item, el) ? 'true' : 'false');
+              currentBox.setAttribute('data-active', item.id === activeItem.id ? 'true' : 'false');
+              currentBox.setAttribute('data-group', selected.length > 1 ? 'true' : 'false');
+              currentBox.setAttribute('data-open', 'true');
+              visibleCount += 1;
+            });
+            hideUnusedSelectionBoxes(visibleCount);
           }
 
           function setGuideOpen(guide, open) {
@@ -1116,7 +1149,7 @@ export function buildPresentationInspectAssets(options: {
             }
             if (event.detail && event.detail > 1) return;
             if (event.target && event.target.closest) {
-              if (event.target.closest('#apploop-inspect-box')) return;
+              if (event.target.closest('.apploop-inspect-box')) return;
               if (event.target.closest('.apploop-inspect-edit-input')) return;
             }
             event.preventDefault();
@@ -1126,24 +1159,19 @@ export function buildPresentationInspectAssets(options: {
             toggleSelect(target, Boolean(event.shiftKey || event.metaKey || event.ctrlKey));
           }, true);
 
-          // Delete button in selection box
-          box.addEventListener('click', function (event) {
-            if (event.target && event.target.closest && event.target.closest('.drag-del')) {
-              event.preventDefault();
-              event.stopPropagation();
-              var item = getActive();
-              if (!item) return;
-              if (isTableCellSelection(item, pathToElement(item.path))) return;
-              window.parent.postMessage({
-                type: 'apploop-presentation-delete-element',
-                slide: slide,
-                totalSlides: totalSlides,
-                tag: item.tag,
-                text: item.text,
-                path: item.path
-              }, '*');
-            }
-          }, true);
+          function requestDeleteActive() {
+            var item = getActive();
+            if (!item) return;
+            if (isTableCellSelection(item, pathToElement(item.path))) return;
+            window.parent.postMessage({
+              type: 'apploop-presentation-delete-element',
+              slide: slide,
+              totalSlides: totalSlides,
+              tag: item.tag,
+              text: item.text,
+              path: item.path
+            }, '*');
+          }
 
           // Double-click to edit text on active selected element
           document.addEventListener('dblclick', function (event) {
@@ -1334,13 +1362,21 @@ export function buildPresentationInspectAssets(options: {
             return Boolean(el && !isTableOrListPart(el));
           }
 
+          function itemForInspectBoxEvent(event) {
+            var eventBox = event.target && event.target.closest ? event.target.closest('.apploop-inspect-box') : null;
+            var targetId = eventBox && eventBox.getAttribute ? eventBox.getAttribute('data-target-id') : null;
+            return (targetId ? selected.find(function (item) { return item.id === targetId; }) : null) || getActive();
+          }
+
           function beginBoxGesture(event) {
-            var item = getActive();
+            var item = itemForInspectBoxEvent(event);
             if (!item) return;
+            activeId = item.id;
             var el = syncItemToVisibleElement(item, pathToElement(item.path));
             if (!el) return;
             if (!elementCanPosition(el, item)) return;
             var handle = event.target && event.target.getAttribute ? event.target.getAttribute('data-handle') : null;
+            if (selected.length > 1) handle = null;
             var rect = el.getBoundingClientRect();
             var srect = sectionBox();
             function dragSnapshotForItem(snapshotItem) {
@@ -1400,21 +1436,35 @@ export function buildPresentationInspectAssets(options: {
             event.stopPropagation();
           }
 
-          box.addEventListener('pointerdown', function (event) {
-            suppressNextMouseDown = true;
-            if (event.target && event.target.setPointerCapture && event.pointerId !== undefined) {
-              try { event.target.setPointerCapture(event.pointerId); } catch (e) {}
-            }
-            beginBoxGesture(event);
-          }, true);
+          function bindInspectBoxGestures(inspectBox) {
+            inspectBox.addEventListener('pointerdown', function (event) {
+              suppressNextMouseDown = true;
+              if (event.target && event.target.setPointerCapture && event.pointerId !== undefined) {
+                try { event.target.setPointerCapture(event.pointerId); } catch (e) {}
+              }
+              beginBoxGesture(event);
+            }, true);
 
-          box.addEventListener('mousedown', function (event) {
-            if (suppressNextMouseDown) {
-              suppressNextMouseDown = false;
-              return;
-            }
-            beginBoxGesture(event);
-          }, true);
+            inspectBox.addEventListener('mousedown', function (event) {
+              if (suppressNextMouseDown) {
+                suppressNextMouseDown = false;
+                return;
+              }
+              beginBoxGesture(event);
+            }, true);
+
+            inspectBox.addEventListener('click', function (event) {
+              if (event.target && event.target.closest && event.target.closest('.drag-del')) {
+                requestDeleteActive();
+                event.preventDefault();
+                event.stopPropagation();
+              }
+            }, true);
+
+            inspectBox.addEventListener('lostpointercapture', finishDrag, true);
+          }
+
+          bindInspectBoxGestures(box);
 
           function moveDragSnapshot(snapshot, dx, dy, scale) {
             if (!snapshot || !snapshot.el || !snapshot.item) return;
@@ -1495,7 +1545,6 @@ export function buildPresentationInspectAssets(options: {
           document.addEventListener('pointerup', finishDrag, true);
           window.addEventListener('pointercancel', finishDrag, true);
           document.addEventListener('pointercancel', finishDrag, true);
-          box.addEventListener('lostpointercapture', finishDrag, true);
           window.addEventListener('blur', function (event) {
             if (event.target !== window) return;
             finishDrag(lastDragEvent || {});

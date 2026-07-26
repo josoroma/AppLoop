@@ -7,13 +7,18 @@ import {
   AlignCenter,
   AlignLeft,
   AlignRight,
+  ArrowDown,
+  ArrowLeft,
   ArrowRight,
+  ArrowUp,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   ChevronsDown,
   ChevronsUp,
+  CornerUpRight,
   Copy,
   Download,
   Eye,
@@ -270,23 +275,23 @@ function IconMenuIcon({ kind }: { kind: IconInsertKind }) {
   const baseClassName = "h-5 w-5 shrink-0 overflow-visible text-zinc-100";
   switch (kind) {
     case "icon-arrow-right":
-      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M4 12 H19 M14 7 L19 12 L14 17" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" /></svg>;
+      return <ArrowRight aria-hidden="true" className={baseClassName} />;
     case "icon-arrow-left":
-      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M20 12 H5 M10 7 L5 12 L10 17" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" /></svg>;
+      return <ArrowLeft aria-hidden="true" className={baseClassName} />;
     case "icon-arrow-up":
-      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M12 20 V5 M7 10 L12 5 L17 10" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" /></svg>;
+      return <ArrowUp aria-hidden="true" className={baseClassName} />;
     case "icon-arrow-down":
-      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M12 4 V19 M7 14 L12 19 L17 14" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" /></svg>;
+      return <ArrowDown aria-hidden="true" className={baseClassName} />;
     case "icon-arrow-bend":
-      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M5 19 V12 Q5 6 11 6 H19 M15 2 L19 6 L15 10" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" /></svg>;
+      return <CornerUpRight aria-hidden="true" className={baseClassName} />;
     case "icon-check":
-      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M5 12.5 L10 17 L19 7" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" /></svg>;
+      return <Check aria-hidden="true" className={baseClassName} />;
     case "icon-x":
-      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M7 7 L17 17 M17 7 L7 17" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2.4" /></svg>;
+      return <X aria-hidden="true" className={baseClassName} />;
     case "icon-plus":
-      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M12 5 V19 M5 12 H19" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2.4" /></svg>;
+      return <Plus aria-hidden="true" className={baseClassName} />;
     case "icon-spark":
-      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M12 3.5 L14.2 9.2 L20 12 L14.2 14.8 L12 20.5 L9.8 14.8 L4 12 L9.8 9.2 Z" fill="currentColor" fillOpacity="0.16" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" /></svg>;
+      return <Sparkles aria-hidden="true" className={baseClassName} />;
   }
 }
 
@@ -296,6 +301,11 @@ function svgMarker(kind: MarpInsertKind) {
 
 function svgBox(inner: string, width = 220, height = 140) {
   return `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-label="Editable SVG element">${inner}</svg>`;
+}
+
+function lucideIconBox(kind: IconInsertKind, nodes: string, width = 180, height = 140) {
+  const marker = svgMarker(kind);
+  return `<svg data-apploop-shape="${marker}" viewBox="0 0 24 24" width="${width}" height="${height}" aria-label="Editable SVG element" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${nodes}</svg>`;
 }
 
 function PresentationSlideThumbnail({ bg, eager, src, textColor, title }: { bg: string; eager: boolean; src: string; textColor: string; title: string }) {
@@ -462,23 +472,23 @@ function buildMarpInsertBlock(kind: MarpInsertKind) {
     case "shape-line":
       return svgBox(`<line data-apploop-shape="${svgMarker(kind)}" x1="8" y1="70" x2="212" y2="70" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />`, 220, 140);
     case "icon-arrow-right":
-      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M16 70 H192 M154 32 L192 70 L154 108" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />`, 220, 140);
+      return lucideIconBox(kind, `<path d="M5 12h14" /><path d="m12 5 7 7-7 7" />`);
     case "icon-arrow-left":
-      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M204 70 H28 M66 32 L28 70 L66 108" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />`, 220, 140);
+      return lucideIconBox(kind, `<path d="m12 19-7-7 7-7" /><path d="M19 12H5" />`);
     case "icon-arrow-up":
-      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M90 126 V18 M52 56 L90 18 L128 56" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />`, 180, 140);
+      return lucideIconBox(kind, `<path d="m5 12 7-7 7 7" /><path d="M12 19V5" />`);
     case "icon-arrow-down":
-      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M90 14 V122 M52 84 L90 122 L128 84" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />`, 180, 140);
+      return lucideIconBox(kind, `<path d="M12 5v14" /><path d="m19 12-7 7-7-7" />`);
     case "icon-arrow-bend":
-      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M34 108 V66 Q34 34 66 34 H184 M150 6 L184 34 L150 62" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />`, 220, 140);
+      return lucideIconBox(kind, `<path d="m15 14 5-5-5-5" /><path d="M4 20v-7a4 4 0 0 1 4-4h12" />`);
     case "icon-check":
-      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M32 76 L78 118 L158 24" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />`, 180, 140);
+      return lucideIconBox(kind, `<path d="M20 6 9 17l-5-5" />`);
     case "icon-x":
-      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M42 34 L138 106 M138 34 L42 106" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" />`, 180, 140);
+      return lucideIconBox(kind, `<path d="M18 6 6 18" /><path d="m6 6 12 12" />`);
     case "icon-plus":
-      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M90 28 V112 M48 70 H132" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" />`, 180, 140);
+      return lucideIconBox(kind, `<path d="M5 12h14" /><path d="M12 5v14" />`);
     case "icon-spark":
-      return svgBox(`<path data-apploop-shape="${svgMarker(kind)}" d="M90 10 L107 54 L154 70 L107 86 L90 130 L73 86 L26 70 L73 54 Z" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" />`, 180, 140);
+      return lucideIconBox(kind, `<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" /><path d="M20 2v4" /><path d="M22 4h-4" /><circle cx="4" cy="20" r="2" />`);
   }
 }
 
@@ -851,6 +861,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
 
   const useMarpCanvas = useMemo(() => (fullMarkdown ? deckUsesMarpCanvas(fullMarkdown) : false), [fullMarkdown]);
   const activeTarget = useMemo(() => selectedTargets.find((target) => target.id === activeTargetId) ?? selectedTargets.at(-1) ?? null, [activeTargetId, selectedTargets]);
+  const hasMultipleSelectedTargets = selectedTargets.length > 1;
   const activeLayerIndex = activeTarget ? layerTargets.findIndex((target) => target.id === activeTarget.id) : -1;
   const activeLayerCanMoveBack = activeLayerIndex > 0;
   const activeLayerCanMoveForward = activeLayerIndex >= 0 && activeLayerIndex < layerTargets.length - 1;
@@ -2132,7 +2143,12 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                     </select>
                   </label>
                   <Button size="sm" variant="outline" onClick={selectAllSlideElements} title="Select all slide elements and move them with arrow keys">Select all</Button>
-                  {activeTarget ? (
+                  {hasMultipleSelectedTargets ? (
+                    <div className="flex min-w-0 items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5">
+                      <GripVertical className="size-4 text-zinc-400" />
+                      <span className="truncate text-zinc-200">{selectedTargets.length} elements selected</span>
+                    </div>
+                  ) : activeTarget ? (
                     <>
                   <div className="flex min-w-0 items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5">
                     <Type className="size-4 text-zinc-400" />
