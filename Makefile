@@ -400,12 +400,12 @@ apploop-template-seed:
 .PHONY: apploop-seed-projects
 apploop-seed-projects: apploop-template-seed apploop-db-migrate
 	@printf "$(C_CYAN)->$(C_RESET) Seeding demo projects from templates...\n"
-	@cd $(PROJECT_ROOT) && npx tsx scripts/seed-projects.mts
+	@cd $(PROJECT_ROOT) && $(NPM) run seed:projects
 
 .PHONY: apploop-seed-presentations
 apploop-seed-presentations: apploop-db-migrate
 	@printf "$(C_CYAN)->$(C_RESET) Seeding demo presentations from templates...\n"
-	@cd $(PROJECT_ROOT) && npx tsx scripts/seed-presentations.mts
+	@cd $(PROJECT_ROOT) && $(NPM) run seed:presentations
 
 .PHONY: apploop-seed
 apploop-seed: apploop-seed-projects apploop-seed-presentations

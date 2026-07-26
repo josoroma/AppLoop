@@ -12,7 +12,10 @@
     "test:e2e": "playwright test",
     "hermes:validate": "node scripts/validate-hermes-layout.mjs",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "seed:projects": "tsx scripts/seed-projects.mts",
+    "seed:presentations": "tsx scripts/seed-presentations.mts",
+    "seed": "npm run db:migrate && npm run seed:projects && npm run seed:presentations"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.23",

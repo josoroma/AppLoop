@@ -23,6 +23,17 @@ describe("presentation templates", () => {
     expect(assertPresentationTemplate("simple-3-slides").sourceFile).toBe("deck.md");
   });
 
+  it("registers every presentation template blueprint folder", async () => {
+    const templateRoot = path.join(process.cwd(), "presentations-templates");
+    const folderNames = (await fs.readdir(templateRoot, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+    const registeredPaths = listPresentationTemplates().map((template) => template.templatePath).sort();
+
+    expect(registeredPaths).toEqual(folderNames);
+  });
+
   it("renders every built-in presentation template", async () => {
     for (const template of listPresentationTemplates()) {
       const markdown = await fs.readFile(
