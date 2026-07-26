@@ -8,6 +8,7 @@ AppLoop is a local-first visual builder for generated Next.js apps and Marp pres
 - Keep presentations distinct from generated apps. Presentations are Marp Markdown workspaces under `.apploop/presentations/<slug>` and render through AppLoop preview routes, not preview ports.
 - Treat every generated project as its own workspace with its own runtime, logs, chat history, settings, theme, preview route, and Hermes session.
 - Treat every presentation as its own deck workspace with its own chat history, Marp source file, slide state, and Hermes presentation session.
+- Treat presentation visual elements as durable deck content. Text, tables, lists, SVG shapes, and SVG icons should be selectable, movable, stylable, deletable, saved into `deck.md`, and restored after reload.
 - Preserve local-first behavior. Generated files, runtime logs, and local SQLite state live under `.apploop/` and should not be committed.
 - Make visual targeting precise. Inspector selection metadata should travel with prompts so Hermes can edit the intended element (preferredSelector = last classname), not a nearby guess.
 - Prefer full-page primary workflows over modal traps. Create Project and Create Template are first-class routes.
@@ -23,6 +24,8 @@ AppLoop is a local-first visual builder for generated Next.js apps and Marp pres
 - The Presentations dashboard is home base for Marp decks and **New presentation** (`/presentations/new`).
 - The project builder is the main work surface: Hermes chat, live preview, runtime controls, inspect mode, targets list, route/viewport controls, collapsible logs, restore/edit.
 - The presentation builder is a Markdown-first work surface: deck editor, Marp preview, filmstrip, slide URL state, slide BG/TXT controls, inspect style controls, and presentation-scoped Hermes chat.
+- Presentation element movement is free-form by default. Dragging or arrow-key movement should preserve dimensions, allow overlap, avoid swap/reflow behavior, and keep the moved element visible after drop.
+- SVG shapes/icons use the owning `<svg>` as the selectable/movable/deletable element; inner marked primitives keep SVG paint properties so editing survives save and reload.
 - Runtime failures should be explained through logs and state, not hidden behind generic errors.
 - Inspector mode should never trap normal preview behavior. Links, buttons, scrolling, route changes, and resize updates should keep working.
 - Template identity matters: `template-<id>` body classnames and inspectable base+unique classnames are part of the product contract.

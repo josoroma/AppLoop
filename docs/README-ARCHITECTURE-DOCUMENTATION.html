@@ -450,7 +450,7 @@
         <article class="kpi">
           <div class="label">Presentation plane</div>
           <div class="value">Builder + preview iframe</div>
-          <p class="hint">Chat/inspect UX in the parent; generated app runs isolated on a reserved preview port.</p>
+          <p class="hint">Marp decks render through AppLoop preview routes; inspect edits persist text, tables, SVG shapes/icons, and free-positioned layout into deck markdown.</p>
         </article>
       </section>
 
@@ -623,6 +623,18 @@
                       <td><code>/templates/new</code></td>
                       <td>Full-page template authoring form</td>
                     </tr>
+                    <tr>
+                      <td><code>/presentations</code></td>
+                      <td>Marp deck inventory, delete/archive, launch into presentation builder</td>
+                    </tr>
+                    <tr>
+                      <td><code>/presentations/new</code></td>
+                      <td>Full-page presentation create from <code>presentations-templates/</code></td>
+                    </tr>
+                    <tr>
+                      <td><code>/presentations/[presentationId]</code></td>
+                      <td>Presentation builder: Markdown, Marp iframe, inspect styles, SVG shapes/icons, chat</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -658,6 +670,10 @@
                       <td>Template <code>inspector-provider</code></td>
                       <td>In-preview hover/select + preferredSelector emission</td>
                     </tr>
+                    <tr>
+                      <td><code>PresentationBuilderShell</code></td>
+                      <td>Marp editor, filmstrip, slide BG/TXT, element inspect controls, SVG shape/icon insert/delete</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -666,8 +682,14 @@
 
           <div class="callout">
             <strong>Inspect model.</strong> Preferred selector is the element’s <em>last</em> classname
-            (<code>.vestaboard-title</code>, not a shared base. The parent does not trust arbitrary iframe messages: origin +
+            (<code>.vestaboard-title</code>, not a shared base). The parent does not trust arbitrary iframe messages: origin +
             <code>projectId</code> + <code>previewNonce</code> must match.
+          </div>
+          <div class="callout">
+            <strong>Presentation inspect model.</strong> Presentations do not use generated-app class selectors. The Marp iframe
+            reports logical element targets. SVG shapes/icons are selected as the owning <code>&lt;svg&gt;</code> wrapper for
+            movement, dimensions, layers, and delete; paint styles persist on the inner primitive marked with
+            <code>data-apploop-shape</code>.
           </div>
 
           <div>

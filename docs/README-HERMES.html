@@ -278,7 +278,8 @@
             <div class="layer-id"><span>Mutable</span><strong>.apploop/</strong></div>
             <p>
               Product-owned runtime. SQLite inventory, generated Next.js project workspaces, per-project git checkpoints,
-              and runtime process logs. Created/wiped by <code>make seed</code> / <code>make apploop-reset</code>.
+              Marp presentation workspaces, per-project git checkpoints, and runtime process logs. Created/wiped by
+              <code>make seed</code> / <code>make apploop-reset</code>.
             </p>
           </div>
           <div class="layer">
@@ -322,6 +323,16 @@
                       <li><span class="c">package.json</span> / <span class="c">node_modules/</span></li>
                       <li><span class="c">.next/</span> <span class="m">preview build cache</span></li>
                       <li><span class="c">.git/</span> <span class="m">per-project git used by createFileSnapshot / restore</span></li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+              <li><span class="d">presentations/</span> <span class="m">— one local Marp deck per presentation slug</span>
+                <ul>
+                  <li><span class="d"><slug>/</span>
+                    <ul>
+                      <li><span class="c">deck.md</span> <span class="m">source of truth for slides, managed inspect styles, SVG shapes/icons</span></li>
+                      <li><span class="c">theme.css</span> <span class="m">optional Marp theme override</span></li>
                     </ul>
                   </li>
                 </ul>
@@ -595,6 +606,12 @@
                 <td><code>.hermes/skills/project-runtime/SKILL.md</code></td>
                 <td>start/stop, log inspection, readiness</td>
                 <td>When preview health matters to completion</td>
+              </tr>
+              <tr>
+                <td><code>marp-presentations</code></td>
+                <td><code>.hermes/skills/marp-presentations/SKILL.md</code></td>
+                <td>Markdown-only deck edits, Marp syntax, slide structure, presentation inspect constraints</td>
+                <td>Presentation chat runs in <code>presentation-edit</code> mode</td>
               </tr>
             </tbody>
           </table>

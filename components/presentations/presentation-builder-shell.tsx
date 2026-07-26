@@ -27,7 +27,6 @@ import {
   Lock,
   MessageSquare,
   PanelLeftClose,
-  PenLine,
   Plus,
   Presentation,
   Redo2,
@@ -242,6 +241,54 @@ const ICON_INSERTS: Array<{ id: IconInsertKind; label: string }> = [
   { id: "icon-plus", label: "Plus" },
   { id: "icon-spark", label: "Spark" },
 ];
+
+function ShapeMenuIcon({ kind }: { kind: ShapeInsertKind }) {
+  const baseClassName = "h-5 w-5 shrink-0 overflow-visible text-zinc-100";
+  switch (kind) {
+    case "shape-rounded-rect":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="4" fill="currentColor" fillOpacity="0.16" stroke="currentColor" strokeWidth="1.8" /></svg>;
+    case "shape-rounded-square":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="4" fill="currentColor" fillOpacity="0.16" stroke="currentColor" strokeWidth="1.8" /></svg>;
+    case "shape-circle":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="currentColor" fillOpacity="0.16" stroke="currentColor" strokeWidth="1.8" /></svg>;
+    case "shape-rounded-triangle":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M12 4.5 Q12.9 4.5 13.4 5.3 L20 17.3 Q20.6 18.4 19.3 18.4 H4.7 Q3.4 18.4 4 17.3 L10.6 5.3 Q11.1 4.5 12 4.5 Z" fill="currentColor" fillOpacity="0.16" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" /></svg>;
+    case "shape-diamond":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><polygon points="12,3.5 20.5,12 12,20.5 3.5,12" fill="currentColor" fillOpacity="0.16" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" /></svg>;
+    case "shape-pill":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="5" fill="currentColor" fillOpacity="0.16" stroke="currentColor" strokeWidth="1.8" /></svg>;
+    case "shape-hexagon":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><polygon points="8,4 16,4 21,12 16,20 8,20 3,12" fill="currentColor" fillOpacity="0.16" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" /></svg>;
+    case "shape-star":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M12 3.4 L14.4 8.4 L19.9 9.2 L15.9 13.1 L16.9 18.6 L12 16 L7.1 18.6 L8.1 13.1 L4.1 9.2 L9.6 8.4 Z" fill="currentColor" fillOpacity="0.16" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.6" /></svg>;
+    case "shape-line":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" strokeLinecap="round" strokeWidth="2.4" /></svg>;
+  }
+}
+
+function IconMenuIcon({ kind }: { kind: IconInsertKind }) {
+  const baseClassName = "h-5 w-5 shrink-0 overflow-visible text-zinc-100";
+  switch (kind) {
+    case "icon-arrow-right":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M4 12 H19 M14 7 L19 12 L14 17" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" /></svg>;
+    case "icon-arrow-left":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M20 12 H5 M10 7 L5 12 L10 17" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" /></svg>;
+    case "icon-arrow-up":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M12 20 V5 M7 10 L12 5 L17 10" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" /></svg>;
+    case "icon-arrow-down":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M12 4 V19 M7 14 L12 19 L17 14" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" /></svg>;
+    case "icon-arrow-bend":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M5 19 V12 Q5 6 11 6 H19 M15 2 L19 6 L15 10" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" /></svg>;
+    case "icon-check":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M5 12.5 L10 17 L19 7" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" /></svg>;
+    case "icon-x":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M7 7 L17 17 M17 7 L7 17" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2.4" /></svg>;
+    case "icon-plus":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M12 5 V19 M5 12 H19" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2.4" /></svg>;
+    case "icon-spark":
+      return <svg aria-hidden="true" className={baseClassName} viewBox="0 0 24 24"><path d="M12 3.5 L14.2 9.2 L20 12 L14.2 14.8 L12 20.5 L9.8 14.8 L4 12 L9.8 9.2 Z" fill="currentColor" fillOpacity="0.16" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" /></svg>;
+  }
+}
 
 function svgMarker(kind: MarpInsertKind) {
   return `${kind}-${Date.now().toString(36)}`;
@@ -707,6 +754,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const fullMarkdownRef = useRef("");
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
   const imageFileInputRef = useRef<HTMLInputElement | null>(null);
+  const toolbarGroupRef = useRef<HTMLDivElement | null>(null);
   const selectAllPendingRef = useRef(false);
   const inspectFlushResolversRef = useRef<Map<string, () => void>>(new Map());
   const styleSaveTimerRef = useRef<number | null>(null);
@@ -715,6 +763,27 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
 
   useEffect(() => { fullMarkdownRef.current = fullMarkdown; }, [fullMarkdown]);
   const chat = useChat({ id: presentationId, messages: initialMessages, transport: chatTransport });
+
+  useEffect(() => {
+    if (!activeToolbarGroup) return;
+
+    function closeToolbarGroupOnOutsidePointer(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Node && toolbarGroupRef.current?.contains(target)) return;
+      setActiveToolbarGroup(null);
+    }
+
+    function closeToolbarGroupOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setActiveToolbarGroup(null);
+    }
+
+    document.addEventListener("pointerdown", closeToolbarGroupOnOutsidePointer, true);
+    document.addEventListener("keydown", closeToolbarGroupOnEscape, true);
+    return () => {
+      document.removeEventListener("pointerdown", closeToolbarGroupOnOutsidePointer, true);
+      document.removeEventListener("keydown", closeToolbarGroupOnEscape, true);
+    };
+  }, [activeToolbarGroup]);
 
   const loadImageAssets = useCallback(async () => {
     try {
@@ -1929,89 +1998,105 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                       event.currentTarget.value = "";
                       void uploadSlideImage(file);
                     }} />
-                    <div className="relative" title="Option groups">
-                      <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1">
+                    <div ref={toolbarGroupRef} className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1" title="Option groups">
+                      <div className="relative">
                         <Button size="sm" variant={activeToolbarGroup === "images" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "images" ? null : "images")} title="Show image options">
                           <ImagePlus className="size-4" />Images
                         </Button>
+                        {activeToolbarGroup === "images" && (
+                          <div className="absolute left-0 top-full z-30 mt-2 rounded-lg border border-white/10 bg-[#101014] p-2 text-xs text-zinc-300 shadow-2xl">
+                            <div className="flex items-center gap-1" title="Image options">
+                              <Button size="icon" variant="ghost" className="size-7" onClick={() => { setActiveToolbarGroup(null); imageFileInputRef.current?.click(); }} title="Upload an image into this presentation and insert it on this slide">
+                                <ImagePlus className="size-4" />
+                              </Button>
+                              <select className="h-7 max-w-40 rounded border border-white/10 bg-zinc-950 px-2 text-xs text-zinc-100 outline-none" value="" disabled={imageAssets.length === 0} title="Insert an uploaded image into this slide" onChange={(event) => {
+                                const asset = imageAssets.find((item) => item.path === event.target.value);
+                                setActiveToolbarGroup(null);
+                                if (asset) void insertSlideImage(asset);
+                                event.currentTarget.value = "";
+                              }}>
+                                <option value="" disabled>{imageAssets.length === 0 ? "No images" : "Pick image..."}</option>
+                                {imageAssets.map((asset) => <option key={asset.path} value={asset.path}>{asset.name}</option>)}
+                              </select>
+                              {imageAssets.slice(0, 3).map((asset) => (
+                                <button key={asset.path} type="button" className="h-7 w-9 shrink-0 overflow-hidden rounded border border-white/15 bg-zinc-950 hover:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400" title={`Insert ${asset.name}`} onClick={() => { setActiveToolbarGroup(null); void insertSlideImage(asset); }}>
+                                  {/* eslint-disable-next-line @next/next/no-img-element -- Uploaded thumbnails can be SVG/GIF and should render directly. */}
+                                  <img src={presentationAssetSrc(presentationId, asset.path)} alt={asset.alt} className="h-full w-full object-cover" draggable={false} />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="relative">
                         <Button size="sm" variant={activeToolbarGroup === "alignment" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "alignment" ? null : "alignment")} title="Show alignment options">
                           <AlignLeft className="size-4" />Alignment
                         </Button>
+                        {activeToolbarGroup === "alignment" && (
+                          <div className="absolute left-0 top-full z-30 mt-2 rounded-lg border border-white/10 bg-[#101014] p-2 text-xs text-zinc-300 shadow-2xl">
+                            <div className="flex items-center gap-1" title={activeTarget ? `Selected: ${activeTarget.tag}` : "Select an element on the slide"}>
+                              <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => { setActiveToolbarGroup(null); alignActiveTarget("left"); }} title="Align selected element left">
+                                <AlignLeft className="size-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => { setActiveToolbarGroup(null); alignActiveTarget("center"); }} title="Align selected element center">
+                                <AlignCenter className="size-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => { setActiveToolbarGroup(null); alignActiveTarget("right"); }} title="Align selected element right">
+                                <AlignRight className="size-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="relative">
                         <Button size="sm" variant={activeToolbarGroup === "lists" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "lists" ? null : "lists")} title="Show list options">
                           <ListChecks className="size-4" />Lists
                         </Button>
+                        {activeToolbarGroup === "lists" && (
+                          <div className="absolute left-0 top-full z-30 mt-2 rounded-lg border border-white/10 bg-[#101014] p-2 text-xs text-zinc-300 shadow-2xl">
+                            <div className="grid min-w-36 gap-1" title="Convert selected element">
+                              <Button size="sm" variant="ghost" className="h-8 justify-start px-2 text-xs" disabled={!canConvertActiveTargetToList} onClick={() => { setActiveToolbarGroup(null); convertActiveTargetToList("ordered"); }} title="Convert selected element to numbered list">
+                                <ListOrdered className="size-4" />Numbered list
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-8 justify-start px-2 text-xs" disabled={!canConvertActiveTargetToList} onClick={() => { setActiveToolbarGroup(null); convertActiveTargetToList("unordered"); }} title="Convert selected element to bulleted list">
+                                <ListChecks className="size-4" />Bulleted list
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="relative">
                         <Button size="sm" variant={activeToolbarGroup === "shapes" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "shapes" ? null : "shapes")} title="Insert SVG shapes">
                           <Shapes className="size-4" />Shapes
                         </Button>
+                        {activeToolbarGroup === "shapes" && (
+                          <div className="absolute left-0 top-full z-30 mt-2 rounded-lg border border-white/10 bg-[#101014] p-2 text-xs text-zinc-300 shadow-2xl">
+                            <div className="grid min-w-[21rem] grid-cols-2 gap-1" title="Insert SVG shape">
+                              {SHAPE_INSERTS.map((item) => (
+                                <Button key={item.id} size="sm" variant="ghost" className="h-8 justify-start gap-2 px-2 text-xs whitespace-nowrap" onClick={() => { setActiveToolbarGroup(null); void insertMarpBlock(item.id); }} title={`Insert ${item.label}`}>
+                                  <ShapeMenuIcon kind={item.id} />{item.label}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="relative">
                         <Button size="sm" variant={activeToolbarGroup === "icons" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "icons" ? null : "icons")} title="Insert SVG icons">
                           <ArrowRight className="size-4" />Icons
                         </Button>
-                      </div>
-                      {activeToolbarGroup && <div className="absolute right-0 top-full z-30 mt-2 rounded-lg border border-white/10 bg-[#101014] p-2 text-xs text-zinc-300 shadow-2xl">
-                        {activeToolbarGroup === "images" && (
-                          <div className="flex items-center gap-1" title="Image options">
-                            <Button size="icon" variant="ghost" className="size-7" onClick={() => { setActiveToolbarGroup(null); imageFileInputRef.current?.click(); }} title="Upload an image into this presentation and insert it on this slide">
-                              <ImagePlus className="size-4" />
-                            </Button>
-                            <select className="h-7 max-w-40 rounded border border-white/10 bg-zinc-950 px-2 text-xs text-zinc-100 outline-none" value="" disabled={imageAssets.length === 0} title="Insert an uploaded image into this slide" onChange={(event) => {
-                              const asset = imageAssets.find((item) => item.path === event.target.value);
-                              setActiveToolbarGroup(null);
-                              if (asset) void insertSlideImage(asset);
-                              event.currentTarget.value = "";
-                            }}>
-                              <option value="" disabled>{imageAssets.length === 0 ? "No images" : "Pick image..."}</option>
-                              {imageAssets.map((asset) => <option key={asset.path} value={asset.path}>{asset.name}</option>)}
-                            </select>
-                            {imageAssets.slice(0, 3).map((asset) => (
-                              <button key={asset.path} type="button" className="h-7 w-9 shrink-0 overflow-hidden rounded border border-white/15 bg-zinc-950 hover:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400" title={`Insert ${asset.name}`} onClick={() => { setActiveToolbarGroup(null); void insertSlideImage(asset); }}>
-                                {/* eslint-disable-next-line @next/next/no-img-element -- Uploaded thumbnails can be SVG/GIF and should render directly. */}
-                                <img src={presentationAssetSrc(presentationId, asset.path)} alt={asset.alt} className="h-full w-full object-cover" draggable={false} />
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {activeToolbarGroup === "alignment" && (
-                          <div className="flex items-center gap-1" title={activeTarget ? `Selected: ${activeTarget.tag}` : "Select an element on the slide"}>
-                            <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => { setActiveToolbarGroup(null); alignActiveTarget("left"); }} title="Align selected element left">
-                              <AlignLeft className="size-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => { setActiveToolbarGroup(null); alignActiveTarget("center"); }} title="Align selected element center">
-                              <AlignCenter className="size-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="size-7" disabled={!activeTarget} onClick={() => { setActiveToolbarGroup(null); alignActiveTarget("right"); }} title="Align selected element right">
-                              <AlignRight className="size-4" />
-                            </Button>
-                          </div>
-                        )}
-                        {activeToolbarGroup === "lists" && (
-                          <div className="grid min-w-36 gap-1" title="Convert selected element">
-                            <Button size="sm" variant="ghost" className="h-8 justify-start px-2 text-xs" disabled={!canConvertActiveTargetToList} onClick={() => { setActiveToolbarGroup(null); convertActiveTargetToList("ordered"); }} title="Convert selected element to numbered list">
-                              <ListOrdered className="size-4" />Numbered list
-                            </Button>
-                            <Button size="sm" variant="ghost" className="h-8 justify-start px-2 text-xs" disabled={!canConvertActiveTargetToList} onClick={() => { setActiveToolbarGroup(null); convertActiveTargetToList("unordered"); }} title="Convert selected element to bulleted list">
-                              <ListChecks className="size-4" />Bulleted list
-                            </Button>
-                          </div>
-                        )}
-                        {activeToolbarGroup === "shapes" && (
-                          <div className="grid min-w-52 grid-cols-2 gap-1" title="Insert SVG shape">
-                            {SHAPE_INSERTS.map((item) => (
-                              <Button key={item.id} size="sm" variant="ghost" className="h-8 justify-start px-2 text-xs" onClick={() => { setActiveToolbarGroup(null); void insertMarpBlock(item.id); }} title={`Insert ${item.label}`}>
-                                <Shapes className="size-4" />{item.label}
-                              </Button>
-                            ))}
-                          </div>
-                        )}
                         {activeToolbarGroup === "icons" && (
-                          <div className="grid min-w-44 grid-cols-2 gap-1" title="Insert SVG icon">
-                            {ICON_INSERTS.map((item) => (
-                              <Button key={item.id} size="sm" variant="ghost" className="h-8 justify-start px-2 text-xs" onClick={() => { setActiveToolbarGroup(null); void insertMarpBlock(item.id); }} title={`Insert ${item.label}`}>
-                                <PenLine className="size-4" />{item.label}
-                              </Button>
-                            ))}
+                          <div className="absolute right-0 top-full z-30 mt-2 rounded-lg border border-white/10 bg-[#101014] p-2 text-xs text-zinc-300 shadow-2xl">
+                            <div className="grid min-w-64 grid-cols-2 gap-1" title="Insert SVG icon">
+                              {ICON_INSERTS.map((item) => (
+                                <Button key={item.id} size="sm" variant="ghost" className="h-8 justify-start gap-2 px-2 text-xs whitespace-nowrap" onClick={() => { setActiveToolbarGroup(null); void insertMarpBlock(item.id); }} title={`Insert ${item.label}`}>
+                                  <IconMenuIcon kind={item.id} />{item.label}
+                                </Button>
+                              ))}
+                            </div>
                           </div>
                         )}
-                      </div>}
+                      </div>
                     </div>
                   </>
                 )}

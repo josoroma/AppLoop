@@ -51,13 +51,14 @@ AppLoop is a local-first visual builder for generated Next.js apps and Marp pres
 1. `/presentations` → **New presentation** → `/presentations/new`
 2. Name + template
 3. Server action copies `presentations-templates/<id>` → `.apploop/presentations/<slug>`, writes presentation rows, redirects `/presentations/[id]`
-4. Edit `deck.md`, slide BG/TXT, filmstrip clone/delete, inspect style controls, or chat with Hermes `presentation-edit`
+4. Edit `deck.md`, slide BG/TXT, filmstrip clone/delete, inspect style controls, insert SVG shapes/icons, freely drag or arrow-move elements, delete selected elements, or chat with Hermes `presentation-edit`
 
 ## Common Development Tasks
 
 - Builder UI: `components/builder/`
 - Project/template dashboards and create pages: `app/projects/`, `app/templates/`, `components/projects/`
 - Presentation dashboard/editor: `app/presentations/`, `components/presentations/`, `lib/presentations/`
+- Presentation inspect and style persistence: `lib/presentations/inspect-editor-assets.ts`, `lib/presentations/inspect-styles.ts`, `lib/presentations/marp-utils.ts`
 - Generated template sources: `templates/*/` (default, admin-luma, ai-engineer-cv, deep-research-paper, luminous-rings, solar-system, algovivo-creature, immersive-full-screen, vestaboard, lumacv, …)
 - Visual inspector: often both `components/builder/preview-frame.tsx` and `templates/*/components/inspector-provider.tsx`
 - Runtime lifecycle: `lib/runtime/`
@@ -101,6 +102,8 @@ Do not print, commit, or move real secrets into browser-visible code.
 - Do not hand-roll process, path, or command safety when helpers already exist.
 - Update active generated workspaces only when needed to validate a live preview issue; keep templates synchronized when the fix should apply to future projects.
 - Update active presentation workspaces only when needed to validate a deck issue; keep `presentations-templates/` synchronized when a change should apply to future decks.
+- Presentation SVG shapes/icons are editable elements. Movement and size belong to the owning `<svg>` wrapper; paint properties belong to the marked inner primitive carrying `data-apploop-shape`. Delete must remove the selected SVG wrapper without deleting adjacent slide text.
+- Presentation drag/arrow movement is free-form by default. Do not reintroduce swap/reflow behavior, and do not allow movement to alter element dimensions.
 - Create flows are page routes (`/projects/new`, `/templates/new`), not dialogs.
 - Unique last classnames on generated/template UI are required for multi-select inspect.
 - Do not add screenshots with arbitrary resizing unless explicitly requested.
@@ -110,6 +113,7 @@ Do not print, commit, or move real secrets into browser-visible code.
 
 - Use `npm run lint` and `npm run typecheck` for broad TypeScript/UI changes.
 - Use Vitest slices for specific domains (`theme-system`, `visual-selector`, `runtime*`, `checkpoint-restore`, `project-*`).
+- Use `npm test -- tests/presentation-marp.test.ts tests/presentation-inspect-styles.test.ts` for presentation rendering, inspect persistence, shape/icon movement, and delete behavior.
 - Use Playwright/browser checks for iframe, inspector, and runtime preview behavior.
 - Runtime log streams can keep browser pages from reaching `networkidle`; prefer `domcontentloaded` plus a text or selector wait.
 - After external file writes to a running preview workspace, remember Turbopack may need polling (`CHOKIDAR_USEPOLLING`) or a runtime restart / cache-bust `?_t=` reload — not only `touch`.

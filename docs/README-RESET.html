@@ -596,6 +596,11 @@ Env defaults (overridable):
 Env defaults (overridable):
   PRESENTATIONS_ROOT=file path → .apploop/presentations
   DATABASE_URL=file:.apploop/builder.sqlite</pre>
+        <p class="muted">
+          Seeded presentations are normal Marp workspaces. Their <code>deck.md</code> files can contain editable text,
+          tables/lists, and SVG shapes/icons marked with <code>data-apploop-shape</code>. The presentation editor persists
+          free-positioned movement, dimensions, layer/delete state, and SVG paint properties back into the deck.
+        </p>
       </section>
 
       <section id="from-scratch" class="card stack">
@@ -620,7 +625,8 @@ Env defaults (overridable):
 #   make apploop-seed
 #     make apploop-template-seed   # npm install in every templates/*
 #     npm run db:migrate
-#     npx tsx scripts/seed-projects.mts</pre>
+#     npx tsx scripts/seed-projects.mts
+#     npx tsx scripts/seed-presentations.mts</pre>
           <ol class="steps" start="3">
             <li>Start services:</li>
           </ol>

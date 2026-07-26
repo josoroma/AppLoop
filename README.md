@@ -143,7 +143,7 @@ Guide: [`docs/README-USER-FLOW-EDIT-PROJECT-OR-TEMPLATE.md`](docs/README-USER-FL
 1. Open `/presentations` → **New presentation** → `/presentations/new`
 2. Name + Marp template
 3. AppLoop copies `presentations-templates/<id>` into `.apploop/presentations/<slug>`, writes presentation rows, and redirects to `/presentations/<id>`
-4. Edit Markdown, inspect whole slide elements, adjust slide BG/TXT, clone/delete slides, or chat through the `presentation-edit` Hermes bundle
+4. Edit Markdown, inspect whole slide elements, insert SVG shapes/icons, freely drag or arrow-move elements without reflow, adjust slide BG/TXT, clone/delete slides, delete selected elements, or chat through the `presentation-edit` Hermes bundle
 
 Guide: [`docs/README-USER-FLOW-PRESENTATIONS.md`](docs/README-USER-FLOW-PRESENTATIONS.md)
 
@@ -169,7 +169,7 @@ components/
   ui/                    # shadcn primitives
 lib/
   projects/              # domain: create, templates, actions, files
-  presentations/         # domain: Marp create, files, render, inspect persistence
+  presentations/         # domain: Marp create, files, render, inspect persistence, SVG shape/icon editing
   runtime/               # preview process lifecycle
   hermes/                # client, agent bundle, skills/hooks/commands registry
   themes/                # shadcn/Luma registry + apply
@@ -329,6 +329,7 @@ npm test -- tests/visual-selector.test.ts
 npm test -- tests/theme-system.test.ts
 npm test -- tests/checkpoint-restore.test.ts
 npm test -- tests/runtime*.test.ts
+npm test -- tests/presentation-marp.test.ts tests/presentation-inspect-styles.test.ts
 ```
 
 Docs-only:
@@ -379,6 +380,8 @@ Makefile Hermes targets set `HERMES_HOME` to the repo `.hermes/` directory and s
 
 - Create Project / Create Template are **pages**, not modals.
 - Preview inspect selections rely on **unique last classnames**; multi-select keys off `preferredSelector`.
+- Presentation inspect selections use the Marp iframe. SVG shapes/icons are selected as the owning `<svg>` wrapper for movement, dimensions, layers, and delete; paint properties persist on the marked inner primitive with `data-apploop-shape`.
+- Presentation element movement is free-positioning by default: drag and arrow keys preserve size, allow overlap, and save position without swapping or reflowing other elements.
 - Chat uses AI SDK `useChat` with `id = projectId` and transport `POST /api/chat`.
 - Before each send, AppLoop takes a **git checkpoint** in the workspace so Restore can hard-reset files.
 - External file writers (agents, builder ops) may need `CHOKIDAR_USEPOLLING=true` on template `dev` scripts and/or preview reload cache-busting after edits.
@@ -389,4 +392,4 @@ Makefile Hermes targets set `HERMES_HOME` to the repo `.hermes/` directory and s
 
 ## License / status
 
-Private package (`apploop@0.1.0`). Local-first product under active development — treat this README and `AGENTS.md` as current contraction of the repo; open linked HTML docs for diagrams and run tables.
+Private package (`apploop@0.1.0`). Local-first product under active development — treat this README and `AGENTS.md` as current contract for the repo; open linked HTML docs for diagrams and run tables.

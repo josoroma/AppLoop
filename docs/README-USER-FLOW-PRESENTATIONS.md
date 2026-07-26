@@ -1,6 +1,6 @@
 # User Flow: Presentations (Marp)
 
-This is the end-to-end path for creating, editing, styling, and reseeding AppLoop presentations as plain Marp Markdown decks.
+This is the end-to-end path for creating, editing, styling, visually arranging, and reseeding AppLoop presentations as plain Marp Markdown decks.
 
 Primary surfaces:
 
@@ -64,7 +64,13 @@ After Hermes finishes streaming, preview cache-busts with `_t`.
 
 The active slide is mirrored into the URL as `?slide=N` so reloads and drag/drop keep the same slide. Filmstrip controls can clone and delete slides, and slide-level **BG** / **TXT** color controls preview immediately, persist into slide style metadata, and participate in undo/redo.
 
-Inspect mode treats lists and tables as whole logical elements. Table padding and border styles are scoped to `th,td` cells in preview and persisted CSS; changing table padding does not invent or overwrite a table border. List/table option changes are local style operations, not full iframe reloads.
+Inspect mode is free-positioned by default. Dragging with the mouse or moving with arrow keys changes only the selected element position; it does not swap, reflow, or resize neighboring elements, and overlap is allowed. Position and dimensions persist through the presentation style save path so reloads keep the element where the user dropped it.
+
+SVG shapes and icons inserted from the toolbar are editable deck elements. The selectable target is the owning `<svg>` wrapper so selection width/height, drag, arrow movement, layers, and delete use the visible shape/icon box. SVG paint properties (`fill`, `stroke`, `strokeWidth`, opacity, line caps/joins) apply to the marked inner primitive carrying `data-apploop-shape`, while wrapper size/position persists on the `<svg>` itself.
+
+Inspect mode treats lists and tables as whole logical elements. Clicking into a list item for text editing disables drag for that list item; pressing Enter creates another list item and moves text focus there. Table padding and border styles are scoped to `th,td` cells in preview and persisted CSS; changing table padding does not invent or overwrite a table border. List/table option changes are local style operations, not full iframe reloads.
+
+Delete selected removes the selected element boundary. For SVG shapes/icons, delete removes the selected SVG wrapper by `data-apploop-shape` without deleting adjacent headings, paragraphs, cards, or flow text.
 
 Starter decks stay at **3 slides** unless the user asks for more.
 
@@ -89,6 +95,7 @@ Starter decks stay at **3 slides** unless the user asks for more.
 - `lib/presentations/actions.ts`
 - `lib/presentations/inspect-editor-assets.ts`
 - `lib/presentations/inspect-styles.ts`
+- `lib/presentations/marp-utils.ts`
 - `lib/presentations/marp.ts`
 - `lib/presentations/store.ts`
 
@@ -162,5 +169,7 @@ Do not run reset targets casually against active local decks; `.apploop/presenta
 - Preview 404: presentation missing/deleted
 - Preview 500: invalid Marp markdown or unreadable file
 - Chat 404: no active conversation
+- Shape/icon disappears after drag: verify the selected target is the SVG wrapper, not an inner `path`/`rect`; run `npm test -- tests/presentation-marp.test.ts tests/presentation-inspect-styles.test.ts` after changes to inspect persistence.
+- Delete selected leaves a shape/icon behind: verify `removeMarpSlideElement()` handles `tag: "svg"` targets with `data-apploop-shape`.
 - Delete errors: workspace rename/trash failure surfaces `?deleteError=`
 - Missing deck after DB reset: run `make apploop-reset && make apploop-seed` so DB rows and presentation folders are recreated together

@@ -419,10 +419,22 @@ function removeHtmlElementByTagAndText(slideMarkdown: string, text: string, tag:
 }
 
 function removeSvgShapeByMarker(slideMarkdown: string, text: string, tag: string) {
-  if (!/^(?:rect|circle|ellipse|line|path|polygon|polyline)$/i.test(tag)) return null;
+  if (!/^(?:svg|rect|circle|ellipse|line|path|polygon|polyline)$/i.test(tag)) return null;
   const marker = text.match(/\bdata-apploop-shape=["']([^"']+)["']/i)?.[1];
   if (!marker) return null;
   const escapedMarker = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (tag === "svg") {
+    const svgBlockPattern = /<svg\b[^>]*>[\s\S]*?<\/svg>/gi;
+    let removed = false;
+    const next = slideMarkdown.replace(svgBlockPattern, (match) => {
+      if (removed) return match;
+      const candidateMarker = match.match(/\bdata-apploop-shape=["']([^"']+)["']/i)?.[1];
+      if (candidateMarker !== marker) return match;
+      removed = true;
+      return "";
+    });
+    return removed ? removeEmptyMarkdownMarkers(next) : null;
+  }
   const svgWrapperPattern = new RegExp(
     `<svg\\b[^>]*>\\s*<${tag}\\b(?=[^>]*\\bdata-apploop-shape=["']${escapedMarker}["'])[^>]*(?:\\/>|>\\s*<\\/${tag}>)\\s*<\\/svg>`,
     "i",

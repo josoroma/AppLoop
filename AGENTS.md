@@ -16,6 +16,7 @@ Key surfaces:
 - Create flows: `components/projects/` (`create-flow-shell`, `project-create-form`, `template-create-form`) and `components/presentations/presentation-create-form.tsx`
 - Project creation and files: `lib/projects/`
 - Presentation creation and Marp render: `lib/presentations/`
+- Presentation visual editing: `components/presentations/presentation-builder-shell.tsx`, `lib/presentations/inspect-editor-assets.ts`, `lib/presentations/inspect-styles.ts`, and `lib/presentations/marp-utils.ts`
 - Runtime lifecycle: `lib/runtime/` (projects only — presentations do not use preview ports)
 - Hermes integration: `lib/hermes/` and `.hermes/`
 - Themes: `lib/themes/`
@@ -36,7 +37,7 @@ Deep docs (read when relevant):
 
 ## Ownership Boundary
 
-- **AppLoop owns** project/template/presentation records, SQLite, preview ports/PIDs (projects only), Marp HTML preview rendering, path containment, theme validation, redirects, and agent-bundle assembly.
+- **AppLoop owns** project/template/presentation records, SQLite, preview ports/PIDs (projects only), Marp HTML preview rendering, presentation inspect/edit persistence, path containment, theme validation, redirects, and agent-bundle assembly.
 - **Hermes owns** generative workspace edits through the local gateway using the shipped `.hermes` agents/skills/hooks/commands.
 - **Browser owns** inspect selection, composer UI, and stream consumption — never secrets or authoritative FS writes.
 
@@ -80,6 +81,7 @@ If the shell prompts to source `.env` during validation, answer `N` unless the t
 - Do not commit `.apploop/`, `.next/`, runtime logs, local SQLite databases, Hermes auth files, Hermes logs, Hermes cache, session dumps, or local gateway state.
 - Generated project workspaces under `.apploop/projects/` may need temporary edits for live validation, but durable template changes should usually be made under `templates/` as well.
 - Generated presentation workspaces under `.apploop/presentations/` are local Marp decks; `deck.md` is source of truth and presentations do not have preview ports/PIDs.
+- Presentation templates under `presentations-templates/` are durable sources for future decks; active generated decks under `.apploop/presentations/` may need temporary live validation edits but should not replace template fixes when the behavior should apply to newly created decks.
 - If the active generated workspace is relevant to a user-reported preview bug, patch the active `.apploop/projects/<slug>` copy and the source template when appropriate.
 - Template-edit projects point `workspacePath` at `templates/<id>` (live template source), not a projects-root clone.
 
@@ -96,6 +98,8 @@ If the shell prompts to source `.env` during validation, answer `N` unless the t
 - Create project / create template are **full page routes**, not modals.
 - Remember that `getBoundingClientRect()` can return negative `x` or `y` for scrolled elements.
 - Never auto-screenshot on inspect; clipboard paste is screenshot-only when that feature is active.
+- In presentation edit mode, SVG shapes/icons are first-class selectable elements. Select and persist the owning `<svg>` wrapper for movement, sizing, layer/delete, and reload stability; apply paint properties such as `fill`, `stroke`, and `strokeWidth` to the marked inner primitive with `data-apploop-shape`.
+- Presentation element movement is free-positioning by default: dragging or arrow keys must not swap, reflow, resize, or delete other elements, and overlap is allowed.
 
 ## Validation Expectations
 

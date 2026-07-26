@@ -135,6 +135,8 @@ Layout intent references may live under `docs/` (wireframes and screenshots). Im
 17. Create Project does **not** call Hermes; Create Template **does** (`runProjectOnce`).
 18. Primary create workflows are **full page routes**, not modal dialogs.
 19. Presentations are Marp Markdown decks under `.apploop/presentations/<slug>` and do not allocate preview ports.
+20. Presentation inspect movement is free-positioned by default. Dragging or arrow keys preserve element dimensions, allow overlap, and do not swap or reflow neighboring elements.
+21. Presentation SVG shapes/icons are editable elements. The owning `<svg>` is the selection, movement, size, layer, and delete target; SVG paint properties persist on the marked inner primitive with `data-apploop-shape`.
 
 ---
 
@@ -1162,6 +1164,8 @@ Uses `/frontend-design`
 - [x] T-19.4.2: managed front matter CSS persistence
 - [x] T-19.4.3: table/list whole-element selection
 - [x] T-19.4.4: table padding/border cell scoping
+- [x] T-19.4.5: free drag/arrow movement with dimension preservation and overlap allowed
+- [x] T-19.4.6: SVG shape/icon insertion, wrapper selection, styling persistence, layer selection, and delete
 
 ## US-19.5: Presentation Hermes Mode [x]
 

@@ -68,7 +68,9 @@ const STYLE_BLOCK_START = "/* @apploop-inspect-styles */";
 const STYLE_BLOCK_END = "/* @apploop-inspect-styles-end */";
 const CLASS_PREFIX = "apploop-el-";
 const HEADING_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
-const SVG_SHAPE_TAGS = new Set(["rect", "circle", "ellipse", "line", "path", "polygon", "polyline"]);
+const SVG_SHAPE_TAGS = new Set(["svg", "rect", "circle", "ellipse", "line", "path", "polygon", "polyline"]);
+const SVG_PRIMITIVE_TAGS = new Set(["rect", "circle", "ellipse", "line", "path", "polygon", "polyline"]);
+const SVG_PAINT_STYLE_KEYS = new Set<keyof PresentationElementStyle>(["fill", "fillOpacity", "stroke", "strokeLinecap", "strokeLinejoin", "strokeWidth"]);
 
 const CSS_PROP_MAP: Array<[keyof PresentationElementStyle, string]> = [
   ["background", "background"],
@@ -396,11 +398,56 @@ function upsertStyleAttribute(attrs: string, style: PresentationElementStyle) {
   return inline ? `${withoutStyle} style="${inline}"` : withoutStyle;
 }
 
+function pickStyle(style: PresentationElementStyle, include: (key: keyof PresentationElementStyle) => boolean) {
+  const next: PresentationElementStyle = {};
+  for (const [key, value] of Object.entries(style) as Array<[keyof PresentationElementStyle, string | undefined]>) {
+    if (typeof value === "string" && include(key)) {
+      next[key] = value as never;
+    }
+  }
+  return next;
+}
+
+function svgHostStyle(style: PresentationElementStyle) {
+  return pickStyle(style, (key) => !SVG_PAINT_STYLE_KEYS.has(key));
+}
+
+function svgPaintStyle(style: PresentationElementStyle) {
+  return pickStyle(style, (key) => SVG_PAINT_STYLE_KEYS.has(key));
+}
+
 function upsertSvgShapeClass(slideMarkdown: string, target: PresentationStyleTarget, className: string, style: PresentationElementStyle) {
   const tag = target.tag.toLowerCase();
   if (!SVG_SHAPE_TAGS.has(tag)) return slideMarkdown;
   const text = target.text.trim();
   const marker = text.match(/\bdata-apploop-shape=["']([^"']+)["']/i)?.[1];
+  const hostStyle = tag === "svg" ? svgHostStyle(style) : style;
+  const paintStyle = tag === "svg" ? svgPaintStyle(style) : {};
+  if (tag === "svg" && marker) {
+    const svgBlockPattern = /<svg\b[^>]*>[\s\S]*?<\/svg>/gi;
+    let replaced = false;
+    return slideMarkdown.replace(svgBlockPattern, (match) => {
+        if (replaced) return match;
+        const candidateMarker = match.match(/\bdata-apploop-shape=["']([^"']+)["']/i)?.[1];
+        if (candidateMarker !== marker) return match;
+        replaced = true;
+        const openTag = match.match(/^<svg\b[^>]*>/i)?.[0];
+        if (!openTag) return match;
+        const openAttrs = openTag.replace(/^<svg\b/i, "").replace(/>$/, "");
+        const nextOpenTag = `<svg${upsertStyleAttribute(upsertClassAttribute(openAttrs, className), hostStyle)}>`;
+        let nextMatch = `${nextOpenTag}${match.slice(openTag.length)}`;
+        if (styleToCssDeclarations(paintStyle).length === 0) return nextMatch;
+        const primitivePattern = /<(rect|circle|ellipse|line|path|polygon|polyline)\b[^>]*\bdata-apploop-shape=["'][^"']+["'][^>]*>/i;
+        nextMatch = nextMatch.replace(primitivePattern, (primitive) => {
+          const primitiveTag = primitive.match(/^<(rect|circle|ellipse|line|path|polygon|polyline)\b/i)?.[1] ?? "path";
+          const closing = /\/\s*>$/.test(primitive) ? " />" : ">";
+          const attrs = primitive.replace(new RegExp(`^<${primitiveTag}\\b`, "i"), "").replace(/\s*\/?>$/, "");
+          return `<${primitiveTag}${upsertStyleAttribute(attrs, paintStyle)}${closing}`;
+        });
+        return nextMatch;
+      });
+  }
+  if (!SVG_PRIMITIVE_TAGS.has(tag)) return slideMarkdown;
   const tagPattern = new RegExp(`<${tag}\\b[^>]*>`, "gi");
   let replaced = false;
   return slideMarkdown.replace(tagPattern, (match) => {
@@ -417,6 +464,25 @@ function upsertSvgShapeClass(slideMarkdown: string, target: PresentationStyleTar
 function removeSvgShapeStyle(slideMarkdown: string, target: PresentationStyleTarget, className: string) {
   const tag = target.tag.toLowerCase();
   if (!SVG_SHAPE_TAGS.has(tag)) return slideMarkdown;
+  if (tag === "svg") {
+    const marker = target.text.match(/\bdata-apploop-shape=["']([^"']+)["']/i)?.[1];
+    const svgBlockPattern = /<svg\b[^>]*>[\s\S]*?<\/svg>/gi;
+    return slideMarkdown.replace(svgBlockPattern, (match) => {
+      const candidateMarker = match.match(/\bdata-apploop-shape=["']([^"']+)["']/i)?.[1];
+      const hasClass = new RegExp(`\\b${escapeRegExp(className)}\\b`).test(match);
+      if (marker ? candidateMarker !== marker : !hasClass) return match;
+      const openTag = match.match(/^<svg\b[^>]*>/i)?.[0];
+      if (!openTag) return match;
+      const attrs = openTag.replace(/^<svg\b/i, "").replace(/>$/, "");
+      const classMatch = attrs.match(/\sclass=(["'])(.*?)\1/i);
+      const quote = classMatch?.[1] ?? '"';
+      const classes = (classMatch?.[2] ?? "").split(/\s+/).filter((token) => token && token !== className);
+      const withoutClass = attrs.replace(/\sclass=(["'])(.*?)\1/i, classes.length ? ` class=${quote}${classes.join(" ")}${quote}` : "");
+      const nextOpen = `<svg${stripAttribute(withoutClass, "style")}>`;
+      return `${nextOpen}${match.slice(openTag.length)}`;
+    });
+  }
+  if (!SVG_PRIMITIVE_TAGS.has(tag)) return slideMarkdown;
   const tagPattern = new RegExp(`<${tag}\\b[^>]*>`, "gi");
   return slideMarkdown.replace(tagPattern, (match) => {
     if (!new RegExp(`\\b${escapeRegExp(className)}\\b`).test(match)) return match;

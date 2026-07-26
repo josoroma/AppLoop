@@ -352,6 +352,19 @@ describe("marp rendering", () => {
     expect(next).not.toContain("card-shape");
   });
 
+  it("removes a selected SVG wrapper shape without deleting card text", () => {
+    const slide = `<div class="card">
+<svg class="card-shape" viewBox="0 0 100 100"><rect data-apploop-shape="card-a" x="0" y="0" width="100" height="100" /></svg>
+<h3>Visual edits</h3>
+<p>Click an element, prompt the change.</p>
+</div>`;
+    const next = removeMarpSlideElement(slide, 'data-apploop-shape="card-a"', { tag: "svg", path: "section > div.card > svg" });
+    expect(next).toContain("<h3>Visual edits</h3>");
+    expect(next).toContain("<p>Click an element, prompt the change.</p>");
+    expect(next).not.toContain("data-apploop-shape=\"card-a\"");
+    expect(next).not.toContain("card-shape");
+  });
+
   it("removes a selected SVG arrow icon", () => {
     const slide = `<div class="flow">
 <div class="flow-step"><h3>User</h3><p>Prompt</p></div>
@@ -359,6 +372,19 @@ describe("marp rendering", () => {
 <div class="flow-step"><h3>AppLoop</h3><p>Route</p></div>
 </div>`;
     const next = removeMarpSlideElement(slide, 'data-apploop-shape="request-path-arrow"', { tag: "path", path: "section > div.flow > svg > path" });
+    expect(next).toContain("<h3>User</h3>");
+    expect(next).toContain("<h3>AppLoop</h3>");
+    expect(next).not.toContain("request-path-arrow");
+    expect(next).not.toContain("flow-arrow");
+  });
+
+  it("removes a selected SVG wrapper icon", () => {
+    const slide = `<div class="flow">
+<div class="flow-step"><h3>User</h3><p>Prompt</p></div>
+<svg class="flow-arrow" viewBox="0 0 18 18"><path data-apploop-shape="request-path-arrow" d="M2 9 H15 M10 4 L15 9 L10 14" /></svg>
+<div class="flow-step"><h3>AppLoop</h3><p>Route</p></div>
+</div>`;
+    const next = removeMarpSlideElement(slide, 'data-apploop-shape="request-path-arrow"', { tag: "svg", path: "section > div.flow > svg" });
     expect(next).toContain("<h3>User</h3>");
     expect(next).toContain("<h3>AppLoop</h3>");
     expect(next).not.toContain("request-path-arrow");

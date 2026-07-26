@@ -73,6 +73,7 @@ export function buildPresentationInspectAssets(options: {
         user-select: none;
         -webkit-user-select: none;
         touch-action: none;
+        box-sizing: border-box;
         display: none;
       }
       #apploop-inspect-box[data-open="true"] { display: block; }
@@ -201,8 +202,9 @@ export function buildPresentationInspectAssets(options: {
           var suppressNextMouseDown = false;
           var suppressNextClick = false;
           var lastDragEvent = null;
-          var selectableSelector = 'h1,h2,h3,h4,h5,h6,p,ul,ol,li,blockquote,pre,table,img,hr,rect,circle,ellipse,line,path,polygon,polyline,span[class*="apploop-el-"],.pill';
-          var svgShapeSelector = 'rect,circle,ellipse,line,path,polygon,polyline';
+          var selectableSelector = 'h1,h2,h3,h4,h5,h6,p,ul,ol,li,blockquote,pre,table,img,hr,svg,rect,circle,ellipse,line,path,polygon,polyline,span[class*="apploop-el-"],.pill';
+          var svgShapeSelector = 'svg,rect,circle,ellipse,line,path,polygon,polyline';
+          var svgPrimitiveSelector = 'rect,circle,ellipse,line,path,polygon,polyline';
 
           document.body.setAttribute('data-inspect', 'true');
 
@@ -220,22 +222,31 @@ export function buildPresentationInspectAssets(options: {
             return String(value || '').replace(/\\s+/g, ' ').trim();
           }
 
+          function svgShapeMarkerElement(el) {
+            if (!el) return null;
+            if (el.matches && el.matches(svgPrimitiveSelector) && el.getAttribute('data-apploop-shape')) return el;
+            if (el.querySelector) return el.querySelector('[data-apploop-shape]');
+            return null;
+          }
+
           function canonicalSourceTag(el) {
             var tag = el && el.tagName ? el.tagName.toLowerCase() : '';
             if (el && el.classList && el.classList.contains('pill')) return 'pill';
             if (tag === 'li') return 'li';
-            if (/^(rect|circle|ellipse|line|path|polygon|polyline)$/.test(tag)) return tag;
+            if (tag === 'svg' && svgShapeMarkerElement(el)) return 'svg';
+            if (/^(rect|circle|ellipse|line|path|polygon|polyline)$/.test(tag)) return 'svg';
             if (tag === 'span' || (el && el.classList && el.classList.contains('pill'))) {
               var block = el.closest ? el.closest('h1,h2,h3,h4,h5,h6,p,ul,ol,blockquote,pre,table,hr') : null;
               if (block && block !== el) tag = block.tagName.toLowerCase();
             }
-            if (/^h[1-6]$/.test(tag) || /^(table|ul|ol|blockquote|pre|img|hr|rect|circle|ellipse|line|path|polygon|polyline)$/.test(tag)) return tag;
+            if (/^h[1-6]$/.test(tag) || /^(table|ul|ol|blockquote|pre|img|hr|svg)$/.test(tag)) return tag;
             return 'p';
           }
 
           function shapeText(el) {
             if (!el) return '';
-            var marker = el.getAttribute && el.getAttribute('data-apploop-shape');
+            var markerEl = svgShapeMarkerElement(el) || el;
+            var marker = markerEl.getAttribute && markerEl.getAttribute('data-apploop-shape');
             if (marker) return 'data-apploop-shape="' + marker + '"';
             return el.outerHTML || (el.tagName ? el.tagName.toLowerCase() : 'shape');
           }
@@ -257,9 +268,9 @@ export function buildPresentationInspectAssets(options: {
                 return canonicalSourceTag(candidate) === tag;
               });
             var index = candidates.indexOf(el);
-            if (index < 0) return tag === 'img' ? imageText(el) : (/^(rect|circle|ellipse|line|path|polygon|polyline)$/.test(tag) ? shapeText(el) : blockText(el.textContent || (el.getAttribute && el.getAttribute('alt')) || ''));
+            if (index < 0) return tag === 'img' ? imageText(el) : (tag === 'svg' ? shapeText(el) : blockText(el.textContent || (el.getAttribute && el.getAttribute('alt')) || ''));
             var matchingBlocks = sourceBlocks.filter(function (block) { return block.tag === tag; });
-            return matchingBlocks[index] && matchingBlocks[index].text ? matchingBlocks[index].text : (tag === 'img' ? imageText(el) : (/^(rect|circle|ellipse|line|path|polygon|polyline)$/.test(tag) ? shapeText(el) : blockText(el.textContent || (el.getAttribute && el.getAttribute('alt')) || '')));
+            return matchingBlocks[index] && matchingBlocks[index].text ? matchingBlocks[index].text : (tag === 'img' ? imageText(el) : (tag === 'svg' ? shapeText(el) : blockText(el.textContent || (el.getAttribute && el.getAttribute('alt')) || '')));
           }
 
           function cssPath(el) {
@@ -318,9 +329,13 @@ export function buildPresentationInspectAssets(options: {
             var tag = target.tagName.toLowerCase();
             if (tag === 'svg' || tag === 'foreignobject') {
               var section = document.querySelector('section');
+              if (tag === 'svg' && svgShapeMarkerElement(target)) return target;
               if (section) target = section;
             }
-            if (target.matches && target.matches(svgShapeSelector)) return target;
+            if (target.matches && target.matches(svgPrimitiveSelector)) {
+              var ownerSvg = target.closest ? target.closest('svg') : null;
+              return ownerSvg || target;
+            }
             var table = target.closest ? target.closest('table') : null;
             if (table) return table;
             var list = target.closest ? target.closest('ul,ol') : null;
@@ -429,10 +444,16 @@ export function buildPresentationInspectAssets(options: {
             return style;
           }
 
+          function svgShapeInlineStyleForElement(el) {
+            var marker = svgShapeMarkerElement(el);
+            return marker && marker !== el ? inlineStyleForElement(marker) : {};
+          }
+
           function selectionStyleForElement(el) {
             var saved = savedStyleForElement(el);
             var inline = inlineStyleForElement(el);
-            return Object.assign({}, saved, inline);
+            var svgShapeInline = el && el.tagName && el.tagName.toLowerCase() === 'svg' ? svgShapeInlineStyleForElement(el) : {};
+            return Object.assign({}, saved, svgShapeInline, inline);
           }
 
           function promoteSavedManagedStyles() {
@@ -483,6 +504,8 @@ export function buildPresentationInspectAssets(options: {
               if (parentPill && parentPill !== el && el.matches && el.matches('span[class*="apploop-el-"]')) return false;
               if (tag === 'li' && el.closest('ul,ol')) return false;
               if (isEmptyManagedTextHost(el)) return false;
+              if (tag === 'svg' && !svgShapeMarkerElement(el)) return false;
+              if (tag !== 'svg' && el.closest && el.closest('svg')) return false;
               var rect = el.getBoundingClientRect();
               if (rect.width <= 0 && rect.height <= 0 && tag !== 'img' && tag !== 'hr' && !el.matches(svgShapeSelector)) return false;
               var path = cssPath(el);
@@ -520,9 +543,16 @@ export function buildPresentationInspectAssets(options: {
             }
             var isTable = el.tagName && el.tagName.toLowerCase() === 'table';
             var isImage = el.tagName && el.tagName.toLowerCase() === 'img';
+            var isSvgShape = el.tagName && el.tagName.toLowerCase() === 'svg' && svgShapeMarkerElement(el);
+            var svgPaintTarget = isSvgShape ? svgShapeMarkerElement(el) : null;
+            var svgPaintKeys = { fill: true, fillOpacity: true, stroke: true, strokeLinecap: true, strokeLinejoin: true, strokeWidth: true };
             Object.keys(style).forEach(function (key) {
               if (isTable && (key === 'padding' || key === 'border')) return;
               if (isTable && (key === 'display' || key === 'tableLayout')) return;
+              if (isSvgShape && svgPaintKeys[key]) {
+                setStyleProp(svgPaintTarget, key, style[key]);
+                return;
+              }
               setStyleProp(el, key, style[key]);
             });
             if (isTable) {
@@ -565,7 +595,7 @@ export function buildPresentationInspectAssets(options: {
             var path = cssPath(el);
             if (!path) return null;
             var tag = el.classList && el.classList.contains('pill') ? 'pill' : el.tagName.toLowerCase();
-            var text = String(sourceTextForElement(el) || el.textContent || (el.getAttribute && (el.getAttribute('alt') || el.getAttribute('src'))) || (/^(rect|circle|ellipse|line|path|polygon|polyline)$/.test(tag) ? shapeText(el) : (tag === 'hr' ? '<hr />' : tag))).trim();
+            var text = String(sourceTextForElement(el) || el.textContent || (el.getAttribute && (el.getAttribute('alt') || el.getAttribute('src'))) || (tag === 'svg' ? shapeText(el) : (tag === 'hr' ? '<hr />' : tag))).trim();
             var style = selectionStyleForElement(el);
             var computed = window.getComputedStyle ? window.getComputedStyle(el) : null;
             var rawZ = style.zIndex || (computed ? computed.zIndex : '');
@@ -695,10 +725,11 @@ export function buildPresentationInspectAssets(options: {
               return;
             }
             var rect = el.getBoundingClientRect();
+            var isSvgSelection = isSvgShapeElement(el);
             box.style.left = rect.left + 'px';
             box.style.top = rect.top + 'px';
-            box.style.width = Math.max(8, rect.width) + 'px';
-            box.style.height = Math.max(8, rect.height) + 'px';
+            box.style.width = (isSvgSelection ? rect.width : Math.max(8, rect.width)) + 'px';
+            box.style.height = (isSvgSelection ? rect.height : Math.max(8, rect.height)) + 'px';
             box.setAttribute('data-table-cell', isTableCellSelection(item, el) ? 'true' : 'false');
             box.setAttribute('data-list-item', isListItemSelection(item, el) ? 'true' : 'false');
             setBoxOpen(true);
@@ -839,8 +870,12 @@ export function buildPresentationInspectAssets(options: {
               if (!elementCanPosition(el, item)) return;
               if (isSvgShapeElement(el)) {
                 var currentTransform = parseTranslatePx(item.style && item.style.transform);
+                var svgRect = el.getBoundingClientRect();
+                var svgSize = renderedToSlideCssSize(svgRect.width, svgRect.height);
                 patchItemStyle(item, {
                   transform: translateStyleFrom(currentTransform, dxPx, dyPx),
+                  width: item.style.width || svgSize.width || undefined,
+                  height: item.style.height || svgSize.height || undefined,
                   zIndex: item.style.zIndex || '3',
                 });
                 updateAlignmentGuidesForElement(el);
@@ -1262,8 +1297,11 @@ export function buildPresentationInspectAssets(options: {
               var topPct = Math.max(0, Math.min(95, (topPx / dragging.srect.height) * 100));
               var draggingTableHasExplicitWidth = draggingTable && dragging.item && hasExplicitTableWidth(dragging.item.style);
               if (isSvgShapeElement(dragging.el)) {
+                var svgDragSize = renderedToSlideCssSize(dragging.startW, dragging.startH);
                 patchActiveStyle({
                   transform: translateStyleFrom(dragging.startTransform, dx, dy),
+                  width: dragging.item.style.width || svgDragSize.width || undefined,
+                  height: dragging.item.style.height || svgDragSize.height || undefined,
                   zIndex: dragging.item.style.zIndex || '3',
                 });
               } else {

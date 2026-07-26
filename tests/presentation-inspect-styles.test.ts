@@ -290,6 +290,26 @@ describe("presentation inspect styles", () => {
     expect(markdown).not.toContain(`<div class="${classNames[0]}">`);
   });
 
+  it("persists SVG wrapper movement without moving the inner shape out of its viewport", () => {
+    const deck = `---\nmarp: true\n---\n\n<svg viewBox="0 0 100 100" width="100" height="100"><path data-apploop-shape="spark-a" d="M50 4 L62 38 L96 50 L62 62 L50 96 L38 62 L4 50 L38 38 Z" fill="#fff" /></svg>\n`;
+    const { markdown, classNames } = applyPresentationElementStylesToMarkdown(deck, [
+      {
+        slide: 1,
+        tag: "svg",
+        text: 'data-apploop-shape="spark-a"',
+        path: "section > svg",
+        style: { width: "100px", height: "100px", transform: "translate(48px, 20px)", fill: "#facc15", stroke: "#111827", strokeWidth: "2px" },
+      },
+    ]);
+    expect(markdown).toContain(`<svg viewBox="0 0 100 100" width="100" height="100" class="${classNames[0]}" style="`);
+    expect(markdown).toContain("width: 100px");
+    expect(markdown).toContain("height: 100px");
+    expect(markdown).toContain("transform: translate(48px, 20px)");
+    expect(markdown).toContain(`<path data-apploop-shape="spark-a"`);
+    expect(markdown).toContain(`style="fill: #facc15; stroke: #111827; stroke-width: 2px;"`);
+    expect(markdown).toContain(`.${classNames[0]} {`);
+  });
+
   it("persists headings as heading elements with class + inline style", () => {
     const className = buildElementClassName({
       slide: 1,
