@@ -28,11 +28,13 @@ export const PresentationElementStyleSchema = z.object({
   opacity: z.string().optional(),
   visibility: z.string().optional(),
   pointerEvents: z.string().optional(),
+  fontFamily: z.string().optional(),
   fontSize: z.string().optional(),
   fontStyle: z.string().optional(),
   fontWeight: z.string().optional(),
   lineHeight: z.string().optional(),
   letterSpacing: z.string().optional(),
+  wordSpacing: z.string().optional(),
   textTransform: z.string().optional(),
   textAlign: z.enum(["left", "center", "right", "justify", ""]).optional(),
   boxShadow: z.string().optional(),
@@ -101,11 +103,13 @@ const CSS_PROP_MAP: Array<[keyof PresentationElementStyle, string]> = [
   ["opacity", "opacity"],
   ["visibility", "visibility"],
   ["pointerEvents", "pointer-events"],
+  ["fontFamily", "font-family"],
   ["fontSize", "font-size"],
   ["fontStyle", "font-style"],
   ["fontWeight", "font-weight"],
   ["lineHeight", "line-height"],
   ["letterSpacing", "letter-spacing"],
+  ["wordSpacing", "word-spacing"],
   ["textTransform", "text-transform"],
   ["textAlign", "text-align"],
   ["boxShadow", "box-shadow"],
@@ -140,6 +144,13 @@ export function buildElementClassName(target: Pick<PresentationStyleTarget, "sli
 
 function normalizeText(text: string) {
   return text.replace(/\s+/g, " ").trim().slice(0, 160);
+}
+
+// Layer-based selections send Markdown source text (e.g. "### Title"). Strip
+// the heading markers so identity and wrapping match DOM-text selections and
+// raw markdown never ends up inside an HTML wrapper (Marp would render "###").
+function stripHeadingMarkers(text: string) {
+  return text.replace(/^\s*#{1,6}\s+/, "").replace(/\s+#+\s*$/, "");
 }
 
 function normalizeSvgShapeIdentity(text: string) {
@@ -233,8 +244,14 @@ export function stylesToCssBlock(entries: Array<{ className: string; style: Pres
   if (rules.length === 0) {
     return "";
   }
+  const googleFonts = [...new Set(entries
+    .map((entry) => entry.style.fontFamily?.match(/["']([^"']+)["']/)?.[1] ?? entry.style.fontFamily?.split(",")[0]?.trim())
+    .filter((family): family is string => Boolean(family && /[A-Za-z]/.test(family))))]
+    .filter((family) => !/^(?:serif|sans-serif|monospace|system-ui|ui-serif|ui-sans-serif|ui-monospace)$/i.test(family));
+  const imports = googleFonts.map((family) => `@import url('https://fonts.googleapis.com/css2?family=${family.replace(/\s+/g, "+")}&display=swap');`);
   // Ensure absolute children can anchor to the slide frame after Marpit scoping.
   const base = [
+    ...imports,
     "/* position context for dragged/absolute inspect nodes */",
     "section {",
     "  position: relative;",
@@ -301,19 +318,47 @@ export function parseManagedStyleEntries(markdown: string): Array<{ className: s
   return [...merged.values()];
 }
 
+// The managed block removal must never consume the following line's leading
+// indentation: inside a YAML `style: |` block scalar, dedenting the next line
+// to column 0 terminates the scalar and silently drops the rest of the theme
+// CSS (which manifests as slides losing their backgrounds).
+function removeManagedCssBlock(frontMatter: string) {
+  return frontMatter.replace(
+    new RegExp(
+      `\\n[\\t ]*${escapeRegExp(STYLE_BLOCK_START)}[\\s\\S]*?${escapeRegExp(STYLE_BLOCK_END)}[\\t ]*(?:\\n|$)`,
+      "g",
+    ),
+    "\n",
+  );
+}
+
+// Repair decks corrupted by the previous removal regex: CSS lines that were
+// dedented to column 0 inside the `style: |` scalar get re-indented so the
+// scalar (and the theme CSS that follows) stays part of the front matter.
+function reindentOrphanedStyleLines(frontMatter: string) {
+  const lines = frontMatter.split("\n");
+  const styleIndex = lines.findIndex((line) => /^style:\s*\|\s*$/.test(line));
+  if (styleIndex === -1) return frontMatter;
+  for (let index = styleIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (/^---\s*$/.test(line)) break;
+    if (line.length === 0 || /^\s/.test(line)) continue;
+    // A bare top-level YAML key ends the scalar region. CSS lines that could
+    // look like keys (e.g. `background: #000;`) end with `;` or `{`.
+    if (/^[A-Za-z_][A-Za-z0-9_-]*:(?:\s|$)/.test(line) && !/[;{]\s*$/.test(line)) break;
+    lines[index] = `  ${line}`;
+  }
+  return lines.join("\n");
+}
+
 export function upsertFrontMatterStyleBlock(frontMatter: string, cssBlock: string) {
-  let fm = frontMatter.trimEnd();
+  let fm = reindentOrphanedStyleLines(frontMatter.trimEnd());
   if (!fm.endsWith("---")) {
     fm = `${fm}\n---`;
   }
 
   if (!cssBlock) {
-    return fm
-      .replace(
-        new RegExp(`\\n\\s*${escapeRegExp(STYLE_BLOCK_START)}[\\s\\S]*?${escapeRegExp(STYLE_BLOCK_END)}\\s*`, "g"),
-        "\n",
-      )
-      .replace(/\n{3,}/g, "\n\n");
+    return removeManagedCssBlock(fm).replace(/\n{3,}/g, "\n\n");
   }
 
   const blockIndented = cssBlock
@@ -322,14 +367,24 @@ export function upsertFrontMatterStyleBlock(frontMatter: string, cssBlock: strin
     .join("\n");
 
   if (/^style:\s*\|/m.test(fm)) {
-    const withoutOld = fm.replace(
-      new RegExp(`\\n\\s*${escapeRegExp(STYLE_BLOCK_START)}[\\s\\S]*?${escapeRegExp(STYLE_BLOCK_END)}\\s*`, "g"),
-      "\n",
-    );
+    const withoutOld = removeManagedCssBlock(fm);
     const lines = withoutOld.split("\n");
     const styleIndex = lines.findIndex((line) => /^style:\s*\|\s*$/.test(line));
     if (styleIndex === -1) {
       return withoutOld.replace(/\n---\s*$/, `\nstyle: |\n${blockIndented}\n---`);
+    }
+
+    const blockLines = blockIndented.split("\n");
+    if (blockLines.some((line) => /^\s*@import\b/.test(line))) {
+      let importInsertIndex = styleIndex + 1;
+      while (importInsertIndex < lines.length) {
+        const line = lines[importInsertIndex] ?? "";
+        if (/^---\s*$/.test(line) || (/^[A-Za-z_-][A-Za-z0-9_-]*:\s*/.test(line) && !/^\s/.test(line))) break;
+        if (line.trim().length > 0) break;
+        importInsertIndex += 1;
+      }
+      lines.splice(importInsertIndex, 0, ...blockLines);
+      return lines.join("\n");
     }
 
     let insertIndex = lines.length;
@@ -340,7 +395,7 @@ export function upsertFrontMatterStyleBlock(frontMatter: string, cssBlock: strin
         break;
       }
     }
-    lines.splice(insertIndex, 0, ...blockIndented.split("\n"));
+    lines.splice(insertIndex, 0, ...blockLines);
     return lines.join("\n");
   }
 
@@ -548,6 +603,9 @@ function wrapHeadingInSlideMarkdown(
 
   let body = stripExistingHeadingWrapper(slideMarkdown, className);
   body = stripAllApploopWrappersAroundText(body, text);
+  // Heal wrappers that captured the raw markdown heading (legacy bug): unwrap
+  // "<span ...>### Title</span>" back to "### Title" so it re-wraps as a heading.
+  body = stripAllApploopWrappersAroundText(body, `${"#".repeat(level)} ${text}`);
   body = stripExistingWrapper(body, className);
   const lines = body.split("\n");
   const lineIndex = lines.findIndex((line) => {
@@ -703,10 +761,24 @@ export function applyPresentationElementStylesToMarkdown(
   const entryMap = new Map(existingEntries.map((entry) => [entry.className, { style: entry.style, tag: entry.tag }]));
   const classNames: string[] = [];
 
-  for (const target of targets) {
+  for (const rawTarget of targets) {
+    const rawTag = rawTarget.tag.toLowerCase();
+    const hasHeadingMarkers = HEADING_TAGS.has(rawTag) && /^\s*#{1,6}\s/.test(rawTarget.text);
+    const target = hasHeadingMarkers
+      ? { ...rawTarget, text: stripHeadingMarkers(rawTarget.text) }
+      : rawTarget;
     const slideIndex = Math.min(Math.max(target.slide, 1), nextSlides.length) - 1;
     const className = buildElementClassName(target);
     classNames.push(className);
+    // Migrate styles saved under the marker-prefixed identity (legacy bug).
+    if (hasHeadingMarkers) {
+      const legacyClassName = buildElementClassName(rawTarget);
+      const legacyEntry = entryMap.get(legacyClassName);
+      if (legacyClassName !== className && legacyEntry) {
+        if (!entryMap.has(className)) entryMap.set(className, legacyEntry);
+        entryMap.delete(legacyClassName);
+      }
+    }
     const targetTag = target.tag.toLowerCase();
     const isBlockTarget = BLOCK_WRAP_TAGS.has(targetTag);
     const isHeadingTarget = HEADING_TAGS.has(targetTag);

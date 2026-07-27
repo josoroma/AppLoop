@@ -437,6 +437,7 @@ describe("marp rendering", () => {
     });
 
     expect(documentHtml).toContain("div.marpit section { background: #ff0000 !important; background-color: #ff0000 !important; }");
+    expect(documentHtml).not.toContain("div.marpit section :where(*, *::before, *::after) { background-color: #ff0000 !important; }");
     expect(documentHtml).toContain("div.marpit section, div.marpit section :where(*) { color: #00ff00 !important;");
     expect(documentHtml).toContain("-webkit-text-fill-color: #00ff00 !important");
     expect(documentHtml).toContain("background-image: none !important");
@@ -474,6 +475,9 @@ describe("marp rendering", () => {
     expect(assets.script).toContain("function ensureSelectionBox(index)");
     expect(assets.script).toContain("function bindInspectBoxGestures(inspectBox)");
     expect(assets.script).toContain("itemForInspectBoxEvent(event)");
+    expect(assets.script).toContain("function clearSelections()");
+    expect(assets.script).toContain("if (!target) {");
+    expect(assets.script).toContain("clearSelections();");
     expect(assets.script).toContain("currentBox.setAttribute('data-group', selected.length > 1 ? 'true' : 'false');");
     expect(assets.script).toContain("resizingImage ? slideBoundedWidthPx(w, resizing.srect) : Math.round(w) + 'px'");
     expect(assets.script).toContain("boxSizing: 'border-box'");

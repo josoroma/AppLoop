@@ -108,6 +108,9 @@ type PresentationSelectionTarget = {
   text: string;
   path: string;
   style: Record<string, string | undefined>;
+  // Computed (actually rendered) values reported by the inspect iframe; used
+  // only to display exact current values in the edit panel, never persisted.
+  baselineStyle?: Record<string, string | undefined>;
 };
 type PresentationLayerItem = PresentationSelectionTarget & {
   domIndex?: number;
@@ -207,6 +210,58 @@ const TEXT_STYLE_PRESETS = [
   { id: "caption", label: "Caption", style: { fontSize: "18px", fontWeight: "500", lineHeight: "1.35", letterSpacing: "0px", opacity: "0.78" } },
   { id: "kicker", label: "Kicker", style: { fontSize: "16px", fontWeight: "800", lineHeight: "1.2", letterSpacing: "0.18em", textTransform: "uppercase" } },
   { id: "quote", label: "Quote", style: { display: "block", width: "100%", fontSize: "40px", fontWeight: "700", lineHeight: "1.15", fontStyle: "italic", letterSpacing: "0px" } },
+] as const;
+const GOOGLE_FONT_OPTIONS = [
+  { label: "Inter", value: "'Inter', sans-serif" },
+  { label: "Roboto", value: "'Roboto', sans-serif" },
+  { label: "Open Sans", value: "'Open Sans', sans-serif" },
+  { label: "Lato", value: "'Lato', sans-serif" },
+  { label: "Poppins", value: "'Poppins', sans-serif" },
+  { label: "Nunito", value: "'Nunito', sans-serif" },
+  { label: "Josefin Sans", value: "'Josefin Sans', sans-serif" },
+  { label: "Quicksand", value: "'Quicksand', sans-serif" },
+  { label: "DM Sans", value: "'DM Sans', sans-serif" },
+  { label: "Exo 2", value: "'Exo 2', sans-serif" },
+  { label: "Plus Jakarta Sans", value: "'Plus Jakarta Sans', sans-serif" },
+  { label: "Space Grotesk", value: "'Space Grotesk', sans-serif" },
+  { label: "Urbanist", value: "'Urbanist', sans-serif" },
+  { label: "Kanit", value: "'Kanit', sans-serif" },
+  { label: "IBM Plex Sans", value: "'IBM Plex Sans', sans-serif" },
+  { label: "Noto Sans", value: "'Noto Sans', sans-serif" },
+  { label: "Roboto Slab", value: "'Roboto Slab', serif" },
+  { label: "Playfair Display", value: "'Playfair Display', serif" },
+  { label: "Merriweather", value: "'Merriweather', serif" },
+  { label: "Lora", value: "'Lora', serif" },
+  { label: "Cormorant Garamond", value: "'Cormorant Garamond', serif" },
+  { label: "Libre Baskerville", value: "'Libre Baskerville', serif" },
+  { label: "Arvo", value: "'Arvo', serif" },
+  { label: "Crimson Text", value: "'Crimson Text', serif" },
+  { label: "Prata", value: "'Prata', serif" },
+  { label: "EB Garamond", value: "'EB Garamond', serif" },
+  { label: "Montserrat", value: "'Montserrat', sans-serif" },
+  { label: "Oswald", value: "'Oswald', sans-serif" },
+  { label: "Bebas Neue", value: "'Bebas Neue', sans-serif" },
+  { label: "Anton", value: "'Anton', sans-serif" },
+  { label: "Archivo Black", value: "'Archivo Black', sans-serif" },
+  { label: "League Spartan", value: "'League Spartan', sans-serif" },
+  { label: "Teko", value: "'Teko', sans-serif" },
+  { label: "Cinzel", value: "'Cinzel', serif" },
+  { label: "Abril Fatface", value: "'Abril Fatface', serif" },
+  { label: "Bodoni Moda", value: "'Bodoni Moda', serif" },
+  { label: "Orbitron", value: "'Orbitron', sans-serif" },
+  { label: "Source Code Pro", value: "'Source Code Pro', monospace" },
+  { label: "JetBrains Mono", value: "'JetBrains Mono', monospace" },
+  { label: "IBM Plex Mono", value: "'IBM Plex Mono', monospace" },
+  { label: "Space Mono", value: "'Space Mono', monospace" },
+  { label: "Fira Code", value: "'Fira Code', monospace" },
+  { label: "Press Start 2P", value: "'Press Start 2P', monospace" },
+  { label: "Caveat", value: "'Caveat', cursive" },
+  { label: "Pacifico", value: "'Pacifico', cursive" },
+  { label: "Dancing Script", value: "'Dancing Script', cursive" },
+  { label: "Permanent Marker", value: "'Permanent Marker', cursive" },
+  { label: "Amatic SC", value: "'Amatic SC', cursive" },
+  { label: "Noto Serif JP", value: "'Noto Serif JP', serif" },
+  { label: "Noto Sans Arabic", value: "'Noto Sans Arabic', sans-serif" },
 ] as const;
 const MARP_INSERTS: Array<{ id: MarpInsertKind; label: string }> = [
   { id: "heading", label: "Heading" },
@@ -647,7 +702,6 @@ function injectSlideStylesIntoFrontMatter(frontMatter: string, backgrounds: stri
       const tc = textColors[i] ?? DEFAULT_SLIDE_TEXT;
       return [
         `  section.slide-bg-${slide} { background: ${bg} !important; background-color: ${bg} !important; }`,
-        `  section.slide-bg-${slide} :where(*, *::before, *::after) { background-color: ${bg} !important; }`,
         `  section.slide-text-${slide} { color: ${tc} !important; border-color: ${tc} !important; text-decoration-color: ${tc} !important; }`,
         `  section.slide-text-${slide} :where(*) { color: ${tc} !important; border-color: ${tc} !important; text-decoration-color: ${tc} !important; }`,
         `  section.slide-text-${slide} :where(*) { -webkit-text-fill-color: ${tc} !important; background-image: none !important; text-shadow: none !important; }`,
@@ -867,10 +921,16 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const activeLayerCanMoveForward = activeLayerIndex >= 0 && activeLayerIndex < layerTargets.length - 1;
   const layerPanelTargets = useMemo(() => [...layerTargets].reverse(), [layerTargets]);
   const activeHistory = slideHistory[activeSlide] ?? { undo: [], redo: [] };
-  const activeTargetFontSize = Math.round(parsePxValue(activeTarget?.style.fontSize, 64));
-  const activeTargetLineHeight = Number.parseFloat(activeTarget?.style.lineHeight ?? "") || 1.2;
-  const activeTargetLetterSpacing = parsePxValue(activeTarget?.style.letterSpacing, 0);
-  const activeTargetColor = safeHexColor(activeTarget?.style.color, "#ffffff");
+  // Prefer explicitly saved/inline values, then the actually-rendered baseline
+  // from the iframe, then a generic default — so panel values match the slide.
+  const activeBaseline = activeTarget?.baselineStyle ?? {};
+  const activeTargetFontSize = Math.round(parsePxValue(activeTarget?.style.fontSize || activeBaseline.fontSize, 64));
+  const activeTargetLineHeight = Number.parseFloat(activeTarget?.style.lineHeight || activeBaseline.lineHeight || "") || 1.2;
+  const activeTargetLetterSpacing = parsePxValue(activeTarget?.style.letterSpacing || activeBaseline.letterSpacing, 0);
+  const activeTargetWordSpacing = parsePxValue(activeTarget?.style.wordSpacing || activeBaseline.wordSpacing, 0);
+  const activeTargetColor = safeHexColor(activeTarget?.style.color || activeBaseline.color, "#ffffff");
+  const activeTargetShadowColor = safeHexColor(activeTarget?.style.textShadow?.match(/#[0-9a-fA-F]{6}/)?.[0], "#000000");
+  const activeTargetShadowBlur = Math.round(parsePxValue(activeTarget?.style.textShadow, 0));
   const activeTargetKind = activeTarget?.tag.toLowerCase() ?? "";
   const activeTargetIsImage = activeTargetKind === "img";
   const activeTargetIsTable = activeTargetKind === "table";
@@ -880,28 +940,28 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const activeTargetIsPill = activeTargetKind === "pill";
   const activeTargetUsesTextToolbar = activeTarget ? !activeTargetIsImage && !activeTargetIsTable && !activeTargetIsList && !activeTargetIsDivider && !activeTargetIsShape : false;
   const canConvertActiveTargetToList = Boolean(activeTarget && !activeTargetIsImage && !activeTargetIsTable && !activeTargetIsDivider && !activeTargetIsShape);
-  const activeTargetPadding = Math.round(parsePxValue(activeTarget?.style.padding, 0));
-  const activeTargetMargin = Math.round(parsePxValue(activeTarget?.style.margin, 0));
-  const activeTargetBorderWidth = Math.round(parsePxValue(activeTarget?.style.border, 1));
+  const activeTargetPadding = Math.round(parsePxValue(activeTarget?.style.padding || activeBaseline.padding, 0));
+  const activeTargetMargin = Math.round(parsePxValue(activeTarget?.style.margin || activeBaseline.margin, 0));
+  const activeTargetBorderWidth = Math.round(parsePxValue(activeTarget?.style.border || activeBaseline.border, 1));
   const activeTargetBorderColor = safeHexColor(activeTarget?.style.border?.match(/#[0-9a-fA-F]{6}/)?.[0], "#94a3b8");
-  const activeTargetBorderRadius = Math.round(parsePxValue(activeTarget?.style.borderRadius, 0));
-  const activeTargetFillColor = safeHexColor(activeTarget?.style.background?.match(/#[0-9a-fA-F]{6}/)?.[0], "#111827");
-  const activeTargetShapeFillColor = safeHexColor(activeTarget?.style.fill, "#ffffff");
-  const activeTargetShapeStrokeColor = safeHexColor(activeTarget?.style.stroke, "#ffffff");
-  const activeTargetShapeStrokeWidth = Math.round(parsePxValue(activeTarget?.style.strokeWidth, 1));
-  const activeTargetShapeFillOpacity = Math.round(Math.min(1, Math.max(0, Number.parseFloat(activeTarget?.style.fillOpacity ?? "1") || 0)) * 100);
-  const activeTargetShapeStrokeLinecap = activeTarget?.style.strokeLinecap ?? "round";
-  const activeTargetShapeStrokeLinejoin = activeTarget?.style.strokeLinejoin ?? "round";
-  const activeTargetShapeWidth = Math.round(parsePxValue(activeTarget?.style.width, 220));
-  const activeTargetShapeHeight = Math.round(parsePxValue(activeTarget?.style.height, 140));
-  const activeTargetDividerColor = safeHexColor(activeTarget?.style.background?.match(/#[0-9a-fA-F]{6}/)?.[0], "#ffffff");
-  const activeTargetDividerThickness = Math.round(parsePxValue(activeTarget?.style.height, 1));
-  const activeTargetDividerWidth = Math.round(parsePxValue(activeTarget?.style.width, 100));
-  const activeTargetListIndent = Math.round(parsePxValue(activeTarget?.style.paddingLeft, activeTargetKind === "ol" ? 36 : 28));
+  const activeTargetBorderRadius = Math.round(parsePxValue(activeTarget?.style.borderRadius || activeBaseline.borderRadius, 0));
+  const activeTargetFillColor = safeHexColor((activeTarget?.style.background || activeBaseline.background)?.match(/#[0-9a-fA-F]{6}/)?.[0], "#111827");
+  const activeTargetShapeFillColor = safeHexColor(activeTarget?.style.fill || activeBaseline.fill, "#ffffff");
+  const activeTargetShapeStrokeColor = safeHexColor(activeTarget?.style.stroke || activeBaseline.stroke, "#ffffff");
+  const activeTargetShapeStrokeWidth = Math.round(parsePxValue(activeTarget?.style.strokeWidth || activeBaseline.strokeWidth, 1));
+  const activeTargetShapeFillOpacity = Math.round(Math.min(1, Math.max(0, Number.parseFloat(activeTarget?.style.fillOpacity || activeBaseline.fillOpacity || "1") || 0)) * 100);
+  const activeTargetShapeStrokeLinecap = activeTarget?.style.strokeLinecap || activeBaseline.strokeLinecap || "round";
+  const activeTargetShapeStrokeLinejoin = activeTarget?.style.strokeLinejoin || activeBaseline.strokeLinejoin || "round";
+  const activeTargetShapeWidth = Math.round(parsePxValue(activeTarget?.style.width || activeBaseline.width, 220));
+  const activeTargetShapeHeight = Math.round(parsePxValue(activeTarget?.style.height || activeBaseline.height, 140));
+  const activeTargetDividerColor = safeHexColor((activeTarget?.style.background || activeBaseline.background)?.match(/#[0-9a-fA-F]{6}/)?.[0], "#ffffff");
+  const activeTargetDividerThickness = Math.round(parsePxValue(activeTarget?.style.height || activeBaseline.height, 1));
+  const activeTargetDividerWidth = Math.round(parsePxValue(activeTarget?.style.width || activeBaseline.width, 100));
+  const activeTargetListIndent = Math.round(parsePxValue(activeTarget?.style.paddingLeft || activeBaseline.paddingLeft, activeTargetKind === "ol" ? 36 : 28));
   const activeTargetImageAlt = activeTarget?.alt ?? "";
-  const activeTargetImageWidth = Math.round(parsePxValue(activeTarget?.style.width, 480));
-  const activeTargetImageHeight = Math.round(parsePxValue(activeTarget?.style.height, 270));
-  const activeTargetOpacityValue = Number.parseFloat(activeTarget?.style.opacity ?? "1");
+  const activeTargetImageWidth = Math.round(parsePxValue(activeTarget?.style.width || activeBaseline.width, 480));
+  const activeTargetImageHeight = Math.round(parsePxValue(activeTarget?.style.height || activeBaseline.height, 270));
+  const activeTargetOpacityValue = Number.parseFloat(activeTarget?.style.opacity || activeBaseline.opacity || "1");
   const activeTargetOpacity = Math.round((Number.isFinite(activeTargetOpacityValue) ? activeTargetOpacityValue : 1) * 100);
   const gradientPresets = useMemo(() => readPresentationGradientPresets(fullMarkdown), [fullMarkdown]);
 
@@ -2362,6 +2422,13 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                       {TEXT_STYLE_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
                     </select>
                   </label>
+                  <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Google font family">
+                    <span>Font</span>
+                    <select className="h-7 max-w-44 rounded border border-white/10 bg-zinc-950 px-2 text-xs text-zinc-100 outline-none" value={activeTarget.style.fontFamily ?? ""} onChange={(event) => patchSelectedTextStyle({ fontFamily: event.target.value, fontWeight: "400", fontStyle: "", textTransform: "none", letterSpacing: "0px" }, "Font family applied.")}>
+                      <option value="">Theme font</option>
+                      {GOOGLE_FONT_OPTIONS.map((font) => <option key={font.value} value={font.value}>{font.label}</option>)}
+                    </select>
+                  </label>
                   <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1">
                     <Button size="icon" variant="ghost" className="size-7" onClick={() => alignActiveTarget("left")} title="Align selected element left"><AlignLeft className="size-4" /></Button>
                     <Button size="icon" variant="ghost" className="size-7" onClick={() => alignActiveTarget("center")} title="Align selected element center"><AlignCenter className="size-4" /></Button>
@@ -2420,7 +2487,32 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                     <span>{activeTargetLetterSpacing}px</span>
                     <input type="range" min="0" max="12" step="0.5" value={activeTargetLetterSpacing} onChange={(event) => patchSelectedTextStyle({ letterSpacing: `${event.target.value}px` }, "Letter spacing applied.")} className="w-20" />
                   </label>
+                  <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Word spacing">
+                    <span>Word {activeTargetWordSpacing}px</span>
+                    <input type="range" min="-8" max="32" step="1" value={activeTargetWordSpacing} onChange={(event) => patchSelectedTextStyle({ wordSpacing: `${event.target.value}px` }, "Word spacing applied.")} className="w-20" />
+                  </label>
+                  <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Text shadow blur">
+                    <span>Shadow {activeTargetShadowBlur}px</span>
+                    <input type="range" min="0" max="32" step="1" value={activeTargetShadowBlur} onChange={(event) => patchSelectedTextStyle({ textShadow: Number(event.target.value) === 0 ? "" : `0 3px ${event.target.value}px ${activeTargetShadowColor}` }, "Text shadow applied.")} className="w-20" />
+                  </label>
+                  <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Text shadow color">
+                    <span>Shadow</span>
+                    <input type="color" value={activeTargetShadowColor} disabled={activeTargetShadowBlur === 0} onInput={(event) => patchSelectedTextStyle({ textShadow: `0 3px ${Math.max(activeTargetShadowBlur, 8)}px ${event.currentTarget.value}` }, "Text shadow color applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed" />
+                  </label>
+                  <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Text border width">
+                    <span>Border {activeTargetBorderWidth}px</span>
+                    <input type="range" min="0" max="12" step="1" value={activeTargetBorderWidth} onChange={(event) => patchSelectedTextStyle({ border: `${event.target.value}px solid ${activeTargetBorderColor}` }, "Text border applied.")} className="w-20" />
+                  </label>
+                  <label className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Text border color">
+                    <span>Border</span>
+                    <input type="color" value={activeTargetBorderColor} disabled={activeTargetBorderWidth === 0} onInput={(event) => patchSelectedTextStyle({ border: `${Math.max(activeTargetBorderWidth, 1)}px solid ${event.currentTarget.value}` }, "Text border color applied.")} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed" />
+                  </label>
+                  <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Text border radius">
+                    <span>Radius {activeTargetBorderRadius}px</span>
+                    <input type="range" min="0" max="48" step="1" value={activeTargetBorderRadius} onChange={(event) => patchSelectedTextStyle({ borderRadius: `${event.target.value}px` }, "Text border radius applied.")} className="w-20" />
+                  </label>
                   <Button size="sm" variant={activeTarget.style.fontWeight === "800" ? "default" : "outline"} onClick={() => patchSelectedTextStyle({ fontWeight: activeTarget.style.fontWeight === "800" ? "400" : "800" }, "Font weight applied.")}>Bold</Button>
+                  <Button size="sm" variant={activeTarget.style.fontStyle === "italic" ? "default" : "outline"} onClick={() => patchSelectedTextStyle({ fontStyle: activeTarget.style.fontStyle === "italic" ? "" : "italic" }, "Font style applied.")}>Italic</Button>
                     </>
                   )}
                   <Button size="sm" variant="destructive" onClick={requestDeleteSelectedTarget} title="Delete only the selected element">

@@ -48,6 +48,8 @@ describe("presentation inspect styles", () => {
   it("serializes style rules and inline attributes", () => {
     const style = {
       color: "#fff",
+      fontFamily: "'Playfair Display', serif",
+      wordSpacing: "8px",
       backgroundImage: "linear-gradient(135deg, #34d399 0%, #38bdf8 100%)",
       backgroundClip: "text",
       webkitBackgroundClip: "text",
@@ -63,6 +65,8 @@ describe("presentation inspect styles", () => {
     const rule = styleToCssRule("apploop-el-test", style);
     expect(rule).toContain(".apploop-el-test {");
     expect(rule).toContain("color: #fff;");
+    expect(rule).toContain("font-family: 'Playfair Display', serif;");
+    expect(rule).toContain("word-spacing: 8px;");
     expect(rule).toContain("background-image: linear-gradient(135deg, #34d399 0%, #38bdf8 100%);");
     expect(rule).toContain("background-clip: text;");
     expect(rule).toContain("-webkit-background-clip: text;");
@@ -71,6 +75,40 @@ describe("presentation inspect styles", () => {
     expect(rule).toContain("text-transform: uppercase;");
     expect(styleToInlineAttribute(style)).toContain("left: 50%;");
     expect(styleToInlineAttribute(style)).toContain('position: absolute;');
+  });
+
+  it("persists Google font text styling and reads it after reload", () => {
+    const deck = SAMPLE.replace("size: 16:9", "size: 16:9\nstyle: |\n  section { color: white; }");
+    const result = applyPresentationElementStylesToMarkdown(deck, [
+      {
+        slide: 1,
+        tag: "h1",
+        text: "# Provoke curiosity.",
+        path: "section > h1",
+        style: {
+          fontFamily: "'Playfair Display', serif",
+          fontSize: "72px",
+          lineHeight: "1.1",
+          letterSpacing: "1.5px",
+          wordSpacing: "8px",
+          textShadow: "0 3px 12px #000000",
+          color: "#f8fafc",
+        },
+      },
+    ]);
+    const className = result.classNames[0]!;
+    const entry = parseManagedStyleEntries(result.markdown).find((item) => item.className === className);
+
+    expect(result.markdown).toContain("https://fonts.googleapis.com/css2?family=Playfair+Display");
+    expect(result.markdown).toContain("family=Playfair+Display&display=swap");
+    expect(result.markdown).not.toContain("Playfair+Display:wght@");
+  expect(result.markdown.indexOf("@import url('https://fonts.googleapis.com/css2?family=Playfair+Display&display=swap');")).toBeLessThan(result.markdown.indexOf("section { color: white; }"));
+    expect(result.markdown).toContain("font-family: 'Playfair Display', serif;");
+    expect(result.markdown).toContain("word-spacing: 8px;");
+    expect(result.markdown).toContain("text-shadow: 0 3px 12px #000000;");
+    expect(entry?.style.fontFamily).toBe("'Playfair Display', serif");
+    expect(entry?.style.wordSpacing).toBe("8px");
+    expect(entry?.style.textShadow).toBe("0 3px 12px #000000");
   });
 
   it("alignment helpers set absolute placement", () => {
@@ -573,6 +611,104 @@ describe("presentation inspect styles", () => {
     expect(managedStart).toBeLessThan(presetKey);
     expect(repaired).toContain("section {\n    background: #000000;");
     expect(repaired).toContain(".apploop-el-1234567890 {");
+  });
+
+  it("never dedents theme CSS out of the style scalar when rewriting the managed block", () => {
+    const deck = `---\nmarp: true\nstyle: |\n  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP&display=swap');\n  section {\n    background: #0b1020;\n    color: #ffffff;\n  }\n---\n\n# Title\n\nBody text.\n`;
+    const first = applyPresentationElementStylesToMarkdown(deck, [
+      {
+        slide: 1,
+        tag: "h1",
+        text: "Title",
+        path: "section > h1",
+        style: { fontFamily: "'Caveat', cursive", fontSize: "48px" },
+      },
+    ]);
+    // Second save rewrites (removes + reinserts) the managed block that now contains @imports.
+    const second = applyPresentationElementStylesToMarkdown(first.markdown, [
+      {
+        slide: 1,
+        tag: "h1",
+        text: "Title",
+        path: "section > h1",
+        style: { fontFamily: "'Caveat', cursive", fontSize: "64px" },
+      },
+    ]);
+    const fmEnd = second.markdown.indexOf("---", 3);
+    const frontMatter = second.markdown.slice(0, fmEnd);
+    const fmLines = frontMatter.split("\n").slice(1);
+    const styleIndex = fmLines.findIndex((line) => /^style:\s*\|\s*$/.test(line));
+    expect(styleIndex).toBeGreaterThanOrEqual(0);
+    for (const line of fmLines.slice(styleIndex + 1)) {
+      if (line.length === 0) continue;
+      // Every CSS line must stay indented inside the block scalar.
+      expect(line.startsWith("  ")).toBe(true);
+    }
+    expect(frontMatter).toContain("background: #0b1020;");
+    expect(second.markdown).toContain("font-size: 64px;");
+    expect(second.markdown).toContain("family=Caveat");
+  });
+
+  it("repairs decks whose style scalar was corrupted by dedented CSS lines", () => {
+    const broken = `---\nmarp: true\nstyle: |\n  /* @apploop-inspect-styles */\n  @import url('https://fonts.googleapis.com/css2?family=Caveat&display=swap');\n  .apploop-el-abcdef1234 {\n    font-family: 'Caveat', cursive !important;\n  }\n  /* @apploop-inspect-styles-end */\n@import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');\nsection {\n  background: #0b1020;\n  color: #ffffff;\n}\n---\n\n<span class="apploop-el-abcdef1234">Title</span>\n`;
+    const repaired = repairManagedStyleBlock(broken);
+    const fmEnd = repaired.indexOf("---", 3);
+    const frontMatter = repaired.slice(0, fmEnd);
+    const fmLines = frontMatter.split("\n").slice(1);
+    const styleIndex = fmLines.findIndex((line) => /^style:\s*\|\s*$/.test(line));
+    expect(styleIndex).toBeGreaterThanOrEqual(0);
+    for (const line of fmLines.slice(styleIndex + 1)) {
+      if (line.length === 0) continue;
+      if (/^[A-Za-z_][A-Za-z0-9_-]*:(?:\s|$)/.test(line) && !/[;{]\s*$/.test(line)) continue;
+      expect(line.startsWith("  ")).toBe(true);
+    }
+    // Theme CSS is back inside the scalar instead of orphaned at column 0.
+    expect(frontMatter).toContain("  background: #0b1020;");
+    expect(repaired).toContain(".apploop-el-abcdef1234 {");
+  });
+
+  it("wraps heading targets sent with markdown source text as real headings", () => {
+    const result = applyPresentationElementStylesToMarkdown(SAMPLE, [
+      {
+        slide: 1,
+        tag: "h1",
+        text: "# Provoke curiosity.",
+        path: "section > h1",
+        style: { fontFamily: "'Caveat', cursive" },
+      },
+    ]);
+    const className = result.classNames[0]!;
+    // Same identity as a DOM-text selection without the markdown marker.
+    expect(className).toBe(
+      buildElementClassName({ slide: 1, tag: "h1", text: "Provoke curiosity.", path: "section > h1" }),
+    );
+    // Wrapped as a heading tag, never a span containing raw markdown.
+    expect(result.markdown).toMatch(new RegExp(`<h1 class="${className}"[^>]*>Provoke curiosity\\.</h1>`));
+    expect(result.markdown).not.toMatch(/<span[^>]*>\s*#/);
+  });
+
+  it("heals legacy span wrappers that captured raw markdown headings", () => {
+    // Legacy bug output: span wrapper containing "### Title" plus CSS saved
+    // under the marker-prefixed identity.
+    const legacyClassName = buildElementClassName({
+      slide: 1,
+      tag: "h3",
+      text: "### Deep dive",
+      path: "section > h3",
+    });
+    const broken = `---\nmarp: true\nstyle: |\n  /* @apploop-inspect-styles */\n  section {\n    position: relative;\n  }\n  .${legacyClassName} {\n    font-family: 'Amatic SC', cursive !important;\n    font-size: 69px;\n  }\n  /* @apploop-inspect-styles-end */\n---\n\n# Title\n\n<span class="${legacyClassName}" style="font-family: 'Amatic SC', cursive; font-size: 69px;">### Deep dive</span>\n`;
+    const healed = applyPresentationElementStylesToMarkdown(broken, [
+      { slide: 1, tag: "h3", text: "### Deep dive", path: "section > h3", style: {} },
+    ]);
+    const className = healed.classNames[0]!;
+    expect(className).not.toBe(legacyClassName);
+    expect(healed.markdown).toMatch(new RegExp(`<h3 class="${className}"[^>]*>Deep dive</h3>`));
+    expect(healed.markdown).not.toContain(">### Deep dive<");
+    // Legacy styles migrated to the clean identity.
+    const entry = parseManagedStyleEntries(healed.markdown).find((item) => item.className === className);
+    expect(entry?.style.fontFamily).toBe("'Amatic SC', cursive");
+    expect(entry?.style.fontSize).toBe("69px");
+    expect(healed.markdown).not.toContain(`.${legacyClassName} {`);
   });
 
   it("keeps drag position across re-apply with different tag/path", () => {

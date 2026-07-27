@@ -442,8 +442,8 @@ export function buildPresentationInspectAssets(options: {
               paddingLeft: 'padding-left', border: 'border', borderRadius: 'border-radius',
               borderCollapse: 'border-collapse', borderSpacing: 'border-spacing', tableLayout: 'table-layout', listStyleType: 'list-style-type', opacity: 'opacity',
               visibility: 'visibility', pointerEvents: 'pointer-events',
-              fontSize: 'font-size', fontStyle: 'font-style', fontWeight: 'font-weight', lineHeight: 'line-height',
-              letterSpacing: 'letter-spacing', textTransform: 'text-transform', textAlign: 'text-align',
+              fontFamily: 'font-family', fontSize: 'font-size', fontStyle: 'font-style', fontWeight: 'font-weight', lineHeight: 'line-height',
+              letterSpacing: 'letter-spacing', wordSpacing: 'word-spacing', textTransform: 'text-transform', textAlign: 'text-align',
               boxShadow: 'box-shadow', textShadow: 'text-shadow',
               fill: 'fill', fillOpacity: 'fill-opacity', stroke: 'stroke', strokeLinecap: 'stroke-linecap', strokeLinejoin: 'stroke-linejoin', strokeWidth: 'stroke-width',
               backgroundClip: 'background-clip', webkitBackgroundClip: '-webkit-background-clip', webkitTextFillColor: '-webkit-text-fill-color',
@@ -474,8 +474,8 @@ export function buildPresentationInspectAssets(options: {
               paddingLeft: 'padding-left', border: 'border', borderRadius: 'border-radius',
               borderCollapse: 'border-collapse', borderSpacing: 'border-spacing', tableLayout: 'table-layout', listStyleType: 'list-style-type', opacity: 'opacity',
               visibility: 'visibility', pointerEvents: 'pointer-events',
-              fontSize: 'font-size', fontStyle: 'font-style', fontWeight: 'font-weight', lineHeight: 'line-height',
-              letterSpacing: 'letter-spacing', textTransform: 'text-transform', textAlign: 'text-align',
+              fontFamily: 'font-family', fontSize: 'font-size', fontStyle: 'font-style', fontWeight: 'font-weight', lineHeight: 'line-height',
+              letterSpacing: 'letter-spacing', wordSpacing: 'word-spacing', textTransform: 'text-transform', textAlign: 'text-align',
               boxShadow: 'box-shadow', textShadow: 'text-shadow',
               fill: 'fill', fillOpacity: 'fill-opacity', stroke: 'stroke', strokeLinecap: 'stroke-linecap', strokeLinejoin: 'stroke-linejoin', strokeWidth: 'stroke-width',
               backgroundClip: 'background-clip', webkitBackgroundClip: '-webkit-background-clip', webkitTextFillColor: '-webkit-text-fill-color',
@@ -554,6 +554,72 @@ export function buildPresentationInspectAssets(options: {
             return Object.assign({}, svgShapeAttributes, saved, svgShapeInline, inline);
           }
 
+          function toHexColorValue(value) {
+            var raw = String(value || '').trim();
+            if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw;
+            var match = raw.match(/rgba?\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)(?:\\s*,\\s*([0-9.]+))?/);
+            if (!match) return '';
+            if (match[4] !== undefined && Number.parseFloat(match[4]) < 0.01) return '';
+            function hex(part) {
+              var h = Math.min(255, Number(part) || 0).toString(16);
+              return h.length === 1 ? '0' + h : h;
+            }
+            return '#' + hex(match[1]) + hex(match[2]) + hex(match[3]);
+          }
+
+          // Actual rendered values (computed styles are authoring-resolution CSS px
+          // inside the Marp section) so the editor panel shows exact numbers for
+          // elements without saved/inline styles instead of generic defaults.
+          function baselineStyleForElement(el) {
+            var baseline = {};
+            if (!el || !window.getComputedStyle) return baseline;
+            var computed = window.getComputedStyle(el);
+            if (!computed) return baseline;
+            var tag = el.tagName ? el.tagName.toLowerCase() : '';
+            baseline.fontSize = computed.fontSize;
+            var fontPx = Number.parseFloat(computed.fontSize);
+            var linePx = Number.parseFloat(computed.lineHeight);
+            if (Number.isFinite(linePx) && Number.isFinite(fontPx) && fontPx > 0) {
+              baseline.lineHeight = String(Math.round((linePx / fontPx) * 100) / 100);
+            }
+            if (computed.letterSpacing && computed.letterSpacing !== 'normal') baseline.letterSpacing = computed.letterSpacing;
+            if (computed.wordSpacing && computed.wordSpacing !== 'normal') baseline.wordSpacing = computed.wordSpacing;
+            baseline.fontWeight = computed.fontWeight;
+            baseline.fontStyle = computed.fontStyle;
+            baseline.textTransform = computed.textTransform;
+            baseline.opacity = computed.opacity;
+            baseline.padding = computed.paddingTop;
+            baseline.paddingLeft = computed.paddingLeft;
+            baseline.margin = computed.marginTop;
+            baseline.border = computed.borderTopWidth;
+            baseline.borderRadius = computed.borderTopLeftRadius;
+            var colorHex = toHexColorValue(computed.color);
+            if (colorHex) baseline.color = colorHex;
+            var backgroundHex = toHexColorValue(computed.backgroundColor);
+            if (backgroundHex) baseline.background = backgroundHex;
+            if (tag === 'img' || tag === 'hr' || tag === 'svg') {
+              baseline.width = computed.width;
+              baseline.height = computed.height;
+            }
+            if (tag === 'svg') {
+              var marker = svgShapeMarkerElement(el);
+              if (marker) {
+                var markerComputed = window.getComputedStyle(marker);
+                if (markerComputed) {
+                  var fillHex = toHexColorValue(markerComputed.fill);
+                  var strokeHex = toHexColorValue(markerComputed.stroke);
+                  if (fillHex) baseline.fill = fillHex;
+                  if (strokeHex) baseline.stroke = strokeHex;
+                  baseline.fillOpacity = markerComputed.fillOpacity;
+                  baseline.strokeWidth = markerComputed.strokeWidth;
+                  baseline.strokeLinecap = markerComputed.strokeLinecap;
+                  baseline.strokeLinejoin = markerComputed.strokeLinejoin;
+                }
+              }
+            }
+            return baseline;
+          }
+
           function promoteSavedManagedStyles() {
             var existing = document.getElementById('apploop-inspect-managed-priority');
             if (existing) existing.remove();
@@ -604,7 +670,13 @@ export function buildPresentationInspectAssets(options: {
               if (svgOnlyTextHostChild(el)) return false;
               if (isEmptyManagedTextHost(el)) return false;
               if (tag === 'svg' && !svgShapeMarkerElement(el)) return false;
-              if (tag !== 'svg' && el.closest && el.closest('svg')) return false;
+              if (tag !== 'svg' && el.closest) {
+                // Marp wraps every slide in <svg data-marpit-svg>, so all slide
+                // elements have an svg ancestor. Only exclude descendants of
+                // inline shape/icon SVGs, not the Marp slide wrapper.
+                var ownerSvg = el.closest('svg');
+                if (ownerSvg && !ownerSvg.hasAttribute('data-marpit-svg')) return false;
+              }
               var rect = el.getBoundingClientRect();
               if (rect.width <= 0 && rect.height <= 0 && tag !== 'img' && tag !== 'hr' && !el.matches(svgShapeSelector)) return false;
               var path = cssPath(el);
@@ -622,8 +694,8 @@ export function buildPresentationInspectAssets(options: {
               paddingLeft: 'padding-left', border: 'border', borderRadius: 'border-radius',
               borderCollapse: 'border-collapse', borderSpacing: 'border-spacing', tableLayout: 'table-layout', listStyleType: 'list-style-type', opacity: 'opacity',
               visibility: 'visibility', pointerEvents: 'pointer-events',
-              fontSize: 'font-size', fontStyle: 'font-style', fontWeight: 'font-weight', lineHeight: 'line-height',
-              letterSpacing: 'letter-spacing', textTransform: 'text-transform', textAlign: 'text-align',
+              fontFamily: 'font-family', fontSize: 'font-size', fontStyle: 'font-style', fontWeight: 'font-weight', lineHeight: 'line-height',
+              letterSpacing: 'letter-spacing', wordSpacing: 'word-spacing', textTransform: 'text-transform', textAlign: 'text-align',
               boxShadow: 'box-shadow', textShadow: 'text-shadow',
               fill: 'fill', fillOpacity: 'fill-opacity', stroke: 'stroke', strokeLinecap: 'stroke-linecap', strokeLinejoin: 'stroke-linejoin', strokeWidth: 'stroke-width',
               backgroundClip: 'background-clip', webkitBackgroundClip: '-webkit-background-clip', webkitTextFillColor: '-webkit-text-fill-color',
@@ -643,6 +715,26 @@ export function buildPresentationInspectAssets(options: {
             var isTable = el.tagName && el.tagName.toLowerCase() === 'table';
             var isImage = el.tagName && el.tagName.toLowerCase() === 'img';
             var isSvgShape = el.tagName && el.tagName.toLowerCase() === 'svg' && svgShapeMarkerElement(el);
+            function googleFontFamilyName(value) {
+              var quoted = String(value || '').match(/["']([^"']+)["']/);
+              var name = quoted ? quoted[1] : String(value || '').split(',')[0];
+              name = String(name || '').trim();
+              if (!name || !/[A-Za-z]/.test(name)) return '';
+              if (/^(serif|sans-serif|monospace|system-ui|ui-serif|ui-sans-serif|ui-monospace)$/i.test(name)) return '';
+              return name;
+            }
+            function ensureGoogleFont(value) {
+              var name = googleFontFamilyName(value);
+              if (!name || !document.head) return;
+              var id = 'apploop-google-font-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+              if (document.getElementById(id)) return;
+              var link = document.createElement('link');
+              link.id = id;
+              link.rel = 'stylesheet';
+              link.href = 'https://fonts.googleapis.com/css2?family=' + encodeURIComponent(name).replace(/%20/g, '+') + '&display=swap';
+              document.head.appendChild(link);
+            }
+            if (style.fontFamily) ensureGoogleFont(style.fontFamily);
             var svgPaintTarget = isSvgShape ? svgShapeMarkerElement(el) : null;
             var svgPaintKeys = { fill: true, fillOpacity: true, stroke: true, strokeLinecap: true, strokeLinejoin: true, strokeWidth: true };
             Object.keys(style).forEach(function (key) {
@@ -708,7 +800,7 @@ export function buildPresentationInspectAssets(options: {
               text: text,
               alt: tag === 'img' ? imageAltText(el) : undefined,
               style: style,
-              baselineStyle: {},
+              baselineStyle: baselineStyleForElement(el),
               domIndex: domIndex,
               zIndex: Number.isFinite(parsedZ) ? parsedZ : 0,
               hidden: style.visibility === 'hidden' || Boolean(computed && computed.visibility === 'hidden'),
@@ -1099,6 +1191,7 @@ export function buildPresentationInspectAssets(options: {
                   alt: item.alt,
                   path: item.path,
                   style: item.style || {},
+                  baselineStyle: item.baselineStyle || {},
                 };
               })
             }, '*');
@@ -1138,6 +1231,14 @@ export function buildPresentationInspectAssets(options: {
             emitSelectionState();
           }
 
+          function clearSelections() {
+            if (!selected.length && !activeId) return;
+            selected = [];
+            activeId = null;
+            applySelectedOutlines();
+            emitSelectionState();
+          }
+
           // Click to select/unselect
           document.addEventListener('click', function (event) {
             if (!inspect) return;
@@ -1155,7 +1256,10 @@ export function buildPresentationInspectAssets(options: {
             event.preventDefault();
             event.stopPropagation();
             var target = resolveClickTarget(event.target);
-            if (!target) return;
+            if (!target) {
+              clearSelections();
+              return;
+            }
             toggleSelect(target, Boolean(event.shiftKey || event.metaKey || event.ctrlKey));
           }, true);
 
@@ -1189,7 +1293,7 @@ export function buildPresentationInspectAssets(options: {
               var tag = target.classList && target.classList.contains('pill') ? 'pill' : target.tagName.toLowerCase();
               var text = cleanText(target.textContent || '');
               var id = targetId(path, tag, text);
-              item = { id: id, path: path, tag: tag, text: text, style: selectionStyleForElement(target), baselineStyle: {} };
+              item = { id: id, path: path, tag: tag, text: text, style: selectionStyleForElement(target), baselineStyle: baselineStyleForElement(target) };
               selected = [item];
               activeId = id;
               applySelectedOutlines();
@@ -1616,7 +1720,7 @@ export function buildPresentationInspectAssets(options: {
                   text: t.text,
                   alt: t.alt,
                   style: t.style || {},
-                  baselineStyle: {},
+                  baselineStyle: baselineStyleForElement(pathToElement(path)),
                 };
               });
               if (data.activeId) activeId = data.activeId;
@@ -1625,9 +1729,7 @@ export function buildPresentationInspectAssets(options: {
               applySelectedOutlines();
             }
             if (data.type === 'apploop-presentation-clear-selections') {
-              selected = [];
-              activeId = null;
-              applySelectedOutlines();
+              clearSelections();
             }
             if (data.type === 'apploop-presentation-select-all-elements') {
               selectAllElements();

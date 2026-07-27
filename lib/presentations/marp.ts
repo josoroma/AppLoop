@@ -98,7 +98,7 @@ export function wrapMarpDocument(html: string, css: string, options: WrapMarpDoc
   const slideOverrideCss = mode === "slide"
     ? `
       ${slideBackground ? `div.marpit section { background: ${slideBackground} !important; background-color: ${slideBackground} !important; }
-      div.marpit section :where(*, *::before, *::after) { background-color: ${slideBackground} !important; }` : ""}
+      ` : ""}
       ${slideTextColor ? `div.marpit section, div.marpit section :where(*) { color: ${slideTextColor} !important; border-color: ${slideTextColor} !important; text-decoration-color: ${slideTextColor} !important; }
       div.marpit section :where(*) { -webkit-text-fill-color: ${slideTextColor} !important; background-image: none !important; text-shadow: none !important; }
       div.marpit section :where(li)::marker { color: ${slideTextColor} !important; }

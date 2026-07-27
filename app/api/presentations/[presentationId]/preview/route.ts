@@ -76,8 +76,8 @@ export async function GET(request: Request, { params }: PreviewRouteProps) {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-store",
         "Content-Security-Policy": scriptNeeded
-          ? "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data: https: http:; font-src data: https:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
-          : "default-src 'none'; style-src 'unsafe-inline'; img-src data: https: http:; font-src data: https:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'",
+          ? "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; script-src 'unsafe-inline'; img-src data: https: http:; font-src data: https:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+          : "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; img-src data: https: http:; font-src data: https:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'",
       },
     });
   } catch (error) {
