@@ -40,6 +40,7 @@ import {
   SendHorizontal,
   Shapes,
   Sparkles,
+  SquarePen,
   Trash2,
   Type,
   Undo2,
@@ -916,6 +917,9 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const useMarpCanvas = useMemo(() => (fullMarkdown ? deckUsesMarpCanvas(fullMarkdown) : false), [fullMarkdown]);
   const activeTarget = useMemo(() => selectedTargets.find((target) => target.id === activeTargetId) ?? selectedTargets.at(-1) ?? null, [activeTargetId, selectedTargets]);
   const hasMultipleSelectedTargets = selectedTargets.length > 1;
+  // Every selectable element on the slide is selected — layerTargets and a full
+  // "select all" both derive from the same inspectable set, so this is exact.
+  const allElementsSelected = layerTargets.length > 0 && layerTargets.every((layer) => selectedTargets.some((target) => target.id === layer.id));
   const activeLayerIndex = activeTarget ? layerTargets.findIndex((target) => target.id === activeTarget.id) : -1;
   const activeLayerCanMoveBack = activeLayerIndex > 0;
   const activeLayerCanMoveForward = activeLayerIndex >= 0 && activeLayerIndex < layerTargets.length - 1;
@@ -1525,6 +1529,15 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     setStatus("Selected all slide elements. Use arrow keys to move them.");
   }, []);
 
+  const unselectAllSlideElements = useCallback(() => {
+    // Cancel any in-flight select-all retry so it cannot re-select after we clear.
+    selectAllPendingRef.current = false;
+    setSelectedTargets([]);
+    setActiveTargetId(null);
+    currentSlideFrameRef.current?.contentWindow?.postMessage({ type: "apploop-presentation-clear-selections" }, "*");
+    setStatus("Cleared selection.");
+  }, []);
+
   const forwardIframeDragMove = useCallback((clientX: number, clientY: number) => {
     const frame = currentSlideFrameRef.current;
     const frameWindow = frame?.contentWindow;
@@ -2065,8 +2078,8 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                         <Redo2 className="size-4" />
                       </Button>
                     </div>
-                    <Button aria-pressed={elementEditEnabled} size="sm" onClick={toggleElementEditMode} disabled={elementEditModeSaving} variant={elementEditEnabled ? "default" : "outline"}>
-                      {elementEditModeSaving ? "Saving..." : "Edit elements"}
+                    <Button aria-pressed={elementEditEnabled} size="icon" className="size-9" onClick={toggleElementEditMode} disabled={elementEditModeSaving} variant={elementEditEnabled ? "default" : "outline"} title={elementEditEnabled ? "Editing elements (click to stop)" : "Edit elements"}>
+                      {elementEditModeSaving ? <LoaderCircle className="size-4 animate-spin" /> : <SquarePen className="size-4" />}
                     </Button>
                     <input ref={imageFileInputRef} type="file" accept="image/png,image/gif,image/jpeg,image/svg+xml,.png,.gif,.jpg,.jpeg,.svg" className="hidden" onChange={(event) => {
                       const file = event.currentTarget.files?.[0] ?? null;
@@ -2075,8 +2088,8 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                     }} />
                     <div ref={toolbarGroupRef} className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1" title="Option groups">
                       <div className="relative">
-                        <Button size="sm" variant={activeToolbarGroup === "images" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "images" ? null : "images")} title="Show image options">
-                          <ImagePlus className="size-4" />Images
+                        <Button size="icon" variant={activeToolbarGroup === "images" ? "default" : "ghost"} className="size-7" onClick={() => setActiveToolbarGroup((group) => group === "images" ? null : "images")} title="Images">
+                          <ImagePlus className="size-4" />
                         </Button>
                         {activeToolbarGroup === "images" && (
                           <div className="absolute left-0 top-full z-30 mt-2 rounded-lg border border-white/10 bg-[#101014] p-2 text-xs text-zinc-300 shadow-2xl">
@@ -2104,8 +2117,8 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                         )}
                       </div>
                       <div className="relative">
-                        <Button size="sm" variant={activeToolbarGroup === "alignment" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "alignment" ? null : "alignment")} title="Show alignment options">
-                          <AlignLeft className="size-4" />Alignment
+                        <Button size="icon" variant={activeToolbarGroup === "alignment" ? "default" : "ghost"} className="size-7" onClick={() => setActiveToolbarGroup((group) => group === "alignment" ? null : "alignment")} title="Alignment">
+                          <AlignLeft className="size-4" />
                         </Button>
                         {activeToolbarGroup === "alignment" && (
                           <div className="absolute left-0 top-full z-30 mt-2 rounded-lg border border-white/10 bg-[#101014] p-2 text-xs text-zinc-300 shadow-2xl">
@@ -2124,8 +2137,8 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                         )}
                       </div>
                       <div className="relative">
-                        <Button size="sm" variant={activeToolbarGroup === "lists" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "lists" ? null : "lists")} title="Show list options">
-                          <ListChecks className="size-4" />Lists
+                        <Button size="icon" variant={activeToolbarGroup === "lists" ? "default" : "ghost"} className="size-7" onClick={() => setActiveToolbarGroup((group) => group === "lists" ? null : "lists")} title="Lists">
+                          <ListChecks className="size-4" />
                         </Button>
                         {activeToolbarGroup === "lists" && (
                           <div className="absolute left-0 top-full z-30 mt-2 rounded-lg border border-white/10 bg-[#101014] p-2 text-xs text-zinc-300 shadow-2xl">
@@ -2141,8 +2154,8 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                         )}
                       </div>
                       <div className="relative">
-                        <Button size="sm" variant={activeToolbarGroup === "shapes" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "shapes" ? null : "shapes")} title="Insert SVG shapes">
-                          <Shapes className="size-4" />Shapes
+                        <Button size="icon" variant={activeToolbarGroup === "shapes" ? "default" : "ghost"} className="size-7" onClick={() => setActiveToolbarGroup((group) => group === "shapes" ? null : "shapes")} title="Shapes">
+                          <Shapes className="size-4" />
                         </Button>
                         {activeToolbarGroup === "shapes" && (
                           <div className="absolute left-0 top-full z-30 mt-2 rounded-lg border border-white/10 bg-[#101014] p-2 text-xs text-zinc-300 shadow-2xl">
@@ -2157,8 +2170,8 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                         )}
                       </div>
                       <div className="relative">
-                        <Button size="sm" variant={activeToolbarGroup === "icons" ? "default" : "ghost"} className="h-7 px-2 text-xs" onClick={() => setActiveToolbarGroup((group) => group === "icons" ? null : "icons")} title="Insert SVG icons">
-                          <ArrowRight className="size-4" />Icons
+                        <Button size="icon" variant={activeToolbarGroup === "icons" ? "default" : "ghost"} className="size-7" onClick={() => setActiveToolbarGroup((group) => group === "icons" ? null : "icons")} title="Icons">
+                          <ArrowRight className="size-4" />
                         </Button>
                         {activeToolbarGroup === "icons" && (
                           <div className="absolute right-0 top-full z-30 mt-2 rounded-lg border border-white/10 bg-[#101014] p-2 text-xs text-zinc-300 shadow-2xl">
@@ -2185,7 +2198,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                   <input type="color" value={activeTextColor} onChange={(e) => void handleTextColorChange(e.target.value)}
                     className="h-7 w-7 cursor-pointer rounded border-0 p-0 bg-transparent [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded [&::-webkit-color-swatch]:border [&::-webkit-color-swatch]:border-white/20" />
                 </label>
-                <Button size="sm" onClick={() => void handleSave()} disabled={saving}><Save className="size-4 mr-1" />{saving ? "Saving…" : "Save"}</Button>
+                <Button size="icon" className="size-9" onClick={() => void handleSave()} disabled={saving} title={saving ? "Saving…" : "Save"}>{saving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}</Button>
               </div>
             </div>
             {useMarpCanvas && elementEditEnabled && (
@@ -2202,7 +2215,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                       {MARP_INSERTS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
                     </select>
                   </label>
-                  <Button size="sm" variant="outline" onClick={selectAllSlideElements} title="Select all slide elements and move them with arrow keys">Select all</Button>
+                  <Button size="sm" variant="outline" onClick={allElementsSelected ? unselectAllSlideElements : selectAllSlideElements} title={allElementsSelected ? "Clear the current selection" : "Select all slide elements and move them with arrow keys"}>{allElementsSelected ? "Unselect all" : "Select all"}</Button>
                   {hasMultipleSelectedTargets ? (
                     <div className="flex min-w-0 items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5">
                       <GripVertical className="size-4 text-zinc-400" />
@@ -2596,6 +2609,12 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                                       patchLayerTarget(layer, { pointerEvents: layer.locked ? "auto" : "none" }, layer.locked ? "Layer unlocked." : "Layer locked.");
                                     }}>
                                       {layer.locked ? <Lock className="size-4" /> : <Unlock className="size-4" />}
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="size-7 shrink-0 text-red-300 hover:bg-red-500/15 hover:text-red-200" title="Delete element from slide" onClick={(event) => {
+                                      event.stopPropagation();
+                                      void deleteSelectedTarget(layer);
+                                    }}>
+                                      <Trash2 className="size-4" />
                                     </Button>
                                   </div>
                                 );

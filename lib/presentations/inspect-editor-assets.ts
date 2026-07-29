@@ -86,6 +86,13 @@ export function buildPresentationInspectAssets(options: {
         display: none;
       }
       .apploop-inspect-box[data-open="true"] { display: block; }
+      .apploop-inspect-box[data-media="true"] {
+        pointer-events: auto;
+        cursor: grab;
+      }
+      .apploop-inspect-box[data-media="true"]:active {
+        cursor: grabbing;
+      }
       #apploop-inspect-hover-box {
         position: absolute;
         z-index: 2147483643;
@@ -346,7 +353,7 @@ export function buildPresentationInspectAssets(options: {
             return cleanText(clone.textContent || '').length === 0;
           }
 
-          function svgOnlyTextHostChild(el) {
+          function mediaOnlyTextHostChild(el) {
             if (!el || !el.querySelectorAll || !el.tagName) return null;
             var tag = el.tagName.toLowerCase();
             if (!(tag === 'p' || /^h[1-6]$/.test(tag))) return null;
@@ -356,7 +363,15 @@ export function buildPresentationInspectAssets(options: {
             });
             if (children.length !== 1) return null;
             var child = children[0];
-            return child && child.tagName && child.tagName.toLowerCase() === 'svg' && svgShapeMarkerElement(child) ? child : null;
+            if (!child || !child.tagName) return null;
+            // Markdown wraps a lone image or authored SVG shape/icon in a
+            // block-level host (<p>/<h*>) that spans the full content width.
+            // Hover, selection outlines, and the drag box must target the
+            // inner media the user actually sees, never the wide wrapper.
+            var childTag = child.tagName.toLowerCase();
+            if (childTag === 'img') return child;
+            if (childTag === 'svg' && svgShapeMarkerElement(child)) return child;
+            return null;
           }
 
           function refreshEmptyManagedTextHosts() {
@@ -382,8 +397,13 @@ export function buildPresentationInspectAssets(options: {
               var ownerSvg = target.closest ? target.closest('svg') : null;
               return ownerSvg || target;
             }
-            var svgOnlyChild = svgOnlyTextHostChild(target);
-            if (svgOnlyChild) return svgOnlyChild;
+            // A media-only wrapper (<p>/<h*> holding just an image or authored
+            // shape/icon) is a markdown layout artifact that spans the full
+            // content width. Pointing at the media itself lands on it directly
+            // (event.target is the img/svg). Landing on the wrapper means the
+            // pointer is in the empty margin around the media, which must read
+            // as empty space — clear the selection, never reselect the block.
+            if (mediaOnlyTextHostChild(target)) return null;
             var table = target.closest ? target.closest('table') : null;
             if (table) return table;
             var list = target.closest ? target.closest('ul,ol') : null;
@@ -667,7 +687,7 @@ export function buildPresentationInspectAssets(options: {
               var parentPill = el.closest ? el.closest('.pill') : null;
               if (parentPill && parentPill !== el && el.matches && el.matches('span[class*="apploop-el-"]')) return false;
               if (tag === 'li' && el.closest('ul,ol')) return false;
-              if (svgOnlyTextHostChild(el)) return false;
+              if (mediaOnlyTextHostChild(el)) return false;
               if (isEmptyManagedTextHost(el)) return false;
               if (tag === 'svg' && !svgShapeMarkerElement(el)) return false;
               if (tag !== 'svg' && el.closest) {
@@ -849,8 +869,8 @@ export function buildPresentationInspectAssets(options: {
           function visibleElementForItem(item, fallbackEl) {
             var el = fallbackEl || (item ? pathToElement(item.path) : null);
             if (!item || !el) return el;
-            var svgOnlyChild = svgOnlyTextHostChild(el);
-            if (svgOnlyChild) return svgOnlyChild;
+            var mediaOnlyChild = mediaOnlyTextHostChild(el);
+            if (mediaOnlyChild) return mediaOnlyChild;
             if (el.classList && Array.prototype.some.call(el.classList, function (name) { return /^apploop-el-/.test(name); })) return el;
             if (!el.querySelectorAll) return el;
             var managed = Array.prototype.slice.call(el.querySelectorAll('span[class*="apploop-el-"]'));
@@ -945,6 +965,16 @@ export function buildPresentationInspectAssets(options: {
             return tag === 'li' || elementTag === 'li';
           }
 
+          // Images, shapes, and icons are free-floating media: the whole
+          // element area is a drag surface, not only the "DRAG" title. Table
+          // cells and list items stay flow-bound, so they are excluded.
+          function isMediaSelection(item, el) {
+            if (!el) return false;
+            if (isTableCellSelection(item, el) || isListItemSelection(item, el)) return false;
+            var tag = el.tagName ? el.tagName.toLowerCase() : '';
+            return tag === 'img' || isSvgShapeElement(el);
+          }
+
           function updatePositionBox() {
             if (!selected.length) {
               hideUnusedSelectionBoxes(0);
@@ -972,6 +1002,7 @@ export function buildPresentationInspectAssets(options: {
               currentBox.setAttribute('data-target-id', item.id);
               currentBox.setAttribute('data-table-cell', isTableCellSelection(item, el) ? 'true' : 'false');
               currentBox.setAttribute('data-list-item', isListItemSelection(item, el) ? 'true' : 'false');
+              currentBox.setAttribute('data-media', isMediaSelection(item, el) ? 'true' : 'false');
               currentBox.setAttribute('data-active', item.id === activeItem.id ? 'true' : 'false');
               currentBox.setAttribute('data-group', selected.length > 1 ? 'true' : 'false');
               currentBox.setAttribute('data-open', 'true');
@@ -1432,7 +1463,17 @@ export function buildPresentationInspectAssets(options: {
           document.addEventListener('mousemove', function (event) {
             if (!inspect || dragging || resizing) return;
             var target = resolveClickTarget(event.target);
-            if (!target) return;
+            if (!target) {
+              // Pointer moved over an inspect box (drag surface, title, or
+              // handles). Clear any stale hover outline left on the element
+              // we came from so it does not linger under the selection.
+              if (event.target && event.target.closest && event.target.closest('.apploop-inspect-box')) {
+                if (hoverEl) hoverEl.classList.remove('apploop-inspect-hover');
+                hoverEl = null;
+                setHoverBoxOpen(false);
+              }
+              return;
+            }
             var hoverTarget = isSvgShapeElement(target) ? svgShapeMarkerElement(target) : target;
             if (!hoverTarget) return;
             if (hoverEl && hoverEl !== hoverTarget) hoverEl.classList.remove('apploop-inspect-hover');

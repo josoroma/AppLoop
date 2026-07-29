@@ -512,6 +512,59 @@ describe("marp rendering", () => {
     expect(assets.script).not.toContain("apploop-presentation-smart-organize-element");
     expect(assets.script).not.toContain("swapActiveBlock");
   });
+
+  it("makes the whole area of image/shape/icon selections a drag surface", () => {
+    const assets = buildPresentationInspectAssets({
+      activeSlide: 1,
+      totalSlides: 1,
+      slideMarkdown: "# Move me\n\n![logo](assets/logo.png)",
+    });
+
+    // Media selections opt the inspect box back into pointer events so the
+    // entire element rect is grabbable, not only the "DRAG" title.
+    expect(assets.css).toContain('.apploop-inspect-box[data-media="true"] {');
+    expect(assets.css).toContain("pointer-events: auto;");
+    expect(assets.css).toContain('.apploop-inspect-box[data-media="true"]:active {');
+    expect(assets.css).toContain("cursor: grabbing;");
+
+    // Classifier covers images and SVG shapes/icons, but excludes flow-bound
+    // table cells and list items.
+    expect(assets.script).toContain("function isMediaSelection(item, el)");
+    expect(assets.script).toContain("return tag === 'img' || isSvgShapeElement(el);");
+    expect(assets.script).toContain(
+      "if (isTableCellSelection(item, el) || isListItemSelection(item, el)) return false;"
+    );
+    expect(assets.script).toContain(
+      "currentBox.setAttribute('data-media', isMediaSelection(item, el) ? 'true' : 'false');"
+    );
+
+    // Enlarging the interactive box must not leave a stale hover outline when
+    // the pointer moves off an element onto a selection box.
+    expect(assets.script).toContain("if (hoverEl) hoverEl.classList.remove('apploop-inspect-hover');");
+  });
+
+  it("treats a media wrapper's empty margin as empty space, and unwraps to the inner media for the list/outline", () => {
+    const assets = buildPresentationInspectAssets({
+      activeSlide: 1,
+      totalSlides: 1,
+      slideMarkdown: "# Logo\n\n![hermes logo](assets/hermes-logo.png)",
+    });
+
+    // Classifier: a <p>/<h*> wrapping only an image or authored SVG shape/icon.
+    expect(assets.script).toContain("function mediaOnlyTextHostChild(el)");
+    expect(assets.script).toContain("if (childTag === 'img') return child;");
+    expect(assets.script).toContain("if (childTag === 'svg' && svgShapeMarkerElement(child)) return child;");
+    // Click/hover: landing on the wrapper (the empty margin around the media)
+    // resolves to null → the caller clears the selection instead of reselecting
+    // the full-width block. The media itself is hit directly (event.target).
+    expect(assets.script).toContain("if (mediaOnlyTextHostChild(target)) return null;");
+    // The wrapper is still excluded from the inspectable-element list...
+    expect(assets.script).toContain("if (mediaOnlyTextHostChild(el)) return false;");
+    // ...and visible-element resolution still unwraps to the inner media so the
+    // outline + drag box track the image, not the <p>.
+    expect(assets.script).toContain("var mediaOnlyChild = mediaOnlyTextHostChild(el);");
+    expect(assets.script).not.toContain("svgOnlyTextHostChild");
+  });
 });
 
 describe("presentation workspace clone", () => {
@@ -596,9 +649,9 @@ describe("presentation agent bundle", () => {
       expect(assets.script).toContain("marker.closest && marker.closest('svg') === el");
       expect(assets.script).toContain("function svgShapeAttributeStyleForElement(el)");
       expect(assets.script).toContain("fillOpacity: 'fill-opacity'");
-      expect(assets.script).toContain("function svgOnlyTextHostChild(el)");
-      expect(assets.script).toContain("if (svgOnlyTextHostChild(el)) return false");
-      expect(assets.script).toContain("if (svgOnlyChild) return svgOnlyChild");
+      expect(assets.script).toContain("function mediaOnlyTextHostChild(el)");
+      expect(assets.script).toContain("if (mediaOnlyTextHostChild(el)) return false");
+      expect(assets.script).toContain("if (mediaOnlyChild) return mediaOnlyChild");
       expect(assets.script).toContain("tagName.toLowerCase() === 'svg' && svgShapeMarkerElement(el)");
       expect(assets.script).toContain("function rectFromSvgBBox(el)");
       expect(assets.script).toContain("function visualRectForElement(el)");
