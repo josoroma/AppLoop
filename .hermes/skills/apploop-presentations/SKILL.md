@@ -88,6 +88,16 @@ result.previousMarkdown → recordUndo()
 
 Always set `display: inline-block` alongside `position: absolute` — inline elements (`<li>`, `<a>`, `<em>`) don't respond to `width`/`height` otherwise.
 
+## Image Sizing (fit-to-slide)
+
+The slide box is the **deck** size (`svg[data-marpit-svg] viewBox="0 0 1280 720"`), not the live iframe rect. Read it with `readPresentationSlideSize(markdown)` and scale with `fitImageToSlide(natural, slide, padding)` — both in `lib/presentations/marp-utils.ts` (client-safe).
+
+- Inserting an oversized image emits Marp alt-text directives: `![alt w:1184 h:474](assets/x.png)`.
+- **Pitfall:** Marp stores sizing/filters as alt-text tokens (`w:`, `h:`, `bg`, `fit`, `blur`, …). Any code that rewrites an image's alt text must preserve them (`composeMarpImageAlt`) or the image silently jumps back to full size. Strip them from the alt *input's* displayed value.
+- Downscale only — never upscale. `SLIDE_IMAGE_FIT_PADDING = 48` per axis.
+
+Full detail, browser-verification recipe, and React-event gotchas: `references/image-sizing.md`.
+
 ## Filmstrip
 
 Native React cards via `GET /api/presentations/[id]/slides` — returns `{ slides, markdown, totalSlides }`. CSS grid `presentation-builder-grid` (chat | filmstrip | preview). Inspector adds 4th column.
@@ -112,4 +122,13 @@ Native React cards via `GET /api/presentations/[id]/slides` — returns `{ slide
 ```bash
 npm test -- tests/presentation-marp.test.ts
 npm test -- tests/presentation-inspect-styles.test.ts
+```
+
+`npm run lint` and `npm run typecheck` are **noisy at repo scope** — the seeded
+`templates/*/node_modules` produce thousands of pre-existing three.js/@types
+duplication errors. Scope to your own files instead:
+
+```bash
+npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E "^(components|lib|app)/presentations"
+npx eslint components/presentations/... lib/presentations/...
 ```

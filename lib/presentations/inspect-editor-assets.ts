@@ -187,6 +187,12 @@ export function buildPresentationInspectAssets(options: {
             .apploop-inspect-box[data-group="true"] .drag-del {
               display: none;
             }
+            /* Group box spans the whole multi-selection: dashed so it reads as a
+               bounding box rather than one element's outline. */
+            .apploop-inspect-box[data-group="true"] {
+              border-style: dashed;
+              border-color: rgba(251, 191, 36, 0.75);
+            }
             .apploop-inspect-box .handle {
               position: absolute;
               width: 10px;
@@ -986,29 +992,74 @@ export function buildPresentationInspectAssets(options: {
               if (b.id === activeItem.id) return 1;
               return 0;
             });
-            var visibleCount = 0;
+            var resolved = [];
             ordered.forEach(function (item) {
               var el = pathToElement(item.path);
               if (!el) return;
               el = syncItemToVisibleElement(item, el);
               if (!el) return;
-              var currentBox = ensureSelectionBox(visibleCount);
-              var isSvgSelection = isSvgShapeElement(el);
-              var rect = visualRectForElement(el);
-              currentBox.style.left = rect.left + 'px';
-              currentBox.style.top = rect.top + 'px';
-              currentBox.style.width = (isSvgSelection ? rect.width : Math.max(8, rect.width)) + 'px';
-              currentBox.style.height = (isSvgSelection ? rect.height : Math.max(8, rect.height)) + 'px';
-              currentBox.setAttribute('data-target-id', item.id);
-              currentBox.setAttribute('data-table-cell', isTableCellSelection(item, el) ? 'true' : 'false');
-              currentBox.setAttribute('data-list-item', isListItemSelection(item, el) ? 'true' : 'false');
-              currentBox.setAttribute('data-media', isMediaSelection(item, el) ? 'true' : 'false');
-              currentBox.setAttribute('data-active', item.id === activeItem.id ? 'true' : 'false');
-              currentBox.setAttribute('data-group', selected.length > 1 ? 'true' : 'false');
-              currentBox.setAttribute('data-open', 'true');
-              visibleCount += 1;
+              resolved.push({ item: item, el: el, rect: visualRectForElement(el) });
             });
-            hideUnusedSelectionBoxes(visibleCount);
+            if (!resolved.length) {
+              hideUnusedSelectionBoxes(0);
+              return;
+            }
+            // Multi-select shows ONE group box spanning every selected element,
+            // so there is a single DRAG handle for the whole group. Per-element
+            // outlines still come from .apploop-inspect-selected.
+            if (resolved.length > 1) {
+              var union = groupUnionRect(resolved);
+              var groupBox = ensureSelectionBox(0);
+              var activeEntry = resolved.find(function (entry) { return entry.item.id === activeItem.id; }) || resolved[0];
+              groupBox.style.left = union.left + 'px';
+              groupBox.style.top = union.top + 'px';
+              groupBox.style.width = Math.max(8, union.width) + 'px';
+              groupBox.style.height = Math.max(8, union.height) + 'px';
+              groupBox.setAttribute('data-target-id', activeEntry.item.id);
+              groupBox.setAttribute('data-table-cell', 'false');
+              groupBox.setAttribute('data-list-item', 'false');
+              groupBox.setAttribute('data-media', resolved.every(function (entry) {
+                return isMediaSelection(entry.item, entry.el);
+              }) ? 'true' : 'false');
+              groupBox.setAttribute('data-active', 'true');
+              groupBox.setAttribute('data-group', 'true');
+              groupBox.setAttribute('data-open', 'true');
+              hideUnusedSelectionBoxes(1);
+              return;
+            }
+            var single = resolved[0];
+            var currentBox = ensureSelectionBox(0);
+            var isSvgSelection = isSvgShapeElement(single.el);
+            var rect = single.rect;
+            currentBox.style.left = rect.left + 'px';
+            currentBox.style.top = rect.top + 'px';
+            currentBox.style.width = (isSvgSelection ? rect.width : Math.max(8, rect.width)) + 'px';
+            currentBox.style.height = (isSvgSelection ? rect.height : Math.max(8, rect.height)) + 'px';
+            currentBox.setAttribute('data-target-id', single.item.id);
+            currentBox.setAttribute('data-table-cell', isTableCellSelection(single.item, single.el) ? 'true' : 'false');
+            currentBox.setAttribute('data-list-item', isListItemSelection(single.item, single.el) ? 'true' : 'false');
+            currentBox.setAttribute('data-media', isMediaSelection(single.item, single.el) ? 'true' : 'false');
+            currentBox.setAttribute('data-active', 'true');
+            currentBox.setAttribute('data-group', 'false');
+            currentBox.setAttribute('data-open', 'true');
+            hideUnusedSelectionBoxes(1);
+          }
+
+          function groupUnionRect(entries) {
+            var left = Infinity;
+            var top = Infinity;
+            var right = -Infinity;
+            var bottom = -Infinity;
+            entries.forEach(function (entry) {
+              var rect = entry.rect;
+              if (!rect) return;
+              left = Math.min(left, rect.left);
+              top = Math.min(top, rect.top);
+              right = Math.max(right, rect.left + rect.width);
+              bottom = Math.max(bottom, rect.top + rect.height);
+            });
+            if (!isFinite(left) || !isFinite(top)) return { left: 0, top: 0, width: 0, height: 0 };
+            return { left: left, top: top, width: right - left, height: bottom - top };
           }
 
           function setGuideOpen(guide, open) {
@@ -1028,10 +1079,9 @@ export function buildPresentationInspectAssets(options: {
             alignmentGuideHideTimer = window.setTimeout(hideAlignmentGuides, 650);
           }
 
-          function updateAlignmentGuidesForElement(el, options) {
-            if (!el) return;
+          function updateAlignmentGuidesForRect(rect, options) {
+            if (!rect) return;
             var srect = sectionBox();
-            var rect = el.getBoundingClientRect();
             var threshold = 6;
             var elementCenterX = rect.left + rect.width / 2;
             var elementCenterY = rect.top + rect.height / 2;
@@ -1052,6 +1102,47 @@ export function buildPresentationInspectAssets(options: {
               setGuideOpen(horizontalGuide, showHorizontal);
             }
             if (!options || !options.keepOpen) hideAlignmentGuidesSoon();
+          }
+
+          function updateAlignmentGuidesForElement(el, options) {
+            if (!el) return;
+            updateAlignmentGuidesForRect(el.getBoundingClientRect(), options);
+          }
+
+          // During a multi-select drag the guides must describe the whole group,
+          // not just the grabbed element: otherwise the group's vertical center
+          // never matches the slide center and the horizontal guide never shows.
+          function currentSelectionRect() {
+            var rects = [];
+            selected.forEach(function (item) {
+              var el = pathToElement(item.path);
+              if (!el) return;
+              el = visibleElementForItem(item, el);
+              if (!el) return;
+              rects.push(visualRectForElement(el));
+            });
+            if (!rects.length) return null;
+            var left = Infinity;
+            var top = Infinity;
+            var right = -Infinity;
+            var bottom = -Infinity;
+            rects.forEach(function (rect) {
+              left = Math.min(left, rect.left);
+              top = Math.min(top, rect.top);
+              right = Math.max(right, rect.left + rect.width);
+              bottom = Math.max(bottom, rect.top + rect.height);
+            });
+            if (!isFinite(left) || !isFinite(top)) return null;
+            return { left: left, top: top, width: right - left, height: bottom - top };
+          }
+
+          function updateAlignmentGuidesForSelection(fallbackEl, options) {
+            var rect = selected.length > 1 ? currentSelectionRect() : null;
+            if (rect) {
+              updateAlignmentGuidesForRect(rect, options);
+              return;
+            }
+            updateAlignmentGuidesForElement(fallbackEl, options);
           }
 
           function patchActiveStyle(partial) {
@@ -1166,8 +1257,10 @@ export function buildPresentationInspectAssets(options: {
             for (var j = 0; j < moves.length; j += 1) {
               var m = moves[j];
               patchItemStyle(m.item, m.moveStyle);
-              updateAlignmentGuidesForElement(m.el);
             }
+            // Guides describe the resulting selection (group union when multi-select),
+            // measured after every element has moved.
+            updateAlignmentGuidesForSelection(moves[moves.length - 1].el);
             scheduleKeyboardMoveSave();
             updatePositionBox();
             emitSelectionState();
@@ -1641,7 +1734,7 @@ export function buildPresentationInspectAssets(options: {
                 moveDragSnapshot(snapshot, delta.dx, delta.dy, dragging.scale);
               });
               updatePositionBox();
-              updateAlignmentGuidesForElement(dragging.el, { keepOpen: true });
+              updateAlignmentGuidesForSelection(dragging.el, { keepOpen: true });
             }
             if (resizing) {
               var rdx = event.clientX - resizing.startX;

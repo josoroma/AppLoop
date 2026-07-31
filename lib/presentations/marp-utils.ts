@@ -160,6 +160,73 @@ export function stripMarpFrontMatter(markdown: string) {
   return splitMarpDocument(markdown).slides.join("\n\n---\n\n");
 }
 
+export type PresentationSlideSize = {
+  width: number;
+  height: number;
+};
+
+export const DEFAULT_PRESENTATION_SLIDE_SIZE: PresentationSlideSize = { width: 1280, height: 720 };
+
+const MARP_NAMED_SLIDE_SIZES = new Map<string, PresentationSlideSize>([
+  ["16:9", { width: 1280, height: 720 }],
+  ["4:3", { width: 960, height: 720 }],
+  ["4k", { width: 3840, height: 2160 }],
+]);
+
+/**
+ * Reads the deck slide size from front matter (`size: 16:9`, `size: 1600x900`,
+ * or an explicit `width`/`height` pair). Falls back to Marp's 16:9 default.
+ */
+export function readPresentationSlideSize(markdown: string): PresentationSlideSize {
+  const { frontMatter } = splitMarpDocument(markdown);
+  const rawSize = readFrontMatterScalar(frontMatter, "size").trim().toLowerCase();
+  const named = MARP_NAMED_SLIDE_SIZES.get(rawSize);
+  if (named) return { ...named };
+  const explicit = rawSize.match(/^(\d+)\s*[x:]\s*(\d+)$/);
+  if (explicit) {
+    const width = Number(explicit[1]);
+    const height = Number(explicit[2]);
+    if (width > 0 && height > 0 && rawSize.includes("x")) {
+      return { width, height };
+    }
+    // `size: 3:2` style ratios keep the 720px reference height Marp uses.
+    if (width > 0 && height > 0) {
+      return { width: Math.round((720 * width) / height), height: 720 };
+    }
+  }
+  const width = Number.parseInt(readFrontMatterScalar(frontMatter, "width"), 10);
+  const height = Number.parseInt(readFrontMatterScalar(frontMatter, "height"), 10);
+  if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+    return { width, height };
+  }
+  return { ...DEFAULT_PRESENTATION_SLIDE_SIZE };
+}
+
+/**
+ * Scales `natural` down (never up) so it fits inside the slide box, keeping the
+ * aspect ratio. `padding` reserves slide margin on each axis.
+ */
+export function fitImageToSlide(
+  natural: { width: number; height: number },
+  slide: PresentationSlideSize = DEFAULT_PRESENTATION_SLIDE_SIZE,
+  padding = 0,
+): { width: number; height: number; scaled: boolean } {
+  const maxWidth = Math.max(1, slide.width - padding * 2);
+  const maxHeight = Math.max(1, slide.height - padding * 2);
+  if (!(natural.width > 0) || !(natural.height > 0)) {
+    return { width: 0, height: 0, scaled: false };
+  }
+  if (natural.width <= maxWidth && natural.height <= maxHeight) {
+    return { width: Math.round(natural.width), height: Math.round(natural.height), scaled: false };
+  }
+  const ratio = Math.min(maxWidth / natural.width, maxHeight / natural.height);
+  return {
+    width: Math.max(1, Math.round(natural.width * ratio)),
+    height: Math.max(1, Math.round(natural.height * ratio)),
+    scaled: true,
+  };
+}
+
 export function countMarpSlides(markdown: string) {
   return splitMarpDocument(markdown).slides.length;
 }

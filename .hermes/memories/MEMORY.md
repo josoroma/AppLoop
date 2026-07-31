@@ -16,4 +16,8 @@ Inspect multi-select: re-query preferredSelector each tick if node dead; --selec
 §
 Makefile: dev --port PORT; hermes-gateway=`run --replace`; Built-in=registry+seed; rsync template	o projects.
 §
-Presentations: filmstrip+MDXEditor(@mdxeditor/editor v4,per-slide)+Marp preview+chat toggle. No inspect mode. Save: reconstruct deck.md preserving front matter+other slides. marp-utils.ts=client-safe(no node:fs), marp.ts=server-only. Slides API returns markdown. Delete slide via server action.
+Presentations: filmstrip+MDXEditor(@mdxeditor/editor v4,per-slide)+Marp preview+chat toggle. Inspect/edit mode IS active (select, layers, drag, image toolbar). Save: reconstruct deck.md preserving front matter+other slides. marp-utils.ts=client-safe(no node:fs), marp.ts=server-only. Slide box=1280x720 deck coords, not iframe rect. Marp alt text carries directives (w:/h:/bg/fit/blur) — preserve on alt rewrite.
+§
+AppLoop: make reset wipes root node_modules, so make seed then fails at drizzle-kit migrate. Order: make reset → npm install → make seed (seed is idempotent).
+§
+AppLoop presentations: after make seed/reset the presentation UUIDs change, so bookmarked /presentations/<id> URLs 404 — re-read with `sqlite3 .apploop/builder.sqlite "select id,name,status from presentations"`.

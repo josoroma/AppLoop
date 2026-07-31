@@ -8,7 +8,7 @@ import { createPresentationWorkspace, listPresentationImageAssets, readPresentat
 import { createPresentationAgentBundle } from "@/lib/hermes/agents";
 import { BUILT_IN_PRESENTATION_TEMPLATES } from "@/lib/presentations/templates";
 import { buildPresentationInspectAssets } from "@/lib/presentations/inspect-editor-assets";
-import { DEFAULT_PRESENTATION_GRADIENT_PRESETS, cloneMarpSlide, convertMarpSlideElementToList, deleteMarpSlide, insertBlankMarpSlide, moveMarpListItem, moveMarpSlideBlock, readPresentationGradientPresets, removeMarpSlideElement, reorderMarpSlide, upsertPresentationGradientPresets } from "@/lib/presentations/marp-utils";
+import { DEFAULT_PRESENTATION_GRADIENT_PRESETS, DEFAULT_PRESENTATION_SLIDE_SIZE, cloneMarpSlide, convertMarpSlideElementToList, deleteMarpSlide, fitImageToSlide, insertBlankMarpSlide, moveMarpListItem, moveMarpSlideBlock, readPresentationGradientPresets, readPresentationSlideSize, removeMarpSlideElement, reorderMarpSlide, upsertPresentationGradientPresets } from "@/lib/presentations/marp-utils";
 
 describe("presentation templates", () => {
   it("lists the built-in presentation templates", () => {
@@ -478,7 +478,9 @@ describe("marp rendering", () => {
     expect(assets.script).toContain("function clearSelections()");
     expect(assets.script).toContain("if (!target) {");
     expect(assets.script).toContain("clearSelections();");
-    expect(assets.script).toContain("currentBox.setAttribute('data-group', selected.length > 1 ? 'true' : 'false');");
+    expect(assets.script).toContain("groupBox.setAttribute('data-group', 'true');");
+    expect(assets.script).toContain("currentBox.setAttribute('data-group', 'false');");
+    expect(assets.script).toContain("function groupUnionRect(entries)");
     expect(assets.script).toContain("resizingImage ? slideBoundedWidthPx(w, resizing.srect) : Math.round(w) + 'px'");
     expect(assets.script).toContain("boxSizing: 'border-box'");
     expect(assets.script).toContain("resizingTable ? 'table' : 'inline-block'");
@@ -493,11 +495,19 @@ describe("marp rendering", () => {
     expect(assets.css).toContain(".apploop-empty-managed-host");
     expect(assets.css).toContain(".apploop-empty-managed-host .pill");
     expect(assets.script).toContain("updateAlignmentGuidesForElement");
+    // Multi-select drags must measure the group union, not the grabbed element,
+    // so the horizontal (vertical-centering) guide can ever match.
+    expect(assets.script).toContain("function updateAlignmentGuidesForRect(rect, options)");
+    expect(assets.script).toContain("function currentSelectionRect()");
+    expect(assets.script).toContain("function updateAlignmentGuidesForSelection(fallbackEl, options)");
+    expect(assets.script).toContain("var rect = selected.length > 1 ? currentSelectionRect() : null;");
+    expect(assets.script).toContain("updateAlignmentGuidesForSelection(dragging.el, { keepOpen: true });");
+    expect(assets.script).toContain("updateAlignmentGuidesForSelection(moves[moves.length - 1].el);");
     expect(assets.script).toContain("visibleElementForItem");
     expect(assets.script).toContain("function isTableCellSelection(item, el)");
-    expect(assets.script).toContain("currentBox.setAttribute('data-table-cell', isTableCellSelection(item, el) ? 'true' : 'false');");
+    expect(assets.script).toContain("currentBox.setAttribute('data-table-cell', isTableCellSelection(single.item, single.el) ? 'true' : 'false');");
     expect(assets.script).toContain("function isListItemSelection(item, el)");
-    expect(assets.script).toContain("currentBox.setAttribute('data-list-item', isListItemSelection(item, el) ? 'true' : 'false');");
+    expect(assets.script).toContain("currentBox.setAttribute('data-list-item', isListItemSelection(single.item, single.el) ? 'true' : 'false');");
     expect(assets.script).toContain("function markdownListTextFromElement(list, previousSource)");
     expect(assets.script).toContain("newItem.setAttribute('data-apploop-inserted', 'true');");
     expect(assets.script).toContain("markEditing(newItem, false);");
@@ -535,8 +545,10 @@ describe("marp rendering", () => {
       "if (isTableCellSelection(item, el) || isListItemSelection(item, el)) return false;"
     );
     expect(assets.script).toContain(
-      "currentBox.setAttribute('data-media', isMediaSelection(item, el) ? 'true' : 'false');"
+      "currentBox.setAttribute('data-media', isMediaSelection(single.item, single.el) ? 'true' : 'false');"
     );
+    // A group box is only a drag surface when every selected element is media.
+    expect(assets.script).toContain("return isMediaSelection(entry.item, entry.el);");
 
     // Enlarging the interactive box must not leave a stale hover outline when
     // the pointer moves off an element onto a selection box.
@@ -668,4 +680,54 @@ describe("presentation agent bundle", () => {
       expect(assets.script).toContain("startH: rect.height");
       expect(assets.script).toContain("startTransform: isSvgShapeElement(el) ? currentElementTranslate(el, item.style && item.style.transform) : null");
     });
+});
+
+describe("presentation image fit to slide", () => {
+  const deck = (frontMatterExtra = "size: 16:9") => `---\nmarp: true\n${frontMatterExtra}\n---\n\n# Slide\n`;
+
+  it("reads named marp slide sizes", () => {
+    expect(readPresentationSlideSize(deck("size: 16:9"))).toEqual({ width: 1280, height: 720 });
+    expect(readPresentationSlideSize(deck("size: 4:3"))).toEqual({ width: 960, height: 720 });
+    expect(readPresentationSlideSize(deck("size: 4K"))).toEqual({ width: 3840, height: 2160 });
+  });
+
+  it("reads explicit pixel and width/height slide sizes", () => {
+    expect(readPresentationSlideSize(deck("size: 1600x900"))).toEqual({ width: 1600, height: 900 });
+    expect(readPresentationSlideSize(deck("width: 1024\nheight: 768"))).toEqual({ width: 1024, height: 768 });
+  });
+
+  it("falls back to the 16:9 default when no size is declared", () => {
+    expect(readPresentationSlideSize(deck("paginate: true"))).toEqual(DEFAULT_PRESENTATION_SLIDE_SIZE);
+  });
+
+  it("leaves images that already fit untouched", () => {
+    expect(fitImageToSlide({ width: 800, height: 400 }, { width: 1280, height: 720 }, 48)).toEqual({
+      width: 800,
+      height: 400,
+      scaled: false,
+    });
+  });
+
+  it("scales oversized images down inside the padded slide box, keeping aspect ratio", () => {
+    const fitted = fitImageToSlide({ width: 4000, height: 1000 }, { width: 1280, height: 720 }, 48);
+    expect(fitted.scaled).toBe(true);
+    expect(fitted.width).toBe(1184);
+    expect(fitted.height).toBe(296);
+    expect(fitted.width).toBeLessThanOrEqual(1280 - 96);
+    expect(fitted.height).toBeLessThanOrEqual(720 - 96);
+  });
+
+  it("constrains by the tighter axis for very tall images", () => {
+    const fitted = fitImageToSlide({ width: 1000, height: 4000 }, { width: 1280, height: 720 }, 48);
+    expect(fitted).toEqual({ width: 156, height: 624, scaled: true });
+  });
+
+  it("never upscales small images", () => {
+    const fitted = fitImageToSlide({ width: 64, height: 64 }, { width: 1280, height: 720 }, 48);
+    expect(fitted).toEqual({ width: 64, height: 64, scaled: false });
+  });
+
+  it("returns a zero size when dimensions are unknown", () => {
+    expect(fitImageToSlide({ width: 0, height: 0 })).toEqual({ width: 0, height: 0, scaled: false });
+  });
 });

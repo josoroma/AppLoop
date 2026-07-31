@@ -51,7 +51,8 @@ Filmstrip cards get `style={{ background: bg }}` so they match immediately.
 - **NEVER** import `lib/presentations/marp.ts` in a client component. It pulls `node:fs` → Turbopack fails with "chunking context does not support external modules."
 - **Even dynamic `import()` of marp.ts breaks the build** — Turbopack resolves it and pulls `node:fs` into the client bundle.
 - **Solution**: Split into `lib/presentations/marp-utils.ts` (client-safe, no Node deps) and `lib/presentations/marp.ts` (server-only). The builder shell imports from `marp-utils.ts` only.
-- `marp-utils.ts` exports: `splitMarpDocument`, `composeMarpSlideMarkdown`, `countMarpSlides`, `getMarpSlideSummaries`, `getMarpSlideBody`, `replaceMarpSlideBody`.
+- `marp-utils.ts` exports: `splitMarpDocument`, `composeMarpSlideMarkdown`, `countMarpSlides`, `getMarpSlideSummaries`, `getMarpSlideBody`, `replaceMarpSlideBody`, `readPresentationSlideSize`, `fitImageToSlide`.
+- **Rule:** any new pure/derivation helper a client component needs goes in `marp-utils.ts`, never `marp.ts`. Slide-geometry math (deck size, image fit) is pure — it belongs client-side so the builder can compute before saving.
 - Use server actions for all deck mutations: `savePresentationMarkdownAction`, `deletePresentationSlideAction`.
 - `GET /api/presentations/[id]/slides` returns `{ slides, totalSlides, markdown }`.
 - `POST /api/presentations/markdown` accepts FormData `{ presentationId, markdown }`.

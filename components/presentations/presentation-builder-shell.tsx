@@ -84,7 +84,9 @@ import {
   splitMarpDocument,
   cloneMarpSlide,
   deleteMarpSlide,
+  fitImageToSlide,
   readPresentationGradientPresets,
+  readPresentationSlideSize,
   getMarpSlideBody,
   insertBlankMarpSlide,
   replaceMarpSlideBody,
@@ -407,8 +409,51 @@ function presentationAssetSrc(presentationId: string, assetPath: string) {
   return `/presentations/${encodeURIComponent(presentationId)}/${safePath}`;
 }
 
+// Breathing room reserved on each axis so a fitted image never touches the
+// slide edge (Marp themes carry their own section padding).
+const SLIDE_IMAGE_FIT_PADDING = 48;
+
+function measureImageNaturalSize(src: string) {
+  return new Promise<{ width: number; height: number }>((resolve) => {
+    if (typeof window === "undefined") {
+      resolve({ width: 0, height: 0 });
+      return;
+    }
+    const probe = new window.Image();
+    let settled = false;
+    const finish = (width: number, height: number) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      resolve({ width, height });
+    };
+    const timeout = window.setTimeout(() => finish(0, 0), 8000);
+    probe.onload = () => finish(probe.naturalWidth || 0, probe.naturalHeight || 0);
+    probe.onerror = () => finish(0, 0);
+    probe.decoding = "sync";
+    probe.src = src;
+  });
+}
+
 function cleanMarkdownImageAlt(value: string) {
   return value.replace(/[\]\n\r]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// Marp encodes sizing/filters as alt-text tokens (`w:600`, `h:400`, `blur`, ...).
+// Keep them when the user renames the alt text so a fitted image stays fitted.
+const MARP_IMAGE_ALT_TOKEN = /^(?:w|h|width|height):[^\s]+$|^(?:bg|left|right|fit|blur|brightness|contrast|drop-shadow|grayscale|hue-rotate|invert|opacity|saturate|sepia)(?::[^\s]+)?$/i;
+
+function splitMarpImageAltTokens(alt: string) {
+  const tokens = alt.split(/\s+/).filter(Boolean);
+  const directives = tokens.filter((token) => MARP_IMAGE_ALT_TOKEN.test(token));
+  const label = tokens.filter((token) => !MARP_IMAGE_ALT_TOKEN.test(token)).join(" ");
+  return { directives, label };
+}
+
+function composeMarpImageAlt(alt: string, existingAlt: string) {
+  const { directives } = splitMarpImageAltTokens(existingAlt);
+  const { label } = splitMarpImageAltTokens(cleanMarkdownImageAlt(alt));
+  return [label, ...directives].filter(Boolean).join(" ");
 }
 
 function updateImageAltInSlideMarkdown(slideMarkdown: string, imageSrc: string, alt: string) {
@@ -417,10 +462,11 @@ function updateImageAltInSlideMarkdown(slideMarkdown: string, imageSrc: string, 
   let changed = false;
   const nextLines = lines.map((line) => {
     if (changed || !line.includes(imageSrc)) return line;
-    const markdownMatch = line.match(/^(\s*)!\[[^\]]*\]\(([^)]+)\)(\s*)$/);
-    if (markdownMatch && markdownMatch[2]?.startsWith(imageSrc)) {
+    const markdownMatch = line.match(/^(\s*)!\[([^\]]*)\]\(([^)]+)\)(\s*)$/);
+    if (markdownMatch && markdownMatch[3]?.startsWith(imageSrc)) {
       changed = true;
-      return `${markdownMatch[1] ?? ""}![${safeAlt}](${markdownMatch[2]})${markdownMatch[3] ?? ""}`;
+      const mergedAlt = composeMarpImageAlt(safeAlt, markdownMatch[2] ?? "");
+      return `${markdownMatch[1] ?? ""}![${mergedAlt}](${markdownMatch[3]})${markdownMatch[4] ?? ""}`;
     }
     const htmlMatch = line.match(/<img\b[^>]*\bsrc=["'][^"']+["'][^>]*>/i);
     if (!htmlMatch) return line;
@@ -924,6 +970,23 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const activeLayerCanMoveBack = activeLayerIndex > 0;
   const activeLayerCanMoveForward = activeLayerIndex >= 0 && activeLayerIndex < layerTargets.length - 1;
   const layerPanelTargets = useMemo(() => [...layerTargets].reverse(), [layerTargets]);
+
+  // Layer rows must mirror the slide selection exactly. Ids are the primary key,
+  // but a selected element's id can drift when its path/style is rewritten
+  // mid-session, so fall back to matching tag + normalized text/path.
+  const selectedLayerIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const target of selectedTargets) {
+      ids.add(target.id);
+      const match = layerTargets.find((layer) => (
+        layer.id === target.id
+        || (layer.tag === target.tag && layer.path === target.path)
+        || (layer.tag === target.tag && layer.text === target.text)
+      ));
+      if (match) ids.add(match.id);
+    }
+    return ids;
+  }, [layerTargets, selectedTargets]);
   const activeHistory = slideHistory[activeSlide] ?? { undo: [], redo: [] };
   // Prefer explicitly saved/inline values, then the actually-rendered baseline
   // from the iframe, then a generic default — so panel values match the slide.
@@ -962,7 +1025,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const activeTargetDividerThickness = Math.round(parsePxValue(activeTarget?.style.height || activeBaseline.height, 1));
   const activeTargetDividerWidth = Math.round(parsePxValue(activeTarget?.style.width || activeBaseline.width, 100));
   const activeTargetListIndent = Math.round(parsePxValue(activeTarget?.style.paddingLeft || activeBaseline.paddingLeft, activeTargetKind === "ol" ? 36 : 28));
-  const activeTargetImageAlt = activeTarget?.alt ?? "";
+  const activeTargetImageAlt = splitMarpImageAltTokens(activeTarget?.alt ?? "").label;
   const activeTargetImageWidth = Math.round(parsePxValue(activeTarget?.style.width || activeBaseline.width, 480));
   const activeTargetImageHeight = Math.round(parsePxValue(activeTarget?.style.height || activeBaseline.height, 270));
   const activeTargetOpacityValue = Number.parseFloat(activeTarget?.style.opacity || activeBaseline.opacity || "1");
@@ -1165,10 +1228,33 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     void applyLayerOrder(next, message);
   }, [activeLayerIndex, activeTarget, applyLayerOrder, layerTargets]);
 
-  const selectLayerTarget = useCallback((target: PresentationLayerItem) => {
-    setSelectedTargets([target]);
-    setActiveTargetId(target.id);
-    currentSlideFrameRef.current?.contentWindow?.postMessage({ type: "apploop-presentation-set-selections", targets: [target], activeId: target.id }, "*");
+  const selectLayerTarget = useCallback((target: PresentationLayerItem, additive = false) => {
+    setSelectedTargets((current) => {
+      // Additive (⌘/Ctrl/Shift) click toggles this layer in or out of the
+      // existing selection so the panel can build a multi-selection that the
+      // slide mirrors; a plain click replaces the selection.
+      let nextTargets: PresentationSelectionTarget[];
+      let nextActiveId: string | null;
+      if (!additive) {
+        nextTargets = [target];
+        nextActiveId = target.id;
+      } else {
+        const existingIndex = current.findIndex((item) => item.id === target.id);
+        if (existingIndex >= 0) {
+          nextTargets = current.filter((item) => item.id !== target.id);
+          nextActiveId = nextTargets.length ? nextTargets[nextTargets.length - 1]!.id : null;
+        } else {
+          nextTargets = [...current, target];
+          nextActiveId = target.id;
+        }
+      }
+      setActiveTargetId(nextActiveId);
+      currentSlideFrameRef.current?.contentWindow?.postMessage(
+        { type: "apploop-presentation-set-selections", targets: nextTargets, activeId: nextActiveId },
+        "*",
+      );
+      return nextTargets;
+    });
   }, []);
 
   const patchLayerTarget = useCallback((target: PresentationLayerItem, style: Record<string, string | undefined>, successMessage: string) => {
@@ -1291,6 +1377,26 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     void loadSlides();
   }, [activeSlide, activeTarget, fullMarkdown, loadSlides, presentationId, recordSlideHistory]);
 
+  const fitActiveImageToSlide = useCallback(async () => {
+    if (!activeTarget || activeTarget.tag.toLowerCase() !== "img") return;
+    const source = fullMarkdownRef.current || fullMarkdown;
+    const slideSize = readPresentationSlideSize(source || "");
+    const src = activeTarget.text.startsWith("/") || /^https?:/i.test(activeTarget.text)
+      ? activeTarget.text
+      : presentationAssetSrc(presentationId, activeTarget.text);
+    setStatus("Measuring image...");
+    const natural = await measureImageNaturalSize(src);
+    if (!(natural.width > 0) || !(natural.height > 0)) {
+      setStatus("Couldn't read the image dimensions.");
+      return;
+    }
+    const fitted = fitImageToSlide(natural, slideSize, SLIDE_IMAGE_FIT_PADDING);
+    patchSelectedTextStyle(
+      { width: `${fitted.width}px`, height: `${fitted.height}px`, maxWidth: "100%" },
+      `Image fitted to slide (${fitted.width}x${fitted.height}).`,
+    );
+  }, [activeTarget, fullMarkdown, patchSelectedTextStyle, presentationId]);
+
   const applyFlatTextColor = useCallback((color: string) => {
     patchSelectedTextStyle({
       color,
@@ -1364,8 +1470,17 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   }, [insertMarpMarkdownBlock]);
 
   const insertSlideImage = useCallback(async (asset: Pick<PresentationImageAsset, "alt" | "path">) => {
-    await insertMarpMarkdownBlock(`![${asset.alt}](${asset.path})`, "Inserting image...", "Image inserted.");
-  }, [insertMarpMarkdownBlock]);
+    const source = fullMarkdownRef.current || fullMarkdown;
+    const slideSize = readPresentationSlideSize(source || "");
+    const natural = await measureImageNaturalSize(presentationAssetSrc(presentationId, asset.path));
+    const fitted = fitImageToSlide(natural, slideSize, SLIDE_IMAGE_FIT_PADDING);
+    const sizeHint = fitted.scaled ? ` w:${fitted.width} h:${fitted.height}` : "";
+    await insertMarpMarkdownBlock(
+      `![${asset.alt}${sizeHint}](${asset.path})`,
+      "Inserting image...",
+      fitted.scaled ? `Image inserted and resized to fit the slide (${fitted.width}x${fitted.height}).` : "Image inserted.",
+    );
+  }, [fullMarkdown, insertMarpMarkdownBlock, presentationId]);
 
   const uploadSlideImage = useCallback(async (file: File | null) => {
     if (!file) return;
@@ -2249,6 +2364,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                         <span>Height {activeTargetImageHeight}px</span>
                         <input type="range" min="40" max="900" step="10" value={activeTargetImageHeight} onChange={(event) => patchSelectedTextStyle({ height: `${event.target.value}px` }, "Image height applied.")} className="w-24" />
                       </label>
+                      <Button size="sm" variant="outline" onClick={() => void fitActiveImageToSlide()} title="Scale this image down so it fits inside the slide">Fit to slide</Button>
                       <Button size="sm" variant="outline" onClick={() => patchSelectedTextStyle({ height: "auto" }, "Image height set to auto.")}>Auto height</Button>
                       <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-1.5" title="Image border width">
                         <span>Border {activeTargetBorderWidth}px</span>
@@ -2560,7 +2676,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                       <aside className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-md border border-white/10 bg-[#101014] text-xs text-zinc-300 shadow-2xl" aria-label="Layers panel">
                         <div className="border-b border-white/10 px-3 py-2">
                           <p className="font-medium text-zinc-100">Layers</p>
-                          <p className="text-[11px] text-zinc-500">Top layer first</p>
+                          <p className="text-[11px] text-zinc-500">Top layer first · ⌘/Shift-click to multi-select</p>
                         </div>
                         <div className="min-h-0 flex-1 overflow-y-auto p-2">
                           {layerPanelTargets.length === 0 ? (
@@ -2568,14 +2684,16 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                           ) : (
                             <div className="space-y-1">
                               {layerPanelTargets.map((layer) => {
-                                const selected = activeTargetId === layer.id;
+                                const isActiveLayer = activeTargetId === layer.id
+                                  || (activeTarget != null && activeTargetId !== null && layer.tag === activeTarget.tag && layer.path === activeTarget.path);
+                                const isSelectedLayer = selectedLayerIds.has(layer.id);
                                 const layerLabel = layer.label ?? layer.text ?? layer.tag;
                                 return (
                                   <div
                                     key={layer.id}
-                                    className={`group flex items-center gap-2 rounded-md border px-2 py-1.5 transition ${selected ? "border-sky-400 bg-sky-400/10 text-zinc-50" : "border-white/10 bg-black/20 hover:border-white/25 hover:bg-white/5"} ${draggedLayerId === layer.id ? "opacity-50" : ""}`}
+                                    className={`group flex items-center gap-2 rounded-md border px-2 py-1.5 transition ${isActiveLayer ? "border-sky-400 bg-sky-400/10 text-zinc-50" : isSelectedLayer ? "border-sky-400/60 bg-sky-400/5 text-zinc-100" : "border-white/10 bg-black/20 hover:border-white/25 hover:bg-white/5"} ${draggedLayerId === layer.id ? "opacity-50" : ""}`}
                                     draggable
-                                    onClick={() => selectLayerTarget(layer)}
+                                    onClick={(event) => selectLayerTarget(layer, event.metaKey || event.ctrlKey || event.shiftKey)}
                                     onDragStart={(event) => {
                                       setDraggedLayerId(layer.id);
                                       event.dataTransfer.effectAllowed = "move";
@@ -2594,7 +2712,12 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
                                     }}
                                   >
                                     <GripVertical className="size-4 shrink-0 cursor-grab text-zinc-500" />
-                                    <button type="button" className="min-w-0 flex-1 truncate text-left" onClick={() => selectLayerTarget(layer)} title={layerLabel}>
+                                    <button type="button" className="min-w-0 flex-1 truncate text-left" onClick={(event) => {
+                                      // The row wrapper already handles selection; stop here so an
+                                      // additive click isn't counted twice (toggle on, then off).
+                                      event.stopPropagation();
+                                      selectLayerTarget(layer, event.metaKey || event.ctrlKey || event.shiftKey);
+                                    }} title={layerLabel}>
                                       <span className="block truncate">{layerLabel}</span>
                                       <span className="block truncate text-[10px] text-zinc-500">z {layer.style.zIndex ?? layer.zIndex ?? 0}{layer.locked ? " · locked" : ""}{layer.hidden ? " · hidden" : ""}</span>
                                     </button>
