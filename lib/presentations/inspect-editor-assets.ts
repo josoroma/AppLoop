@@ -48,14 +48,20 @@ export function buildPresentationInspectAssets(options: {
         outline: 2px dashed #60a5fa !important;
         outline-offset: 2px;
       }
+      /* Non-active members of a multi-selection get a thin outline flush to their
+         own edge (offset 0) so they read as part of the group without a second,
+         gapped ring floating outside them. */
       body[data-inspect="true"] .apploop-inspect-selected {
         outline: 2px solid #38bdf8 !important;
-        outline-offset: 2px;
-        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
+        outline-offset: 0 !important;
+        box-shadow: none !important;
       }
+      /* The active element is already framed precisely by the yellow drag box and
+         its title, so it carries no outline of its own. This removes the duplicate,
+         misaligned border and leaves a single selection indicator. */
       body[data-inspect="true"] .apploop-inspect-selected[data-active-edit="true"] {
-        outline: 2px solid #fbbf24 !important;
-        box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.45);
+        outline: none !important;
+        box-shadow: none !important;
       }
       body[data-inspect="true"] [data-apploop-shape].apploop-inspect-hover,
       body[data-inspect="true"] [data-apploop-shape].apploop-inspect-selected,
@@ -1753,6 +1759,32 @@ export function buildPresentationInspectAssets(options: {
                 height: Math.round(h) + 'px',
                 zIndex: resizing.item.style.zIndex || '3',
               });
+              // The yellow selection frame tracks the element's real box, so an
+              // element must never be resized smaller than the content it holds —
+              // otherwise text (e.g. a non-wrapping code block) spills past the
+              // frame. Images and tables scale their own content, so only text-like
+              // elements are clamped: after applying the requested size, grow back
+              // whichever axis the content overflows until it fits (a few passes
+              // converge past padding/border rounding), then sync it once.
+              var contentEl = resizing.el;
+              if (!resizingImage && !resizingTable && contentEl) {
+                var grow = {};
+                var guard = 0;
+                while (contentEl.scrollWidth - contentEl.clientWidth > 1 && guard < 4) {
+                  w = Math.round(w + (contentEl.scrollWidth - contentEl.clientWidth));
+                  contentEl.style.setProperty('width', w + 'px', 'important');
+                  grow.width = w + 'px';
+                  guard += 1;
+                }
+                guard = 0;
+                while (contentEl.scrollHeight - contentEl.clientHeight > 1 && guard < 4) {
+                  h = Math.round(h + (contentEl.scrollHeight - contentEl.clientHeight));
+                  contentEl.style.setProperty('height', h + 'px', 'important');
+                  grow.height = h + 'px';
+                  guard += 1;
+                }
+                if (grow.width || grow.height) patchActiveStyle(grow);
+              }
               updateAlignmentGuidesForElement(resizing.el, { keepOpen: true });
             }
           }
@@ -1880,10 +1912,20 @@ export function buildPresentationInspectAssets(options: {
               finishDrag(lastDragEvent || {});
             }
             if (data.type === 'apploop-presentation-flush-styles') {
+              var flushRequestId = typeof data.requestId === 'string' ? data.requestId : null;
+              // Keyboard moves are the only edit debounced inside the iframe (drag
+              // and resize persist on release). If one is pending, save it before the
+              // parent reloads the preview; otherwise resolve the flush with no
+              // targets so it does not trigger a redundant round-trip save.
+              var hadPendingMove = keyboardMoveDirty;
               if (keyboardMoveSaveTimer) window.clearTimeout(keyboardMoveSaveTimer);
               keyboardMoveSaveTimer = null;
               keyboardMoveDirty = false;
-              emitStyleApply('apploop-presentation-style-apply', typeof data.requestId === 'string' ? data.requestId : null);
+              if (hadPendingMove) {
+                emitStyleApply('apploop-presentation-style-apply', flushRequestId);
+              } else {
+                window.parent.postMessage({ type: 'apploop-presentation-style-apply', requestId: flushRequestId, slide: slide, totalSlides: totalSlides, targets: [] }, '*');
+              }
             }
             if (data.type === 'apploop-presentation-focus-target' && data.id) {
               activeId = data.id;
@@ -1912,13 +1954,16 @@ export function buildPresentationInspectAssets(options: {
               emitSelectionState();
             }
             if (data.type === 'apploop-presentation-apply-all-styles') {
+              // Layer reorders send a minimal { position?, zIndex } patch. Merge it
+              // onto the tracked style and apply only the patch to the element so
+              // live position/size/transform are preserved (no full-style rewrite).
               data.targets.forEach(function (patchTarget) {
                 var target = selected.find(function (item) { return item.id === patchTarget.id; });
                 var el = resolveTargetElement(target || patchTarget);
                 if (!el) return;
-                var nextStyle = Object.assign({}, patchTarget.style || {});
-                if (target) target.style = nextStyle;
-                applyStyleToElement(el, nextStyle);
+                var patchStyle = patchTarget.style || {};
+                if (target) target.style = Object.assign({}, target.style || {}, patchStyle);
+                applyStyleToElement(el, patchStyle);
               });
               updatePositionBox();
               emitSelectionState();
@@ -1941,7 +1986,7 @@ export function buildPresentationInspectAssets(options: {
   return { css, script };
 }
 
-function extractSourceBlocks(markdown: string) {
+export function extractSourceBlocks(markdown: string) {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const blocks: Array<{ tag: string; text: string }> = [];
   for (let index = 0; index < lines.length; index += 1) {
@@ -1960,6 +2005,24 @@ function extractSourceBlocks(markdown: string) {
     if (svgShape) {
       blocks.push({ tag: svgShape[1]!.toLowerCase(), text: trimmed });
       continue;
+    }
+    // An element already wrapped by a previous inspect edit (a span/heading
+    // carrying an apploop-el class) must resolve to its INNER clean text, not the
+    // raw wrapper HTML. Otherwise a re-selection keys the element by the markup
+    // string, drifting its stable identity (slide|text) and making the next style
+    // or layer edit nest a duplicate wrapper instead of healing the existing one.
+    const apploopWrap = trimmed.match(/^<(span|h[1-6])\b([^>]*\bapploop-el-[a-z0-9_-]+\b[^>]*)>([\s\S]*)<\/\1>\s*$/i);
+    if (apploopWrap) {
+      const wrapTag = apploopWrap[1]!.toLowerCase();
+      const wrapAttrs = apploopWrap[2] ?? "";
+      const innerText = (apploopWrap[3] ?? "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      if (innerText) {
+        const tag = /\bclass=["'][^"']*\bpill\b/i.test(wrapAttrs)
+          ? "pill"
+          : (/^h[1-6]$/.test(wrapTag) ? wrapTag : "p");
+        blocks.push({ tag, text: innerText });
+        continue;
+      }
     }
     if (/^</.test(trimmed) && trimmed.replace(/<[^>]+>/g, "").trim().length === 0) continue;
     const heading = trimmed.match(/^(#{1,6})\s+(.+)$/);

@@ -1,5 +1,5 @@
 model:
-  default: deepseek/deepseek-v4-pro
+  default: nvidia/nemotron-3-ultra-550b-a55b:free
   provider: openrouter
   base_url: http://127.0.0.1:8080/v1
   api_key: not-needed

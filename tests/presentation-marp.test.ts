@@ -7,8 +7,9 @@ import path from "node:path";
 import { createPresentationWorkspace, listPresentationImageAssets, readPresentationAsset, readPresentationMarkdown, writePresentationAsset } from "@/lib/presentations/files";
 import { createPresentationAgentBundle } from "@/lib/hermes/agents";
 import { BUILT_IN_PRESENTATION_TEMPLATES } from "@/lib/presentations/templates";
-import { buildPresentationInspectAssets } from "@/lib/presentations/inspect-editor-assets";
-import { DEFAULT_PRESENTATION_GRADIENT_PRESETS, DEFAULT_PRESENTATION_SLIDE_SIZE, cloneMarpSlide, convertMarpSlideElementToList, deleteMarpSlide, fitImageToSlide, insertBlankMarpSlide, moveMarpListItem, moveMarpSlideBlock, readPresentationGradientPresets, readPresentationSlideSize, removeMarpSlideElement, reorderMarpSlide, upsertPresentationGradientPresets } from "@/lib/presentations/marp-utils";
+import { buildPresentationInspectAssets, extractSourceBlocks } from "@/lib/presentations/inspect-editor-assets";
+import { applyPresentationElementStylesToMarkdown } from "@/lib/presentations/inspect-styles";
+import { DEFAULT_PRESENTATION_GRADIENT_PRESETS, DEFAULT_PRESENTATION_SLIDE_SIZE, cloneMarpSlide, convertMarpSlideElementToList, deleteMarpSlide, fitImageToSlide, insertBlankMarpSlide, moveMarpListItem, moveMarpSlideBlock, readPresentationGradientPresets, readPresentationSlideSize, removeMarpSlideElement, reorderMarpSlide, splitMarpDocument, toInlineSafeImageAlt, upsertPresentationGradientPresets } from "@/lib/presentations/marp-utils";
 
 describe("presentation templates", () => {
   it("lists the built-in presentation templates", () => {
@@ -729,5 +730,101 @@ describe("presentation image fit to slide", () => {
 
   it("returns a zero size when dimensions are unknown", () => {
     expect(fitImageToSlide({ width: 0, height: 0 })).toEqual({ width: 0, height: 0, scaled: false });
+  });
+});
+
+describe("inline-safe image alt (uploaded image visibility)", () => {
+  it("strips the Marpit `bg` background directive from an alt", () => {
+    expect(toInlineSafeImageAlt("bg")).toBe("");
+    expect(toInlineSafeImageAlt("BG")).toBe("");
+    expect(toInlineSafeImageAlt("hero bg")).toBe("hero");
+    expect(toInlineSafeImageAlt("revenue bg chart")).toBe("revenue chart");
+  });
+
+  it("leaves ordinary alt text untouched", () => {
+    expect(toInlineSafeImageAlt("revenue chart")).toBe("revenue chart");
+    expect(toInlineSafeImageAlt("background")).toBe("background");
+    expect(toInlineSafeImageAlt("bgc")).toBe("bgc");
+  });
+
+  it("a `bg` alt makes Marpit drop the inline image, and the sanitized alt keeps it", async () => {
+    const withBg = `---\nmarp: true\n---\n\n# Cover\n\n![bg w:600 h:400](assets/bg-a1b2c3d4.png)\n`;
+    const rendered = await renderMarpDeck(withBg, { slide: 1 });
+    expect((rendered.html.match(/<img\b/g) ?? []).length).toBe(0);
+
+    const safeAlt = toInlineSafeImageAlt("bg") || "image";
+    const withSafe = `---\nmarp: true\n---\n\n# Cover\n\n![${safeAlt} w:600 h:400](assets/bg-a1b2c3d4.png)\n`;
+    const renderedSafe = await renderMarpDeck(withSafe, { slide: 1 });
+    expect((renderedSafe.html.match(/<img\b/g) ?? []).length).toBe(1);
+  });
+});
+
+describe("inserting a block keeps an existing image", () => {
+  const INSERTS = [
+    "## New heading",
+    "A supporting sentence.",
+    "- one\n- two",
+    "> a quote",
+    '<hr style="border:0;height:1px;background:#fff;" />',
+    '<svg viewBox="0 0 220 140" width="220" height="140" aria-label="Editable SVG element"><rect data-apploop-shape="shape-x" x="4" y="4" width="212" height="132" rx="18" fill="#fff" fill-opacity="0.14" stroke="#fff" stroke-width="3" /></svg>',
+  ];
+
+  // Mirror the builder's insertMarpMarkdownBlock append flow.
+  function insertBlock(markdown: string, slide: number, block: string) {
+    const { slides } = splitMarpDocument(markdown);
+    const index = Math.min(Math.max(slide, 1), slides.length) - 1;
+    const currentSlide = slides[index] ?? "";
+    const nextSlide = `${currentSlide.trimEnd()}\n\n${block}`.trim();
+    return replaceMarpSlideBody(markdown, slide, nextSlide);
+  }
+
+  async function inlineImageCount(markdown: string) {
+    const rendered = await renderMarpDeck(markdown, { slide: 1 });
+    return (rendered.html.match(/<img\b/g) ?? []).length;
+  }
+
+  it("keeps a raw image after inserting each block kind", async () => {
+    const deck = `---\nmarp: true\n---\n\n# Cover\n\n![Chart w:600 h:400](assets/revenue.png)\n`;
+    expect(await inlineImageCount(deck)).toBe(1);
+    for (const block of INSERTS) {
+      const next = insertBlock(deck, 1, block);
+      expect(next).toContain("assets/revenue.png");
+      expect(await inlineImageCount(next)).toBe(1);
+    }
+  });
+
+  it("keeps a placed (absolute, div-wrapped) image after inserting each block kind", async () => {
+    const placed = applyPresentationElementStylesToMarkdown(
+      `---\nmarp: true\n---\n\n# Cover\n\n![Chart](assets/revenue.png)\n`,
+      [{ slide: 1, tag: "img", text: "![Chart](assets/revenue.png)", path: "section > p > img", style: { position: "absolute", left: "10%", top: "20%", width: "600px" } }],
+    ).markdown;
+    expect(await inlineImageCount(placed)).toBe(1);
+    for (const block of INSERTS) {
+      const next = insertBlock(placed, 1, block);
+      expect(next).toContain("assets/revenue.png");
+      expect(await inlineImageCount(next)).toBe(1);
+    }
+  });
+});
+
+describe("wrapped-element source identity (no duplicate wrappers)", () => {
+  it("resolves an apploop-wrapped span back to its clean inner text", () => {
+    const blocks = extractSourceBlocks('<span class="apploop-el-abc123" style="z-index: 3;">A short line.</span>');
+    expect(blocks).toEqual([{ tag: "p", text: "A short line." }]);
+  });
+
+  it("resolves an apploop-wrapped heading back to its clean inner text and tag", () => {
+    const blocks = extractSourceBlocks('<h1 class="apploop-el-abc123" style="z-index: 2;">Provoke curiosity.</h1>');
+    expect(blocks).toEqual([{ tag: "h1", text: "Provoke curiosity." }]);
+  });
+
+  it("maps a styled pill wrapper to the pill tag with clean text", () => {
+    const blocks = extractSourceBlocks('<span class="pill pill-sky apploop-el-abc123">Skills</span>');
+    expect(blocks).toEqual([{ tag: "pill", text: "Skills" }]);
+  });
+
+  it("leaves an unwrapped heading and paragraph as their raw source", () => {
+    expect(extractSourceBlocks("# Title")).toEqual([{ tag: "h1", text: "# Title" }]);
+    expect(extractSourceBlocks("Body copy")).toEqual([{ tag: "p", text: "Body copy" }]);
   });
 });

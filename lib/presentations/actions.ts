@@ -14,7 +14,7 @@ import {
 } from "@/lib/presentations/files";
 import { getPresentationService, getPresentationRepository } from "@/lib/presentations/store";
 import { assertPresentationTemplate } from "@/lib/presentations/templates";
-import { convertMarpSlideElementToList, moveMarpSlideBlock, removeMarpSlideElement } from "@/lib/presentations/marp-utils";
+import { convertMarpSlideElementToList, moveMarpSlideBlock, removeMarpSlideElement, toInlineSafeImageAlt } from "@/lib/presentations/marp-utils";
 
 export async function createPresentationAction(formData: FormData) {
   const name = String(formData.get("name") ?? "");
@@ -124,8 +124,13 @@ export async function uploadPresentationImageAction(formData: FormData) {
   const contents = Buffer.from(await file.arrayBuffer());
   const relativePath = await writePresentationAsset(overview.presentation.workspacePath, fileName, contents);
 
+  // A standalone `bg` token in an image's alt is a Marpit background-image
+  // directive, which stops the image rendering inline. Filenames like `bg.png`
+  // must not silently become slide backgrounds, so drop the reserved token.
+  const alt = toInlineSafeImageAlt(safeBase.replace(/-/g, " ")) || "image";
+
   revalidatePath(`/presentations/${presentationId}`);
-  return { ok: true as const, path: relativePath, alt: safeBase.replace(/-/g, " ") };
+  return { ok: true as const, path: relativePath, alt };
 }
 
 export async function listPresentationImagesAction(presentationId: string) {

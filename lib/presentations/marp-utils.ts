@@ -231,6 +231,23 @@ export function countMarpSlides(markdown: string) {
   return splitMarpDocument(markdown).slides.length;
 }
 
+/**
+ * Marpit reads a standalone `bg` token in an image's alt text as a
+ * background-image directive, which lifts the `<img>` out of inline flow into a
+ * slide-background layer — so the picture vanishes from where it was placed.
+ * AppLoop only ever inserts inline images, and uploaded images derive their alt
+ * from the file name (e.g. `bg.png`, `hero-bg.png`), so strip the reserved token
+ * to guarantee the image keeps rendering inline. Returns "" when nothing is left
+ * so callers can pick their own fallback label.
+ */
+export function toInlineSafeImageAlt(value: string) {
+  return value
+    .split(/\s+/)
+    .filter((token) => token && token.toLowerCase() !== "bg")
+    .join(" ")
+    .trim();
+}
+
 export function composeMarpSlideMarkdown(markdown: string, slideIndex1Based: number) {
   const { frontMatter, slides } = splitMarpDocument(markdown);
   const index = Math.min(Math.max(slideIndex1Based, 1), slides.length) - 1;

@@ -92,6 +92,7 @@ import {
   replaceMarpSlideBody,
   countMarpSlides,
   reorderMarpSlide,
+  toInlineSafeImageAlt,
   upsertPresentationGradientPresets,
 } from "@/lib/presentations/marp-utils";
 
@@ -453,7 +454,7 @@ function splitMarpImageAltTokens(alt: string) {
 function composeMarpImageAlt(alt: string, existingAlt: string) {
   const { directives } = splitMarpImageAltTokens(existingAlt);
   const { label } = splitMarpImageAltTokens(cleanMarkdownImageAlt(alt));
-  return [label, ...directives].filter(Boolean).join(" ");
+  return toInlineSafeImageAlt([label, ...directives].filter(Boolean).join(" "));
 }
 
 function updateImageAltInSlideMarkdown(slideMarkdown: string, imageSrc: string, alt: string) {
@@ -875,6 +876,16 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   const slideStylesDirtyRef = useRef(false);
 
   useEffect(() => { fullMarkdownRef.current = fullMarkdown; }, [fullMarkdown]);
+  // Read-modify-write mutations (insert, drag/style save, delete, slide ops) read
+  // the latest deck from fullMarkdownRef. React only syncs that ref after a commit,
+  // so two mutations in the same tick would make the second append onto a STALE
+  // base and silently drop the first one's change (e.g. inserting right after an
+  // image upload could wipe the just-added image). Commit updates the ref eagerly
+  // so every subsequent read sees the freshest markdown.
+  const commitMarkdown = useCallback((next: string) => {
+    fullMarkdownRef.current = next;
+    setFullMarkdown(next);
+  }, []);
   const chat = useChat({ id: presentationId, messages: initialMessages, transport: chatTransport });
 
   useEffect(() => {
@@ -1100,13 +1111,13 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     form.set("presentationId", presentationId);
     form.set("markdown", markdown);
     await savePresentationMarkdownAction(form);
-    setFullMarkdown(markdown);
+    commitMarkdown(markdown);
     setSelectedTargets([]);
     setActiveTargetId(null);
     setStatus(message);
     setPreviewKey((value) => value + 1);
     void loadSlides();
-  }, [loadSlides, presentationId]);
+  }, [commitMarkdown, loadSlides, presentationId]);
 
   const restoreSlideStyleSnapshot = useCallback((snapshot: SlideStyleSnapshot, message: string) => {
     slideStylesDirtyRef.current = true;
@@ -1171,23 +1182,27 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
       })),
     });
     recordSlideHistory(targets[0]?.slide ?? activeSlide, result.previousMarkdown, result.markdown);
-    setFullMarkdown(result.markdown);
+    commitMarkdown(result.markdown);
     setStatus(successMessage);
     if (options?.refreshPreview !== false) setPreviewKey((value) => value + 1);
     else setThumbKey((value) => value + 1);
     preserveSlideQueryAfterMutation(targets[0]?.slide ?? activeSlide);
     void loadSlides();
-  }, [activeSlide, loadSlides, presentationId, preserveSlideQueryAfterMutation, recordSlideHistory]);
+  }, [activeSlide, commitMarkdown, loadSlides, presentationId, preserveSlideQueryAfterMutation, recordSlideHistory]);
 
-  const normalizeLayerOrder = useCallback((orderedTargets: PresentationLayerItem[]) => orderedTargets.map((target, index) => {
-    const currentPosition = target.style.position;
-    const nextStyle = {
-      ...target.style,
-      position: currentPosition && currentPosition !== "static" ? currentPosition : "relative",
-      zIndex: String(index + 1),
-    };
-    return { ...target, slide: activeSlide, totalSlides, layerIndex: index, zIndex: index + 1, style: nextStyle };
-  }), [activeSlide, totalSlides]);
+  // A layer reorder must be a pure z-index change. For each element we compute a
+  // MINIMAL style patch: the new z-index, plus position:relative ONLY when the
+  // element is otherwise static (z-index has no effect on a static element).
+  // Elements already positioned (dragged/absolute) keep their exact position —
+  // we send z-index alone, and the server MERGES it onto their saved style so
+  // position, size, transform, content, and every other property are preserved.
+  const layerOrderStylePatch = useCallback((style: Record<string, string | undefined>, zIndex: number) => {
+    const currentPosition = style.position;
+    const isPositioned = Boolean(currentPosition && currentPosition !== "static");
+    return isPositioned
+      ? { zIndex: String(zIndex) }
+      : { position: "relative", zIndex: String(zIndex) };
+  }, []);
 
   const applyLayerTargets = useCallback(async (targets: PresentationLayerItem[], successMessage: string) => {
     if (targets.length === 0) return;
@@ -1198,12 +1213,22 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
   }, [applyInspectTargets]);
 
   const applyLayerOrder = useCallback(async (orderedTargets: PresentationLayerItem[], successMessage: string) => {
-    const normalized = normalizeLayerOrder(orderedTargets);
-    setLayerTargets(normalized);
-    setSelectedTargets((current) => current.map((item) => normalized.find((target) => target.id === item.id) ?? item));
-    currentSlideFrameRef.current?.contentWindow?.postMessage({ type: "apploop-presentation-apply-all-styles", targets: normalized }, "*");
-    await applyInspectTargets(normalized, successMessage, { refreshPreview: false });
-  }, [applyInspectTargets, normalizeLayerOrder]);
+    // fullTargets carry the merged style so the panel/selection box stay accurate
+    // locally; patchTargets carry only the z-index change so persistence and the
+    // live iframe apply touch nothing but the stacking order.
+    const fullTargets: PresentationLayerItem[] = [];
+    const patchTargets: PresentationLayerItem[] = [];
+    orderedTargets.forEach((target, index) => {
+      const patch = layerOrderStylePatch(target.style, index + 1);
+      const base = { ...target, slide: activeSlide, totalSlides, layerIndex: index, zIndex: index + 1 };
+      fullTargets.push({ ...base, style: { ...target.style, ...patch } });
+      patchTargets.push({ ...base, style: patch });
+    });
+    setLayerTargets(fullTargets);
+    setSelectedTargets((current) => current.map((item) => fullTargets.find((target) => target.id === item.id) ?? item));
+    currentSlideFrameRef.current?.contentWindow?.postMessage({ type: "apploop-presentation-apply-all-styles", targets: patchTargets }, "*");
+    await applyInspectTargets(patchTargets, successMessage, { refreshPreview: false });
+  }, [activeSlide, applyInspectTargets, layerOrderStylePatch, totalSlides]);
 
   const moveActiveLayer = useCallback((direction: "front" | "forward" | "backward" | "back") => {
     if (!activeTarget || activeLayerIndex < 0) return;
@@ -1305,6 +1330,21 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     frameWindow.postMessage({ type: "apploop-presentation-flush-styles", requestId }, "*");
   }), []);
 
+  // Persist any debounced element edit — a slider/panel change (client-side) or a
+  // keyboard-move (iframe-side) — before a mutation reloads the preview. Without
+  // this, appending a block reads the deck from before the pending edit, then the
+  // reload discards the iframe's un-saved move, silently losing it.
+  const flushPendingInspectSaves = useCallback(async () => {
+    if (styleSaveTimerRef.current) {
+      window.clearTimeout(styleSaveTimerRef.current);
+      styleSaveTimerRef.current = null;
+      const pending = pendingStyleSaveRef.current;
+      pendingStyleSaveRef.current = null;
+      if (pending) await applyInspectTargets([pending.target], pending.message, { refreshPreview: false });
+    }
+    await requestInspectStyleFlush();
+  }, [applyInspectTargets, requestInspectStyleFlush]);
+
   const toggleElementEditMode = useCallback(() => {
     if (!elementEditEnabled) {
       setElementEditEnabled(true);
@@ -1369,13 +1409,13 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     setStatus("Saving image alt text...");
     await savePresentationMarkdownAction(form);
     recordSlideHistory(activeSlide, before, nextMarkdown);
-    setFullMarkdown(nextMarkdown);
+    commitMarkdown(nextMarkdown);
     setSelectedTargets([]);
     setActiveTargetId(null);
     setPreviewKey((value) => value + 1);
     setStatus("Image alt text saved.");
     void loadSlides();
-  }, [activeSlide, activeTarget, fullMarkdown, loadSlides, presentationId, recordSlideHistory]);
+  }, [activeSlide, activeTarget, commitMarkdown, fullMarkdown, loadSlides, presentationId, recordSlideHistory]);
 
   const fitActiveImageToSlide = useCallback(async () => {
     if (!activeTarget || activeTarget.tag.toLowerCase() !== "img") return;
@@ -1434,16 +1474,19 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
         return;
       }
       recordSlideHistory(activeSlide, result.previousMarkdown, result.markdown);
-      setFullMarkdown(result.markdown);
+      commitMarkdown(result.markdown);
       setSelectedTargets([]);
       setActiveTargetId(null);
       setPreviewKey((value) => value + 1);
       setStatus(kind === "unordered" ? "Converted to bulleted list." : "Converted to numbered list.");
       void loadSlides();
     })();
-  }, [activeSlide, activeTarget, loadSlides, presentationId, recordSlideHistory]);
+  }, [activeSlide, activeTarget, commitMarkdown, loadSlides, presentationId, recordSlideHistory]);
 
   const insertMarpMarkdownBlock = useCallback(async (block: string, insertingMessage = "Inserting slide block...", insertedMessage = "Slide block inserted.") => {
+    // Persist any pending drag/keyboard-move/panel edit first so the new block is
+    // appended onto the freshest deck and the preview reload cannot discard it.
+    await flushPendingInspectSaves();
     const before = fullMarkdownRef.current || fullMarkdown;
     if (!before) return;
     const { slides: currentSlides } = splitMarpDocument(before);
@@ -1457,13 +1500,13 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     setStatus(insertingMessage);
     await savePresentationMarkdownAction(form);
     recordSlideHistory(activeSlide, before, nextMarkdown);
-    setFullMarkdown(nextMarkdown);
+    commitMarkdown(nextMarkdown);
     setSelectedTargets([]);
     setActiveTargetId(null);
     setPreviewKey((value) => value + 1);
     setStatus(insertedMessage);
     void loadSlides();
-  }, [activeSlide, fullMarkdown, loadSlides, presentationId, recordSlideHistory]);
+  }, [activeSlide, commitMarkdown, flushPendingInspectSaves, fullMarkdown, loadSlides, presentationId, recordSlideHistory]);
 
   const insertMarpBlock = useCallback(async (kind: MarpInsertKind) => {
     await insertMarpMarkdownBlock(buildMarpInsertBlock(kind));
@@ -1475,8 +1518,9 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     const natural = await measureImageNaturalSize(presentationAssetSrc(presentationId, asset.path));
     const fitted = fitImageToSlide(natural, slideSize, SLIDE_IMAGE_FIT_PADDING);
     const sizeHint = fitted.scaled ? ` w:${fitted.width} h:${fitted.height}` : "";
+    const safeAlt = toInlineSafeImageAlt(asset.alt) || "image";
     await insertMarpMarkdownBlock(
-      `![${asset.alt}${sizeHint}](${asset.path})`,
+      `![${safeAlt}${sizeHint}](${asset.path})`,
       "Inserting image...",
       fitted.scaled ? `Image inserted and resized to fit the slide (${fitted.width}x${fitted.height}).` : "Image inserted.",
     );
@@ -1516,7 +1560,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
           ? activeSlide + 1
           : activeSlide;
     recordSlideHistory(nextActiveSlide, before, nextMarkdown);
-    setFullMarkdown(nextMarkdown);
+    commitMarkdown(nextMarkdown);
     setSlides(summarizeSlidesFromMarkdown(nextMarkdown));
     setTotalSlides(countMarpSlides(nextMarkdown));
     setSelectedTargets([]);
@@ -1526,7 +1570,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     setPreviewKey((value) => value + 1);
     setStatus("Slide reordered.");
     void loadSlides();
-  }, [activeSlide, fullMarkdown, loadSlides, presentationId, recordSlideHistory, syncSlideQuery]);
+  }, [activeSlide, commitMarkdown, fullMarkdown, loadSlides, presentationId, recordSlideHistory, syncSlideQuery]);
 
   const cloneSlide = useCallback(async (slide: number) => {
     const before = fullMarkdownRef.current || fullMarkdown;
@@ -1540,7 +1584,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     await savePresentationMarkdownAction(form);
     const nextActiveSlide = Math.min(slide + 1, countMarpSlides(nextMarkdown));
     recordSlideHistory(nextActiveSlide, before, nextMarkdown);
-    setFullMarkdown(nextMarkdown);
+    commitMarkdown(nextMarkdown);
     setSlides(summarizeSlidesFromMarkdown(nextMarkdown));
     setTotalSlides(countMarpSlides(nextMarkdown));
     setSelectedTargets([]);
@@ -1551,7 +1595,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     setThumbKey((value) => value + 1);
     setStatus("Slide cloned.");
     void loadSlides();
-  }, [fullMarkdown, loadSlides, presentationId, recordSlideHistory, syncSlideQuery]);
+  }, [commitMarkdown, fullMarkdown, loadSlides, presentationId, recordSlideHistory, syncSlideQuery]);
 
   const insertBlankSlide = useCallback(async (afterSlide: number) => {
     const before = fullMarkdownRef.current || fullMarkdown;
@@ -1565,7 +1609,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     setStatus(afterSlide <= 0 ? "Adding blank slide at top..." : `Adding blank slide after slide ${afterSlide}...`);
     await savePresentationMarkdownAction(form);
     recordSlideHistory(nextActiveSlide, before, nextMarkdown);
-    setFullMarkdown(nextMarkdown);
+    commitMarkdown(nextMarkdown);
     setSlides(summarizeSlidesFromMarkdown(nextMarkdown));
     setTotalSlides(countMarpSlides(nextMarkdown));
     setSelectedTargets([]);
@@ -1576,7 +1620,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     setThumbKey((value) => value + 1);
     setStatus("Blank slide added.");
     void loadSlides();
-  }, [fullMarkdown, loadSlides, presentationId, recordSlideHistory, syncSlideQuery]);
+  }, [commitMarkdown, fullMarkdown, loadSlides, presentationId, recordSlideHistory, syncSlideQuery]);
 
   const deleteSlide = useCallback(async (slide: number) => {
     const before = fullMarkdownRef.current || fullMarkdown;
@@ -1593,7 +1637,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     await savePresentationMarkdownAction(form);
     const nextActiveSlide = clampSlideNumber(slide, countMarpSlides(nextMarkdown));
     recordSlideHistory(nextActiveSlide, before, nextMarkdown);
-    setFullMarkdown(nextMarkdown);
+    commitMarkdown(nextMarkdown);
     setSlides(summarizeSlidesFromMarkdown(nextMarkdown));
     setTotalSlides(countMarpSlides(nextMarkdown));
     setSelectedTargets([]);
@@ -1604,19 +1648,19 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     setThumbKey((value) => value + 1);
     setStatus("Slide deleted.");
     void loadSlides();
-  }, [fullMarkdown, loadSlides, presentationId, recordSlideHistory, syncSlideQuery]);
+  }, [commitMarkdown, fullMarkdown, loadSlides, presentationId, recordSlideHistory, syncSlideQuery]);
 
   const deleteSelectedTarget = useCallback(async (target: PresentationSelectionTarget) => {
     setStatus("Deleting selected element...");
     const result = await deletePresentationElementAction({ presentationId, slide: target.slide, tag: target.tag, text: target.text, path: target.path });
     recordSlideHistory(target.slide, result.previousMarkdown, result.markdown);
-    setFullMarkdown(result.markdown);
+    commitMarkdown(result.markdown);
     setStatus("Selected element deleted.");
     setSelectedTargets((targets) => targets.filter((item) => item.id !== target.id));
     setActiveTargetId(null);
     setPreviewKey((value) => value + 1);
     void loadSlides();
-  }, [loadSlides, presentationId, recordSlideHistory]);
+  }, [commitMarkdown, loadSlides, presentationId, recordSlideHistory]);
 
   const requestDeleteSelectedTarget = useCallback(() => {
     const frameWindow = currentSlideFrameRef.current?.contentWindow;
@@ -1852,7 +1896,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
             return;
           }
           recordSlideHistory(activeSlide, result.previousMarkdown, result.markdown);
-          setFullMarkdown(result.markdown);
+          commitMarkdown(result.markdown);
           setStatus("Text updated.");
           setPreviewKey((value) => value + 1);
           void loadSlides();
@@ -1862,7 +1906,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
 
     window.addEventListener("message", handlePresentationInspectMessage);
     return () => window.removeEventListener("message", handlePresentationInspectMessage);
-  }, [activeSlide, activeTargetId, applyInspectTargets, deleteSelectedTarget, loadSlides, presentationId, recordSlideHistory, redoSlideEdit, resolveInspectFlush, selectedTargets, undoSlideEdit]);
+  }, [activeSlide, activeTargetId, applyInspectTargets, commitMarkdown, deleteSelectedTarget, loadSlides, presentationId, recordSlideHistory, redoSlideEdit, resolveInspectFlush, selectedTargets, undoSlideEdit]);
   const isStreaming = chat.status === "streaming" || chat.status === "submitted";
 
   // ---- Save content ----
@@ -1897,7 +1941,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
       form.set("presentationId", presentationId);
       form.set("markdown", nextMarkdown);
       await savePresentationMarkdownAction(form);
-      setFullMarkdown(nextMarkdown);
+      commitMarkdown(nextMarkdown);
       slideStylesDirtyRef.current = false;
       editorMarkdownRef.current = body;
       setStatus("Saved.");
@@ -2024,7 +2068,7 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     if (previousMarkdown && previousMarkdown !== markdownWithPresets) {
       recordSlideHistory(1, previousMarkdown, markdownWithPresets);
     }
-    setFullMarkdown(markdownWithPresets);
+    commitMarkdown(markdownWithPresets);
     setActiveSlide(1);
     setSelectedTargets([]);
     setLayerTargets([]);

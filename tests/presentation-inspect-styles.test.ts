@@ -233,6 +233,57 @@ describe("presentation inspect styles", () => {
     expect(result.markdown).toContain("pointer-events: none;");
   });
 
+  it("a layer reorder changes only z-index and preserves a placed image's position and size", () => {
+    const deck = `---\nmarp: true\n---\n\n# Cover\n\n![Chart](assets/revenue.png)\n`;
+    // The image is first dragged/resized into an absolute placement.
+    const placed = applyPresentationElementStylesToMarkdown(deck, [{
+      slide: 1, tag: "img", text: "assets/revenue.png", path: "section > p > img",
+      style: { position: "absolute", left: "12%", top: "24%", width: "640px" },
+    }]);
+    // A "Send to Back" then only sends the z-index (a positioned element keeps
+    // its position), and the server merges it onto the saved style.
+    const layered = applyPresentationElementStylesToMarkdown(placed.markdown, [{
+      slide: 1, tag: "img", text: "assets/revenue.png", path: "section > div > p > img",
+      style: { zIndex: "1" },
+    }]);
+    const entry = parseManagedStyleEntries(layered.markdown).find((item) => item.tag === "img");
+    expect(entry?.style.position).toBe("absolute");
+    expect(entry?.style.left).toBe("12%");
+    expect(entry?.style.top).toBe("24%");
+    expect(entry?.style.width).toBe("640px");
+    expect(entry?.style.zIndex).toBe("1");
+  });
+
+  it("a layer reorder on a static element adds only position:relative and z-index", () => {
+    const deck = `---\nmarp: true\n---\n\n# Title\n\nBody copy\n`;
+    const result = applyPresentationElementStylesToMarkdown(deck, [{
+      slide: 1, tag: "h1", text: "# Title", path: "section > h1",
+      style: { position: "relative", zIndex: "3" },
+    }]);
+    const entry = parseManagedStyleEntries(result.markdown).find((item) => item.className === result.classNames[0]);
+    expect(Object.keys(entry?.style ?? {}).sort()).toEqual(["position", "zIndex"]);
+    expect(entry?.style.position).toBe("relative");
+    expect(entry?.style.zIndex).toBe("3");
+  });
+
+  it("re-layering an element by its stable text does not create a duplicate wrapper", () => {
+    const deck = `---\nmarp: true\n---\n\n# Title\n\nA short line.\n`;
+    const first = applyPresentationElementStylesToMarkdown(deck, [{
+      slide: 1, tag: "p", text: "A short line.", path: "section > p",
+      style: { position: "relative", zIndex: "2" },
+    }]);
+    // The iframe now reports the wrapped element by its clean inner text again
+    // (see extractSourceBlocks). A second reorder must heal the wrapper, not nest one.
+    const className = first.classNames[0]!;
+    const second = applyPresentationElementStylesToMarkdown(first.markdown, [{
+      slide: 1, tag: "span", text: "A short line.", path: `section > p > span.${className}`,
+      style: { position: "relative", zIndex: "1" },
+    }]);
+    const wrappers = (second.markdown.match(new RegExp(`class="[^"]*${className}`, "g")) ?? []).length;
+    expect(wrappers).toBe(1);
+    expect(second.markdown).toContain("z-index: 1;");
+  });
+
   it("persists table padding without creating a border declaration", () => {
     const deck = `---\nmarp: true\n---\n\n# Metrics\n\n| Name | Value |\n| ---- | ----- |\n| A | 1 |\n| B | 2 |\n`;
     const target = {
