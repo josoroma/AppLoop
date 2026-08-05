@@ -224,6 +224,48 @@ export function buildPresentationInspectAssets(options: {
               border-radius: 4px;
               outline: none;
             }
+            /* The selection chrome lives INSIDE the slide <section> so it shares
+               the slide's stacking context: a box carrying its element's z-index
+               is painted below elements layered above the selected one and above
+               those below it — the yellow frame and title are occluded exactly
+               like the element itself instead of always floating on top. The
+               <section> is scaled down by the Marp SVG viewBox, so every fixed
+               chrome dimension is multiplied by --apploop-is (inverse render
+               scale) to keep a constant on-screen size. --apploop-is defaults to
+               1 for the body-level fallback (no <section>). */
+            .apploop-inspect-box-root {
+              position: absolute;
+              inset: 0;
+              z-index: auto;
+              pointer-events: none;
+            }
+            .apploop-inspect-box-root .apploop-inspect-box {
+              z-index: auto; /* set inline per selection to the element's stacking order */
+              border-width: calc(1px * var(--apploop-is, 1));
+              box-shadow: 0 0 0 calc(1px * var(--apploop-is, 1)) rgba(0, 0, 0, 0.35);
+            }
+            .apploop-inspect-box-root .apploop-inspect-box .drag {
+              top: calc(-22px * var(--apploop-is, 1));
+              height: calc(20px * var(--apploop-is, 1));
+              font-size: calc(10px * var(--apploop-is, 1));
+              border-radius: calc(6px * var(--apploop-is, 1)) calc(6px * var(--apploop-is, 1)) 0 0;
+            }
+            .apploop-inspect-box-root .apploop-inspect-box .drag-del {
+              right: calc(2px * var(--apploop-is, 1));
+              top: calc(2px * var(--apploop-is, 1));
+              width: calc(16px * var(--apploop-is, 1));
+              height: calc(16px * var(--apploop-is, 1));
+              border-radius: calc(3px * var(--apploop-is, 1));
+              font-size: calc(11px * var(--apploop-is, 1));
+            }
+            .apploop-inspect-box-root .apploop-inspect-box .handle {
+              width: calc(10px * var(--apploop-is, 1));
+              height: calc(10px * var(--apploop-is, 1));
+              border-width: calc(1px * var(--apploop-is, 1));
+            }
+            .apploop-inspect-box-root .apploop-inspect-box .handle.br { right: calc(-5px * var(--apploop-is, 1)); bottom: calc(-5px * var(--apploop-is, 1)); }
+            .apploop-inspect-box-root .apploop-inspect-box .handle.bm { bottom: calc(-5px * var(--apploop-is, 1)); margin-left: calc(-5px * var(--apploop-is, 1)); }
+            .apploop-inspect-box-root .apploop-inspect-box .handle.mr { right: calc(-5px * var(--apploop-is, 1)); margin-top: calc(-5px * var(--apploop-is, 1)); }
   `;
 
   const script = `
@@ -905,11 +947,44 @@ export function buildPresentationInspectAssets(options: {
           }
 
           // --- selection box chrome ---
+          // The chrome is hosted inside the slide <section> (via a single
+          // pointer-transparent root) so it shares the slide's stacking context
+          // and is occluded by elements layered above the selected one. Slides
+          // without a <section> fall back to document.body (chrome then floats on
+          // top, as before). The root is appended LAST so it never shifts the
+          // nth-of-type index of any real element in cssPath().
+          var boxLayer = null;
+          function ensureBoxLayer() {
+            var section = document.querySelector('section');
+            if (!section) {
+              boxLayer = document.body;
+              return boxLayer;
+            }
+            var existing = section.querySelector('.apploop-inspect-box-root');
+            if (existing) {
+              boxLayer = existing;
+              return existing;
+            }
+            var root = document.createElement('div');
+            root.className = 'apploop-inspect-box-root';
+            section.appendChild(root);
+            boxLayer = root;
+            return root;
+          }
+          function boxLayerHost() {
+            if (!boxLayer || !boxLayer.isConnected) return ensureBoxLayer();
+            return boxLayer;
+          }
+          function boxLayerInSection() {
+            var host = boxLayerHost();
+            return Boolean(host && host.classList && host.classList.contains('apploop-inspect-box-root'));
+          }
+
           var box = document.createElement('div');
           box.id = 'apploop-inspect-box';
           box.className = 'apploop-inspect-box';
           box.innerHTML = '<div class="drag">drag</div><button class="drag-del" title="Delete element">&times;</button><div class="handle br" data-handle="br"></div><div class="handle bm" data-handle="bm"></div><div class="handle mr" data-handle="mr"></div>';
-          document.body.appendChild(box);
+          boxLayerHost().appendChild(box);
           var selectionBoxes = [box];
 
           var hoverBox = document.createElement('div');
@@ -932,7 +1007,7 @@ export function buildPresentationInspectAssets(options: {
             var nextBox = document.createElement('div');
             nextBox.className = 'apploop-inspect-box';
             nextBox.innerHTML = inspectBoxTemplate();
-            document.body.appendChild(nextBox);
+            boxLayerHost().appendChild(nextBox);
             selectionBoxes[index] = nextBox;
             bindInspectBoxGestures(nextBox);
             return nextBox;
@@ -987,6 +1062,50 @@ export function buildPresentationInspectAssets(options: {
             return tag === 'img' || isSvgShapeElement(el);
           }
 
+          // Effective stacking order of the element the box frames. Read from the
+          // layer-managed element (item.path), which is where the reorder writes
+          // z-index, falling back to the visible element. Missing/auto -> 0.
+          function elementStackZ(el) {
+            if (!el) return 0;
+            var inline = el.style && el.style.zIndex ? Number.parseInt(el.style.zIndex, 10) : NaN;
+            if (Number.isFinite(inline)) return inline;
+            if (window.getComputedStyle) {
+              var computedZ = Number.parseInt(window.getComputedStyle(el).zIndex, 10);
+              if (Number.isFinite(computedZ)) return computedZ;
+            }
+            return 0;
+          }
+
+          // Place a box over an element's on-screen rect. When the chrome lives
+          // inside the scaled <section>, viewport px are converted to the
+          // section's local coordinate space and --apploop-is (inverse scale)
+          // keeps the border/title/handles a constant on-screen size; z is the
+          // element's stacking order so the frame is occluded like the element.
+          // z === null keeps the box above all slide layers (multi-select group).
+          function applyBoxGeometry(targetBox, vLeft, vTop, vWidth, vHeight, z) {
+            if (boxLayerInSection()) {
+              var section = document.querySelector('section');
+              var srect = section ? section.getBoundingClientRect() : null;
+              var scaleX = section && section.offsetWidth && srect ? srect.width / section.offsetWidth : 1;
+              var scaleY = section && section.offsetHeight && srect ? srect.height / section.offsetHeight : 1;
+              if (!scaleX || !isFinite(scaleX)) scaleX = 1;
+              if (!scaleY || !isFinite(scaleY)) scaleY = 1;
+              targetBox.style.left = ((vLeft - (srect ? srect.left : 0)) / scaleX) + 'px';
+              targetBox.style.top = ((vTop - (srect ? srect.top : 0)) / scaleY) + 'px';
+              targetBox.style.width = (vWidth / scaleX) + 'px';
+              targetBox.style.height = (vHeight / scaleY) + 'px';
+              targetBox.style.setProperty('--apploop-is', String(1 / scaleX));
+              targetBox.style.zIndex = (z === null || z === undefined) ? '2147483000' : String(z);
+            } else {
+              targetBox.style.left = vLeft + 'px';
+              targetBox.style.top = vTop + 'px';
+              targetBox.style.width = vWidth + 'px';
+              targetBox.style.height = vHeight + 'px';
+              targetBox.style.removeProperty('--apploop-is');
+              targetBox.style.zIndex = '';
+            }
+          }
+
           function updatePositionBox() {
             if (!selected.length) {
               hideUnusedSelectionBoxes(0);
@@ -1017,10 +1136,10 @@ export function buildPresentationInspectAssets(options: {
               var union = groupUnionRect(resolved);
               var groupBox = ensureSelectionBox(0);
               var activeEntry = resolved.find(function (entry) { return entry.item.id === activeItem.id; }) || resolved[0];
-              groupBox.style.left = union.left + 'px';
-              groupBox.style.top = union.top + 'px';
-              groupBox.style.width = Math.max(8, union.width) + 'px';
-              groupBox.style.height = Math.max(8, union.height) + 'px';
+              // The group frame is a transient bounding box for the whole
+              // multi-selection, so it stays above all slide layers (z === null)
+              // to keep its single drag handle reachable.
+              applyBoxGeometry(groupBox, union.left, union.top, Math.max(8, union.width), Math.max(8, union.height), null);
               groupBox.setAttribute('data-target-id', activeEntry.item.id);
               groupBox.setAttribute('data-table-cell', 'false');
               groupBox.setAttribute('data-list-item', 'false');
@@ -1037,10 +1156,17 @@ export function buildPresentationInspectAssets(options: {
             var currentBox = ensureSelectionBox(0);
             var isSvgSelection = isSvgShapeElement(single.el);
             var rect = single.rect;
-            currentBox.style.left = rect.left + 'px';
-            currentBox.style.top = rect.top + 'px';
-            currentBox.style.width = (isSvgSelection ? rect.width : Math.max(8, rect.width)) + 'px';
-            currentBox.style.height = (isSvgSelection ? rect.height : Math.max(8, rect.height)) + 'px';
+            // z-index comes from the layer-managed element (item.path) so the
+            // frame tracks exactly what Bring-to-Front / Send-to-Back rewrite.
+            var stackEl = pathToElement(single.item.path) || single.el;
+            applyBoxGeometry(
+              currentBox,
+              rect.left,
+              rect.top,
+              isSvgSelection ? rect.width : Math.max(8, rect.width),
+              isSvgSelection ? rect.height : Math.max(8, rect.height),
+              elementStackZ(stackEl)
+            );
             currentBox.setAttribute('data-target-id', single.item.id);
             currentBox.setAttribute('data-table-cell', isTableCellSelection(single.item, single.el) ? 'true' : 'false');
             currentBox.setAttribute('data-list-item', isListItemSelection(single.item, single.el) ? 'true' : 'false');
