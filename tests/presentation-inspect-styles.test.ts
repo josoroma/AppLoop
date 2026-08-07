@@ -3,11 +3,14 @@ import {
   alignmentToStyle,
   applyPresentationElementStylesToMarkdown,
   buildElementClassName,
+  centeredInsertPlacementStyle,
+  nextFrontZIndexForSlide,
   parseManagedStyleEntries,
   repairManagedStyleBlock,
   styleToCssRule,
   styleToInlineAttribute,
 } from "@/lib/presentations/inspect-styles";
+import { extractSourceBlocks, placementTargetForInsertedBlock } from "@/lib/presentations/inspect-editor-assets";
 
 const SAMPLE = `---
 marp: true
@@ -117,6 +120,155 @@ describe("presentation inspect styles", () => {
     expect(style.left).toBe("50%");
     expect(style.top).toBe("50%");
     expect(style.transform).toContain("translate(-50%, -50%)");
+  });
+
+  it("centers a newly inserted element and stacks it in front of the slide", () => {
+    const deck = `---\nmarp: true\n---\n\n# Cover\n\n![Chart](assets/revenue.png)\n`;
+    // An element already dragged to the front of this slide.
+    const placed = applyPresentationElementStylesToMarkdown(deck, [{
+      slide: 1, tag: "img", text: "assets/revenue.png", path: "section > p > img",
+      style: { position: "absolute", left: "12%", top: "24%", zIndex: "4" },
+    }]);
+
+    const zIndex = nextFrontZIndexForSlide(placed.markdown, 1);
+    expect(zIndex).toBe(5);
+
+    const inserted = applyPresentationElementStylesToMarkdown(
+      placed.markdown.replace("![Chart](assets/revenue.png)", "![Chart](assets/revenue.png)\n\n## New heading"),
+      [{ slide: 1, tag: "h2", text: "## New heading", path: "", style: centeredInsertPlacementStyle(zIndex) }],
+    );
+    const entry = parseManagedStyleEntries(inserted.markdown).find((item) => item.className === inserted.classNames[0]);
+    expect(entry?.style.position).toBe("absolute");
+    expect(entry?.style.left).toBe("50%");
+    expect(entry?.style.top).toBe("50%");
+    expect(entry?.style.transform).toBe("translate(-50%, -50%)");
+    expect(entry?.style.zIndex).toBe("5");
+  });
+
+  it("front z-index for one slide ignores elements placed on other slides", () => {
+    const deck = `---\nmarp: true\n---\n\n# One\n\n---\n\n# Two\n`;
+    const placed = applyPresentationElementStylesToMarkdown(deck, [{
+      slide: 2, tag: "h1", text: "# Two", path: "section > h1",
+      style: { position: "absolute", zIndex: "9" },
+    }]);
+    expect(nextFrontZIndexForSlide(placed.markdown, 2)).toBe(10);
+    expect(nextFrontZIndexForSlide(placed.markdown, 1)).toBe(3);
+  });
+
+  it("a move after insert replaces the centering and leaves other elements byte-identical", () => {
+    const deck = `---\nmarp: true\n---\n\n# Cover\n\n![Chart](assets/revenue.png)\n\n## New heading\n`;
+    const other = {
+      slide: 1, tag: "img" as const, text: "assets/revenue.png", path: "section > p > img",
+      style: { position: "absolute" as const, left: "12%", top: "24%", width: "640px", zIndex: "4" },
+    };
+    const inserted = applyPresentationElementStylesToMarkdown(
+      applyPresentationElementStylesToMarkdown(deck, [other]).markdown,
+      [{ slide: 1, tag: "h2", text: "## New heading", path: "", style: centeredInsertPlacementStyle(5) }],
+    );
+    const otherRuleBefore = parseManagedStyleEntries(inserted.markdown).find((item) => item.tag === "img");
+
+    // Dragging the inserted heading sends only its own transform + z-index.
+    const moved = applyPresentationElementStylesToMarkdown(inserted.markdown, [{
+      slide: 1, tag: "h2", text: "New heading", path: "section > h2",
+      style: { transform: "translate(140px, -62px)", zIndex: "5" },
+    }]);
+
+    const heading = parseManagedStyleEntries(moved.markdown).find((item) => item.className === inserted.classNames[0]);
+    expect(heading?.style.transform).toBe("translate(140px, -62px)");
+    // The 50%/50% anchor stays; only the offset the user dragged changes.
+    expect(heading?.style.left).toBe("50%");
+    expect(heading?.style.top).toBe("50%");
+
+    const otherRuleAfter = parseManagedStyleEntries(moved.markdown).find((item) => item.tag === "img");
+    expect(otherRuleAfter).toEqual(otherRuleBefore);
+    expect(moved.markdown).toContain("![Chart](assets/revenue.png)");
+  });
+
+  it("resolves the placement target of every single-element insert block", () => {
+    expect(placementTargetForInsertedBlock("## New heading")).toEqual({ tag: "h2", text: "## New heading" });
+    expect(placementTargetForInsertedBlock("A concise supporting sentence.")).toEqual({ tag: "p", text: "A concise supporting sentence." });
+    expect(placementTargetForInsertedBlock("- First point\n- Second point")?.tag).toBe("ul");
+    expect(placementTargetForInsertedBlock("1. First step\n2. Second step")?.tag).toBe("ol");
+    expect(placementTargetForInsertedBlock("- [ ] Draft the idea\n- [ ] Ship it")?.tag).toBe("ul");
+    expect(placementTargetForInsertedBlock("> A sharp idea.")?.tag).toBe("blockquote");
+    expect(placementTargetForInsertedBlock("```ts\nconst a = 1;\n```")?.tag).toBe("pre");
+    expect(placementTargetForInsertedBlock("| A | B |\n| --- | --- |\n| 1 | 2 |")?.tag).toBe("table");
+    expect(placementTargetForInsertedBlock("![logo w:200](assets/logo.png)")).toEqual({ tag: "img", text: "assets/logo.png" });
+    expect(placementTargetForInsertedBlock(`<hr style="border: 0; height: 1px;" />`)?.tag).toBe("hr");
+    expect(placementTargetForInsertedBlock(`<div class="pill">Important note</div>`)).toEqual({ tag: "pill", text: "Important note" });
+    expect(placementTargetForInsertedBlock(`<svg data-apploop-shape="shape-circle-abc" viewBox="0 0 180 140"><circle cx="90" cy="70" r="62" /></svg>`))
+      .toEqual({ tag: "svg", text: `data-apploop-shape="shape-circle-abc"` });
+    expect(placementTargetForInsertedBlock(`<svg viewBox="0 0 220 140"><rect data-apploop-shape="shape-pill-abc" x="5" y="35" /></svg>`))
+      .toEqual({ tag: "svg", text: `data-apploop-shape="shape-pill-abc"` });
+  });
+
+  it("leaves composite insert blocks in normal flow — they render several selectable elements", () => {
+    expect(placementTargetForInsertedBlock(`<p class="apploop-pill-block">\n<span class="pill pill-emerald">Rules</span>\n<span class="pill pill-sky">Skills</span>\n</p>`)).toBeNull();
+    expect(placementTargetForInsertedBlock(`<div class="columns">\n<div>\n\n### Left\n\n- One\n\n</div>\n<div>\n\n### Right\n\n- Two\n\n</div>\n</div>`)).toBeNull();
+    expect(placementTargetForInsertedBlock("   ")).toBeNull();
+  });
+
+  it("places an inserted image centered and in front, then keeps the position it is moved to", () => {
+    const deck = `---\nmarp: true\n---\n\n# Cover\n\nBody copy\n`;
+    const block = "![big wall w:998 h:624](assets/big-wall.png)";
+    const target = placementTargetForInsertedBlock(block)!;
+    expect(target).toEqual({ tag: "img", text: "assets/big-wall.png" });
+
+    const inserted = applyPresentationElementStylesToMarkdown(`${deck}\n${block}\n`, [{
+      slide: 1, path: "", tag: target.tag, text: target.text,
+      style: centeredInsertPlacementStyle(nextFrontZIndexForSlide(deck, 1)),
+    }]);
+    const placed = parseManagedStyleEntries(inserted.markdown).find((item) => item.tag === "img");
+    expect(placed?.style.left).toBe("50%");
+    expect(placed?.style.top).toBe("50%");
+    expect(placed?.style.transform).toBe("translate(-50%, -50%)");
+    expect(placed?.style.zIndex).toBe("3");
+    // The alt-text fit tokens survive the placement — Marp still sizes the image.
+    expect(inserted.markdown).toContain("![big wall w:998 h:624](assets/big-wall.png)");
+
+    // Moving it sends the resolved pixel offset, which replaces the centering.
+    const moved = applyPresentationElementStylesToMarkdown(inserted.markdown, [{
+      slide: 1, path: "section > div > p > img", tag: "img", text: "assets/big-wall.png",
+      style: { transform: "translate(-511px, -312px)", width: "998px", height: "624px", zIndex: "3" },
+    }]);
+    const after = parseManagedStyleEntries(moved.markdown).find((item) => item.tag === "img");
+    expect(after?.style.transform).toBe("translate(-511px, -312px)");
+    expect(after?.style.left).toBe("50%");
+    expect(after?.style.width).toBe("998px");
+  });
+
+  it("detects an already-placed twin so a duplicate insert cannot re-style it", () => {
+    // The insert action skips placement when the identity is already taken. A
+    // callout placed earlier carries its class on a `div.pill`, which no source
+    // block reports as a `pill`, so the class reference is what has to catch it.
+    const target = placementTargetForInsertedBlock(`<div class="pill">Important note</div>`)!;
+    const className = buildElementClassName({ slide: 2, path: "", tag: target.tag, text: target.text });
+    const placedSlide = `## What this is\n\n<div class="pill ${className}" style="left: 50%; top: 50%; transform: translate(-140px, 60px); position: absolute; z-index: 4;">Important note</div>`;
+
+    expect(new RegExp(`\\b${className}\\b`).test(placedSlide)).toBe(true);
+    // The source-block pass alone would miss it — the wrapper is a `div`, so the
+    // line is reported as a paragraph of raw markup, not as a pill.
+    expect(extractSourceBlocks(placedSlide).some(
+      (entry) => buildElementClassName({ slide: 2, path: "", tag: entry.tag, text: entry.text }) === className,
+    )).toBe(false);
+  });
+
+  it("an inserted element keeps one identity once the placement wraps it", () => {
+    // The insert keys the block by its markdown source; after the wrap the iframe
+    // reports it from the rendered element. Both must hash to the same class or the
+    // first move would create a second wrapper instead of merging.
+    const deck = `---\nmarp: true\n---\n\n# Cover\n`;
+    const block = "## New heading";
+    const target = placementTargetForInsertedBlock(block)!;
+    const inserted = applyPresentationElementStylesToMarkdown(`${deck}\n${block}\n`, [{
+      slide: 1, path: "", tag: target.tag, text: target.text, style: centeredInsertPlacementStyle(3),
+    }]);
+
+    const reported = extractSourceBlocks(inserted.markdown.split("---\n")[2] ?? "")
+      .find((entry) => entry.tag === "h2");
+    expect(reported?.text).toBe("New heading");
+    expect(buildElementClassName({ slide: 1, path: "section > h2", tag: "h2", text: reported!.text }))
+      .toBe(inserted.classNames[0]);
   });
 
   it("persists table styles with a block wrapper and tag-scoped rules that round-trip", () => {

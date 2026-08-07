@@ -206,6 +206,10 @@ Built-in templates registered in `lib/projects/templates.ts` (seeded as demo pro
 | `luminous-rings` | Luminous Rings | `luma-violet-cyan` |
 | `solar-system` | Solar System Explorer | `luma-indigo-emerald` |
 | `algovivo-creature` | Algovivo Soft Creature | `luma-orange-stone` |
+| `immersive-full-screen` | Immersive Neon Field | `luma-teal-blue` |
+| `stay-curious` | Stay Curious | `luma-rose-zinc` |
+| `lumacv` | Luma CV Profile | `luma-blue-violet` |
+| `vestaboard` | Vestaboard Split-Flap | `luma-amber-slate` |
 
 Additional folders may exist under `templates/` (e.g. experimental or custom). `make seed` installs deps for every `templates/*/package.json`, but only **built-in registry** entries become demo projects automatically. Custom templates also appear after Create Template succeeds.
 

@@ -51,6 +51,34 @@ export const BUILT_IN_PROJECT_TEMPLATES = [
     templatePath: "algovivo-creature",
     defaultThemeId: "luma-orange-stone",
   },
+  {
+    id: "immersive-full-screen",
+    name: "Immersive Neon Field",
+    description: "Full-bleed WebGL stage with a neon particle field framed against a void backdrop.",
+    templatePath: "immersive-full-screen",
+    defaultThemeId: "luma-teal-blue",
+  },
+  {
+    id: "stay-curious",
+    name: "Stay Curious",
+    description: "Full-screen monochrome R3F particle hero with reactive cursor, shockwaves, and formation blends.",
+    templatePath: "stay-curious",
+    defaultThemeId: "luma-rose-zinc",
+  },
+  {
+    id: "lumacv",
+    name: "Luma CV Profile",
+    description: "Professional profile page with headline, about, and a dated experience timeline.",
+    templatePath: "lumacv",
+    defaultThemeId: "luma-blue-violet",
+  },
+  {
+    id: "vestaboard",
+    name: "Vestaboard Split-Flap",
+    description: "Split-flap message studio with a composer, animated board chassis, and message history.",
+    templatePath: "vestaboard",
+    defaultThemeId: "luma-amber-slate",
+  },
 ] as const;
 
 export type ProjectTemplateId = (typeof BUILT_IN_PROJECT_TEMPLATES)[number]["id"];

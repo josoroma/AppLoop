@@ -208,6 +208,92 @@ export async function applyPresentationInspectStylesAction(input: {
   };
 }
 
+/**
+ * Append a block to a slide and place it centered, in front of everything already
+ * on that slide.
+ *
+ * The placement is written once, as an ordinary managed element style keyed by the
+ * same identity the inspector uses. So the user's next drag or arrow move merges
+ * onto that same class and replaces the centering with its own offset — centering
+ * applies to the first render only — and no other element's style is rewritten.
+ */
+export async function insertPresentationSlideBlockAction(input: {
+  presentationId: string;
+  slide: number;
+  block: string;
+}) {
+  const overview = await getPresentationService().findPresentationOverview(input.presentationId);
+  if (!overview || overview.presentation.status === "deleted") {
+    throw new Error("Presentation not found.");
+  }
+
+  const { readPresentationMarkdown } = await import("@/lib/presentations/files");
+  const { splitMarpDocument } = await import("@/lib/presentations/marp");
+  const { replaceMarpSlideBody } = await import("@/lib/presentations/marp-utils");
+  const { extractSourceBlocks, placementTargetForInsertedBlock } =
+    await import("@/lib/presentations/inspect-editor-assets");
+  const {
+    applyPresentationElementStylesToMarkdown,
+    buildElementClassName,
+    centeredInsertPlacementStyle,
+    nextFrontZIndexForSlide,
+    repairManagedStyleBlock,
+  } = await import("@/lib/presentations/inspect-styles");
+
+  const markdown = await readPresentationMarkdown(
+    overview.presentation.workspacePath,
+    overview.presentation.sourceFile,
+  );
+
+  const block = input.block.trim();
+  if (!block) {
+    return { ok: false as const, placed: false, previousMarkdown: markdown, markdown };
+  }
+
+  const { slides } = splitMarpDocument(markdown);
+  const slide = Math.min(Math.max(input.slide, 1), Math.max(slides.length, 1));
+  const slideBefore = slides[slide - 1] ?? "";
+  const appended = replaceMarpSlideBody(markdown, slide, `${slideBefore.trimEnd()}\n\n${block}`.trim());
+
+  const target = placementTargetForInsertedBlock(block);
+  const className = target
+    ? buildElementClassName({ slide, path: "", tag: target.tag, text: target.text })
+    : null;
+  // Element identity is text-based, so two identical blocks on one slide are
+  // indistinguishable. Placing the duplicate would re-style the copy already
+  // there — snapping a copy the user has since moved back to the centre — so
+  // leave the duplicate in normal flow instead. An element already carrying the
+  // class owns that identity; an unstyled twin has to be matched by source text.
+  const duplicate = Boolean(className) && (
+    new RegExp(`\\b${className}\\b`).test(slideBefore)
+    || extractSourceBlocks(slideBefore).some(
+      (entry) => buildElementClassName({ slide, path: "", tag: entry.tag, text: entry.text }) === className,
+    )
+  );
+  const placed = Boolean(target) && !duplicate;
+
+  const nextMarkdown = placed && target
+    ? applyPresentationElementStylesToMarkdown(appended, [{
+      slide,
+      tag: target.tag,
+      text: target.text,
+      path: "",
+      style: centeredInsertPlacementStyle(nextFrontZIndexForSlide(markdown, slide)),
+    }]).markdown
+    : repairManagedStyleBlock(appended);
+
+  await writePresentationMarkdown(
+    overview.presentation.workspacePath,
+    nextMarkdown,
+    overview.presentation.sourceFile,
+  );
+  await getPresentationService().openPresentation(input.presentationId);
+  revalidatePath(`/presentations/${input.presentationId}`);
+  revalidatePath(`/api/presentations/${input.presentationId}/preview`);
+
+  return { ok: true as const, placed, previousMarkdown: markdown, markdown: nextMarkdown };
+}
+
 export async function organizePresentationElementAction(input: {
   presentationId: string;
   slide: number;

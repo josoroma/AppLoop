@@ -437,9 +437,9 @@ export default function Home() {
               </div>
             </div>
             <div className="vestaboard-chassis-rail vestaboard-chassis-rail-bottom" aria-hidden="true">
-              <span className="vestaboard-chassis-badge">22 × 6</span>
-              <span className="vestaboard-chassis-badge">{filledTiles} tiles lit</span>
-              <span className="vestaboard-chassis-badge">{isBroadcasting ? 'chaotic flip' : 'ready'}</span>
+              <span className="vestaboard-chassis-badge vestaboard-chassis-badge-grid">22 × 6</span>
+              <span className="vestaboard-chassis-badge vestaboard-chassis-badge-lit">{filledTiles} tiles lit</span>
+              <span className="vestaboard-chassis-badge vestaboard-chassis-badge-state">{isBroadcasting ? 'chaotic flip' : 'ready'}</span>
             </div>
           </div>
         </div>

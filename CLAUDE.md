@@ -59,7 +59,7 @@ AppLoop is a local-first visual builder for generated Next.js apps and Marp pres
 - Project/template dashboards and create pages: `app/projects/`, `app/templates/`, `components/projects/`
 - Presentation dashboard/editor: `app/presentations/`, `components/presentations/`, `lib/presentations/`
 - Presentation inspect and style persistence: `lib/presentations/inspect-editor-assets.ts`, `lib/presentations/inspect-styles.ts`, `lib/presentations/marp-utils.ts`
-- Generated template sources: `templates/*/` (default, admin-luma, ai-engineer-cv, deep-research-paper, luminous-rings, solar-system, algovivo-creature, immersive-full-screen, vestaboard, lumacv, …)
+- Generated template sources: `templates/*/` (default, admin-luma, ai-engineer-cv, deep-research-paper, luminous-rings, solar-system, algovivo-creature, immersive-full-screen, stay-curious, lumacv, vestaboard)
 - Visual inspector: often both `components/builder/preview-frame.tsx` and `templates/*/components/inspector-provider.tsx`
 - Runtime lifecycle: `lib/runtime/`
 - Hermes bridge: `lib/hermes/` + `.hermes/{agents,bundles,skills,hooks,commands}`

@@ -72,7 +72,10 @@ describe("E11 generated app code standards", () => {
 
       for (const file of files) {
         const content = await fs.readFile(file, "utf8");
-        const elementMatches = content.matchAll(/<([a-z][\w-]*)\b([^>]*)>/g);
+        // A JSX opening tag never follows an identifier character; a lowercase
+        // TypeScript type argument always does (`useState<Set<number>>`). The
+        // lookbehind keeps generics out of the element scan.
+        const elementMatches = content.matchAll(/(?<![\w)\]])<([a-z][\w-]*)\b([^>]*)>/g);
 
         for (const match of elementMatches) {
           const attrs = match[2] ?? "";
@@ -122,6 +125,9 @@ async function collectTemplateUiFiles(templateRoot: string) {
     "algovivo-creature-scene.tsx",
     "creature-sidebar.tsx",
     "curiosity-hero.tsx",
+    // React Three Fiber scene graphs: <group>/<mesh>/<ambientLight> are THREE
+    // objects, not DOM, so the inspect classname rule does not apply to them.
+    "neon-field-scene.tsx",
   ]);
 
   async function walk(dir: string) {

@@ -79,7 +79,7 @@ import "@mdxeditor/editor/style.css";
 import { Button } from "@/components/ui/button";
 import type { BuilderChatMessage } from "@/lib/chat/messages";
 import { getMessageText } from "@/lib/chat/messages";
-import { applyPresentationInspectStylesAction, convertPresentationElementToListAction, deletePresentationElementAction, listPresentationImagesAction, replacePresentationElementTextAction, savePresentationMarkdownAction, uploadPresentationImageAction } from "@/lib/presentations/actions";
+import { applyPresentationInspectStylesAction, convertPresentationElementToListAction, deletePresentationElementAction, insertPresentationSlideBlockAction, listPresentationImagesAction, replacePresentationElementTextAction, savePresentationMarkdownAction, uploadPresentationImageAction } from "@/lib/presentations/actions";
 import {
   splitMarpDocument,
   cloneMarpSlide,
@@ -1487,26 +1487,22 @@ export function PresentationBuilderShell({ presentationId, presentationName, sou
     // Persist any pending drag/keyboard-move/panel edit first so the new block is
     // appended onto the freshest deck and the preview reload cannot discard it.
     await flushPendingInspectSaves();
-    const before = fullMarkdownRef.current || fullMarkdown;
-    if (!before) return;
-    const { slides: currentSlides } = splitMarpDocument(before);
-    const index = Math.min(Math.max(activeSlide, 1), currentSlides.length) - 1;
-    const currentSlide = currentSlides[index] ?? "";
-    const nextSlide = `${currentSlide.trimEnd()}\n\n${block}`.trim();
-    const nextMarkdown = replaceMarpSlideBody(before, activeSlide, nextSlide);
-    const form = new FormData();
-    form.set("presentationId", presentationId);
-    form.set("markdown", nextMarkdown);
     setStatus(insertingMessage);
-    await savePresentationMarkdownAction(form);
-    recordSlideHistory(activeSlide, before, nextMarkdown);
-    commitMarkdown(nextMarkdown);
+    // The action appends and places the block in one write: new elements land
+    // centered and in front of what is already on the slide.
+    const result = await insertPresentationSlideBlockAction({ presentationId, slide: activeSlide, block });
+    if (!result.ok) {
+      setStatus("Couldn't insert that block into this slide.");
+      return;
+    }
+    recordSlideHistory(activeSlide, result.previousMarkdown, result.markdown);
+    commitMarkdown(result.markdown);
     setSelectedTargets([]);
     setActiveTargetId(null);
     setPreviewKey((value) => value + 1);
-    setStatus(insertedMessage);
+    setStatus(result.placed ? insertedMessage : `${insertedMessage} Added below the existing content — this slide already has a matching element.`);
     void loadSlides();
-  }, [activeSlide, commitMarkdown, flushPendingInspectSaves, fullMarkdown, loadSlides, presentationId, recordSlideHistory]);
+  }, [activeSlide, commitMarkdown, flushPendingInspectSaves, loadSlides, presentationId, recordSlideHistory]);
 
   const insertMarpBlock = useCallback(async (kind: MarpInsertKind) => {
     await insertMarpMarkdownBlock(buildMarpInsertBlock(kind));

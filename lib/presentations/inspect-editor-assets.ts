@@ -1300,11 +1300,26 @@ export function buildPresentationInspectAssets(options: {
             return Boolean(el && el.tagName && el.tagName.toLowerCase() === 'svg' && svgShapeMarkerElement(el));
           }
 
+          // Returns null when the value carries no resolvable px translate, so the
+          // caller can fall through to another source.
           function parseTranslatePx(transform) {
-            var value = String(transform || '');
+            var value = String(transform || '').trim();
             var match = value.match(/translate\\(\\s*(-?\\d+(?:\\.\\d+)?)px(?:\\s*,\\s*|\\s+)(-?\\d+(?:\\.\\d+)?)px\\s*\\)/i)
               || value.match(/translate3d\\(\\s*(-?\\d+(?:\\.\\d+)?)px\\s*,\\s*(-?\\d+(?:\\.\\d+)?)px\\s*,\\s*0(?:px)?\\s*\\)/i);
-            return { x: match ? Number(match[1]) || 0 : 0, y: match ? Number(match[2]) || 0 : 0 };
+            if (match) return { x: Number(match[1]) || 0, y: Number(match[2]) || 0 };
+            // A percentage translate — the centered placement a freshly inserted
+            // element carries — resolves to px only in the computed matrix.
+            var matrix = value.match(/^matrix\\(([^)]*)\\)$/i);
+            if (matrix) {
+              var parts = String(matrix[1]).split(',');
+              if (parts.length === 6) return { x: Number(parts[4]) || 0, y: Number(parts[5]) || 0 };
+            }
+            var matrix3d = value.match(/^matrix3d\\(([^)]*)\\)$/i);
+            if (matrix3d) {
+              var values = String(matrix3d[1]).split(',');
+              if (values.length === 16) return { x: Number(values[12]) || 0, y: Number(values[13]) || 0 };
+            }
+            return null;
           }
 
           function translateStyleFrom(start, dx, dy) {
@@ -1318,7 +1333,14 @@ export function buildPresentationInspectAssets(options: {
               var computed = window.getComputedStyle(el);
               computedTransform = computed ? computed.transform : '';
             }
-            return parseTranslatePx(inlineTransform || fallbackTransform || computedTransform);
+            // Take the first source that yields a real px offset. An inline value in
+            // pixels still wins, but a percentage one now falls through to the
+            // computed matrix so a centered element does not jump half its own size
+            // on its first move.
+            return parseTranslatePx(inlineTransform)
+              || parseTranslatePx(fallbackTransform)
+              || parseTranslatePx(computedTransform)
+              || { x: 0, y: 0 };
           }
 
           function slideBoundedWidthPx(width, srect) {
@@ -2194,6 +2216,47 @@ export function extractSourceBlocks(markdown: string) {
     blocks.push({ tag: "p", text: lines.slice(start, index + 1).join("\n") });
   }
   return blocks;
+}
+
+/**
+ * Identity of the single element a freshly inserted block will render as, keyed
+ * exactly the way the inspector keys a live selection (see `sourceTextForElement`)
+ * so an insert-time placement and the user's later moves share one managed class.
+ *
+ * Returns null when the block has no single owning element: a composite block
+ * (pill row, two columns) renders several independently selectable elements, so
+ * there is nothing to place as one unit.
+ */
+export function placementTargetForInsertedBlock(block: string): { tag: string; text: string } | null {
+  const trimmed = block.trim();
+  if (!trimmed) return null;
+
+  // An inline shape/icon SVG holds no text, so `extractSourceBlocks` skips it and
+  // the inspector keys it by its shape marker instead (`shapeText`).
+  if (/^<svg\b[^>]*>[\s\S]*<\/svg>$/i.test(trimmed)) {
+    const marker = trimmed.match(/\bdata-apploop-shape=["']([^"']+)["']/i)?.[1];
+    return marker ? { tag: "svg", text: `data-apploop-shape="${marker}"` } : null;
+  }
+
+  // A callout renders as a lone `.pill`, which the inspector keys by its rendered
+  // text under the synthetic `pill` tag.
+  const pill = trimmed.match(/^<(span|div)\b[^>]*\bclass=["'][^"']*\bpill\b[^"']*["'][^>]*>([\s\S]*?)<\/\1>$/i);
+  if (pill) {
+    const text = (pill[2] ?? "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    return text ? { tag: "pill", text } : null;
+  }
+
+  // List items are reported alongside the list that owns them; the list is the block.
+  const blocks = extractSourceBlocks(trimmed).filter((entry) => entry.tag !== "li");
+  const single = blocks.length === 1 ? blocks[0]! : null;
+  if (!single) return null;
+  // Paragraphs and headings are keyed by rendered text, so markup in the extracted
+  // text means the block is really an HTML container holding other elements (a pill
+  // row collapses into one paragraph this way). Such a block has no single owning
+  // element, and the identity could never match what the inspector reports.
+  const keyedByRenderedText = single.tag === "p" || /^h[1-6]$/.test(single.tag);
+  if (keyedByRenderedText && /[<>]/.test(single.text)) return null;
+  return single;
 }
 
 function imageSourceFromMarkdown(line: string) {

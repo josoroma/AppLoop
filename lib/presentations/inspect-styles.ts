@@ -860,6 +860,55 @@ export function repairManagedStyleBlock(markdown: string) {
   return [nextFrontMatter, "", slides.join("\n\n---\n\n"), ""].join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
 }
 
+/**
+ * Front-most stacking order for one slide: one step above the highest z-index
+ * already persisted for an element that slide references (managed CSS rule or
+ * inline style attribute). Floored at 3 so a newly inserted element also clears
+ * the defaults the placement paths use when an element has no saved z-index
+ * (`alignmentToStyle` uses 2, drag/resize use 3).
+ */
+export function nextFrontZIndexForSlide(markdown: string, slide: number) {
+  const { slides } = splitMarpDocument(markdown);
+  const slideIndex = Math.min(Math.max(slide, 1), Math.max(slides.length, 1)) - 1;
+  const slideMarkdown = slides[slideIndex] ?? "";
+  const referenced = collectReferencedClassNames(slideMarkdown);
+  let highest = 0;
+
+  for (const entry of parseManagedStyleEntries(markdown)) {
+    if (!referenced.has(entry.className)) continue;
+    const parsed = Number.parseInt(entry.style.zIndex ?? "", 10);
+    if (Number.isFinite(parsed)) highest = Math.max(highest, parsed);
+  }
+
+  const inlineZIndex = /z-index:\s*(-?\d+)/gi;
+  let inlineMatch: RegExpExecArray | null;
+  while ((inlineMatch = inlineZIndex.exec(slideMarkdown)) !== null) {
+    const parsed = Number.parseInt(inlineMatch[1] ?? "", 10);
+    if (Number.isFinite(parsed)) highest = Math.max(highest, parsed);
+  }
+
+  return Math.max(highest + 1, 3);
+}
+
+/**
+ * Placement written once, when an element is first added to a slide: centered in
+ * the slide frame and in front of everything already there.
+ *
+ * Centering is `left/top: 50%` plus a percentage translate so it holds for any
+ * element size (the size is unknown until the slide renders). A later drag or
+ * arrow move merges onto the same managed class and replaces `transform` with a
+ * pixel offset, so the centering only ever applies to the first render.
+ */
+export function centeredInsertPlacementStyle(zIndex: number): PresentationElementStyle {
+  return {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    transform: "translate(-50%, -50%)",
+    zIndex: String(zIndex),
+  };
+}
+
 export function alignmentToStyle(
   horizontal?: "left" | "center" | "right",
   vertical?: "top" | "middle" | "bottom",

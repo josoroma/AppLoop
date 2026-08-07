@@ -83,8 +83,12 @@ describe("E2 project management", () => {
       "algovivo-creature",
       "deep-research-paper",
       "default",
+      "immersive-full-screen",
+      "lumacv",
       "luminous-rings",
       "solar-system",
+      "stay-curious",
+      "vestaboard",
     ];
     const registeredTemplateIds = BUILT_IN_PROJECT_TEMPLATES.map((template) => template.id).toSorted();
 
